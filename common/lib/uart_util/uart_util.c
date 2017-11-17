@@ -78,9 +78,6 @@ ack_wait_t m_ack_wait = {
 		0
 };
 
-//uint8_t ack_wait = false;
-//uint32_t ack_wait_timeout = 0, ack_wait_start = 0;
-//uart_pkt_type_t waiting_ack_for_pkt_type;
 #ifdef CONTIKI
 static struct ctimer m_ack_timer;
 #endif
@@ -152,13 +149,13 @@ static void process_uart_rx_data() {
 #else
 void process_uart_rx_data(uint8_t *serial_data){
 #endif
-	static uint8_t uart_frame[UART_FRAME_MAX_LEN];
+	static uint8_t uart_frame[UART_FRAME_MAX_LEN_BYTE];
 	static uint8_t idx = 0;
 	static uint16_t expected_lenght = 0;
 	static uart_rx_status_t status = waiting_start_seq;
 	uart_rx_status_t new_status = waiting_start_seq;
 
-	uint8_t temp_array[HEX_FRAME_LEN_LEN/2];
+	uint8_t temp_array[HEX_FRAME_LEN_LEN_SYMB];
 	size_t written_size = 0;
 	uint32_t ret = NRF_SUCCESS;
 
@@ -173,9 +170,9 @@ void process_uart_rx_data(uint8_t *serial_data){
 		idx = 0;	//force the packet to be reset when in this state
 		expected_lenght = 0;
 #ifndef CONTIKI
-		ret = nrf_serial_read(&serial_uart, &uart_frame[idx], UART_FRAME_MAX_LEN - idx, &written_size, 0);
+		ret = nrf_serial_read(&serial_uart, &uart_frame[idx], UART_FRAME_MAX_LEN_BYTE - idx, &written_size, 0);
 #else
-		ret = contiki_serial_read(&serial_data[idx], &uart_frame[idx], UART_FRAME_MAX_LEN - idx, &written_size);
+		ret = contiki_serial_read(&serial_data[idx], &uart_frame[idx], UART_FRAME_MAX_LEN_BYTE - idx, &written_size);
 #endif
 		if(ret != NRF_SUCCESS && ret != NRF_ERROR_TIMEOUT){
 			new_status = error; //this shoud go to error...but maybe it is better to stay here
@@ -190,9 +187,9 @@ void process_uart_rx_data(uint8_t *serial_data){
 
 	case receiving_len_field:
 #ifndef CONTIKI
-		ret = nrf_serial_read(&serial_uart, &uart_frame[idx], UART_FRAME_MAX_LEN - idx, &written_size, 0);
+		ret = nrf_serial_read(&serial_uart, &uart_frame[idx], UART_FRAME_MAX_LEN_BYTE - idx, &written_size, 0);
 #else
-		ret = contiki_serial_read(&serial_data[idx], &uart_frame[idx], UART_FRAME_MAX_LEN - idx, &written_size);
+		ret = contiki_serial_read(&serial_data[idx], &uart_frame[idx], UART_FRAME_MAX_LEN_BYTE - idx, &written_size);
 #endif
 		idx += written_size;
 
@@ -201,9 +198,9 @@ void process_uart_rx_data(uint8_t *serial_data){
 			break;
 		}
 
-		if( idx >= UART_FRAME_START_SEQ_LEN + HEX_FRAME_LEN_LEN ){	//we have just received the length field
-			ret = hex_array_to_uint8(&uart_frame[UART_FRAME_START_SEQ_LEN], HEX_FRAME_LEN_LEN, temp_array);
-			if( ret == HEX_FRAME_LEN_LEN/2 ){
+		if( idx >= UART_FRAME_START_SEQ_LEN_BYTE + HEX_FRAME_LEN_LEN_BYTE ){	//we have just received the length field
+			ret = hex_array_to_uint8(&uart_frame[UART_FRAME_START_SEQ_LEN_BYTE], HEX_FRAME_LEN_LEN_BYTE, temp_array);
+			if( ret == HEX_FRAME_LEN_LEN_SYMB ){
 				expected_lenght = 2 * ( (temp_array[0] << 8) + temp_array[1] ); //todo: check if expected_lenght_byte is a reasonable value
 				if(expected_lenght == 0){
 					new_status = waiting_end_seq;
@@ -219,9 +216,9 @@ void process_uart_rx_data(uint8_t *serial_data){
 
 	case receiving_packet:
 #ifndef CONTIKI
-		ret = nrf_serial_read(&serial_uart, &uart_frame[idx], UART_FRAME_MAX_LEN - idx, &written_size, 0);
+		ret = nrf_serial_read(&serial_uart, &uart_frame[idx], UART_FRAME_MAX_LEN_BYTE - idx, &written_size, 0);
 #else
-		ret = contiki_serial_read(&serial_data[idx], &uart_frame[idx], UART_FRAME_MAX_LEN - idx, &written_size);
+		ret = contiki_serial_read(&serial_data[idx], &uart_frame[idx], UART_FRAME_MAX_LEN_BYTE - idx, &written_size);
 #endif
 		idx += written_size;
 
@@ -230,7 +227,7 @@ void process_uart_rx_data(uint8_t *serial_data){
 			break;
 		}
 
-		if (idx >= UART_FRAME_START_SEQ_LEN + HEX_FRAME_LEN_LEN + expected_lenght) {	//we have just received the length field
+		if (idx >= UART_FRAME_START_SEQ_LEN_BYTE + HEX_FRAME_LEN_LEN_BYTE + expected_lenght) {	//we have just received the length field
 			new_status = waiting_end_seq;
 		}else{
 			new_status = status; //remain here till the whole LEN field is received
@@ -239,27 +236,27 @@ void process_uart_rx_data(uint8_t *serial_data){
 
 	case waiting_end_seq:
 #ifndef CONTIKI
-		ret = nrf_serial_read(&serial_uart, &uart_frame[idx], UART_FRAME_MAX_LEN - idx, &written_size, 0);
+		ret = nrf_serial_read(&serial_uart, &uart_frame[idx], UART_FRAME_MAX_LEN_BYTE - idx, &written_size, 0);
 #else
-		ret = contiki_serial_read(&serial_data[idx], &uart_frame[idx], UART_FRAME_MAX_LEN - idx, &written_size);
+		ret = contiki_serial_read(&serial_data[idx], &uart_frame[idx], UART_FRAME_MAX_LEN_BYTE - idx, &written_size);
 #endif
 		if(ret != NRF_SUCCESS && ret != NRF_ERROR_TIMEOUT){
 			new_status = error; //this shoud go to error...but maybe it is better to stay here
 		}
 		idx += written_size;
-		if( is_end_sequence( &uart_frame[ UART_FRAME_START_SEQ_LEN + HEX_FRAME_LEN_LEN + expected_lenght ]) ){
+		if( is_end_sequence( &uart_frame[ UART_FRAME_START_SEQ_LEN_BYTE + HEX_FRAME_LEN_LEN_BYTE + expected_lenght ]) ){
 			idx++;
 
-			uint8_t *uart_packet = &uart_frame[UART_FRAME_START_SEQ_LEN + HEX_FRAME_LEN_LEN]; //THIS IS FOR REUSE THE SPACE!, IF IT LEADS TO PROBLEM ALLOCATE A NEW ARRAY
-			uint32_t byte_len = hex_array_to_uint8(&uart_frame[UART_FRAME_START_SEQ_LEN + HEX_FRAME_LEN_LEN], expected_lenght , uart_packet);
+			uint8_t *uart_packet = &uart_frame[UART_FRAME_START_SEQ_LEN_BYTE + HEX_FRAME_LEN_LEN_BYTE]; //THIS IS FOR REUSE THE SPACE!, IF IT LEADS TO PROBLEM ALLOCATE A NEW ARRAY
+			uint32_t byte_len = hex_array_to_uint8(&uart_frame[UART_FRAME_START_SEQ_LEN_BYTE + HEX_FRAME_LEN_LEN_BYTE], expected_lenght , uart_packet);
 			uart_pkt_t p_packet;
 			p_packet.type = (uart_pkt_type_t) ((uart_packet[0] << 8) + uart_packet[1]); //TODO: WHAT'S HAPPEN IF THE CAST CANNOT BE DONE?????
 			if(expected_lenght == 0){
 				p_packet.payload.p_data = NULL;
 			}else{
-				p_packet.payload.p_data = &uart_packet[UART_PKT_TYPE_LEN/2];
+				p_packet.payload.p_data = &uart_packet[UART_PKT_TYPE_LEN_SYMB];
 			}
-			p_packet.payload.data_len = byte_len - UART_PKT_TYPE_LEN/2;
+			p_packet.payload.data_len = byte_len - UART_PKT_TYPE_LEN_SYMB;
 
 			uart_util_ack_check(&p_packet);
 			uart_util_rx_handler(&p_packet);
@@ -317,12 +314,8 @@ void serial_evt_handle(struct nrf_serial_s const * p_serial, nrf_serial_event_t 
 		process_uart_rx_data();
 		break;
 	case NRF_SERIAL_EVENT_DRV_ERR: //should be triggered only if the FIFO is not enabled
-//		while(1){
-//		}
 		break;
 	case NRF_SERIAL_EVENT_FIFO_ERR:
-//		while(1){
-//		}
 		break;
 	default:
 		break;
@@ -419,7 +412,7 @@ uint32_t uart_util_send_pkt(uart_pkt_t* uart_pkt_t){
 		return NRF_ERROR_NULL;
 	}
 
-	if( uart_pkt_t->payload.data_len > UART_PKT_PAYLOAD_MAX_LEN/2 ){
+	if( uart_pkt_t->payload.data_len > UART_PKT_PAYLOAD_MAX_LEN_SYMB ){
 		return NRF_ERROR_INVALID_LENGTH;
 	}
 
@@ -434,21 +427,21 @@ uint32_t uart_util_send_pkt(uart_pkt_t* uart_pkt_t){
 	uint16_t idx = 0;
 	uint32_t len = 0;
 	//calculate the lenght in byte for allocating memory
-	uint8_t uart_frame_len = UART_FRAME_START_SEQ_LEN + 2*(uart_pkt_t->payload.data_len) + HEX_FRAME_LEN_LEN + UART_PKT_TYPE_LEN + UART_FRAME_END_SEQ_LEN;
+	uint8_t uart_frame_len = UART_FRAME_START_SEQ_LEN_BYTE + 2*(uart_pkt_t->payload.data_len) + HEX_FRAME_LEN_LEN_BYTE + UART_PKT_TYPE_LEN_BYTE + UART_FRAME_END_SEQ_LEN_BYTE;
 	uint8_t uart_frame[uart_frame_len];
 	//memset(uart_frame, 0x00, uart_frame_len*sizeof(uint8_t));
 
 	//write start of packet symbol
 	uart_frame[idx++] = UART_PKT_START_SYMBOL;
 	//calculate content of packet length field (it will  contain the length in hex formatted characters which is half of the length in byte)
-	uint16_t hex_len_field = UART_PKT_TYPE_LEN/2 + uart_pkt_t->payload.data_len;
-	uint8_t hex_len_field_array[UART_PKT_TYPE_LEN/2] = {0xFF & (hex_len_field >> 8), 0xFF & (hex_len_field)};
+	uint16_t hex_len_field = UART_PKT_TYPE_LEN_SYMB + uart_pkt_t->payload.data_len;
+	uint8_t hex_len_field_array[UART_PKT_TYPE_LEN_SYMB] = {0xFF & (hex_len_field >> 8), 0xFF & (hex_len_field)};
 	//write content of packet length field to the packet
-	len = uint8_to_hex_array(hex_len_field_array,HEX_FRAME_LEN_LEN, &uart_frame[idx], HEX_FRAME_LEN_LEN);
+	len = uint8_to_hex_array(hex_len_field_array,HEX_FRAME_LEN_LEN_BYTE, &uart_frame[idx], HEX_FRAME_LEN_LEN_BYTE);
 	idx += len;
 	//write content of packet type field to the packet
-	uint8_t type_field_array[UART_PKT_TYPE_LEN] = {0xFF & ((uart_pkt_t->type) >> 8), 0xFF & (uart_pkt_t->type)};
-	len = uint8_to_hex_array(type_field_array,UART_PKT_TYPE_LEN, &uart_frame[idx], UART_PKT_TYPE_LEN);
+	uint8_t type_field_array[UART_PKT_TYPE_LEN_BYTE] = {0xFF & ((uart_pkt_t->type) >> 8), 0xFF & (uart_pkt_t->type)};
+	len = uint8_to_hex_array(type_field_array,UART_PKT_TYPE_LEN_BYTE, &uart_frame[idx], UART_PKT_TYPE_LEN_BYTE);
 	idx += len;
 	//write content of payload field to the packet
 	len = uint8_to_hex_array(uart_pkt_t->payload.p_data,2*(uart_pkt_t->payload.data_len), &uart_frame[idx], 2*(uart_pkt_t->payload.data_len));

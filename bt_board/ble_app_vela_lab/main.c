@@ -112,9 +112,18 @@
 
 #define MIN_REPORT_TIMEOUT_MS					1000
 
+#define APP_TIMER_MS(TICKS)  (uint32_t)(ROUNDED_DIV (((uint64_t)TICKS * ( ( (uint64_t)APP_TIMER_CONFIG_RTC_FREQUENCY + 1 ) * 1000 )) , (uint64_t)APP_TIMER_CLOCK_FREQ ))
+
 APP_TIMER_DEF(m_periodic_timer_id);
 APP_TIMER_DEF(m_report_timer_id);
 
+typedef enum
+{
+    CLIMB_BEACON,
+    EDDYSTONE_BEACON,
+    NORDIC_BEACON,	//not used for now
+	UNKNOWN_TYPE,
+} node_type_t;
 
 typedef enum
 {
@@ -161,6 +170,9 @@ typedef struct
 	int8_t				last_rssi;
 	int8_t				max_rssi;
 	uint16_t			beacon_msg_count;
+	uint8_t				namespace_id[EDDYSTONE_NAMESPACE_ID_LENGTH];
+	uint8_t				instance_id[EDDYSTONE_INSTANCE_ID_LENGTH];
+	node_type_t			node_type;
 } node_t;
 
 
@@ -280,6 +292,8 @@ static void tof_results_print(ifs_tof_t * p_ctx);
 #endif
 
 //BT neighbors list management
+void on_scan_response(ble_gap_evt_adv_report_t const * p_adv_report);
+void on_adv(ble_gap_evt_adv_report_t const * p_adv_report);
 void network_maintainance_check(void);
 uint32_t get_time_since_last_contact(node_t *p_node);
 node_t* get_beacon_pos_by_bdaddr(const ble_gap_addr_t *target_addr);
@@ -287,7 +301,7 @@ node_t* get_network_pos_by_conn_handle(uint16_t target_conn_h);
 uint8_t is_position_free(node_t *p_node);
 node_t* get_first_free_network_pos(void);
 static void remove_node_from_network(node_t* p_node);
-static node_t* add_node_to_network(const ble_gap_evt_t *p_conn_evt, const ble_gap_evt_adv_report_t *p_adv_evt);
+static node_t* add_node_to_network(const ble_gap_evt_t *p_conn_evt, const ble_gap_evt_adv_report_t *p_adv_evt, node_type_t node_type);
 static node_t* update_node(const ble_gap_evt_t *p_conn_evt, const ble_gap_evt_adv_report_t *p_adv_evt, node_t * p_node);
 static void reset_node(node_t* p_node);
 static void reset_network(void);
@@ -315,7 +329,13 @@ static void advertising_start(void);
 static void set_scan_params(uint8_t scan_active, uint16_t scan_interval, uint16_t scan_window, uint16_t scan_timeout);
 char const * phy_str(ble_gap_phys_t phys);
 static uint32_t adv_report_parse(uint8_t type, data_t * p_advdata, data_t * p_typedata);
+static uint32_t get_adv_name(ble_gap_evt_adv_report_t const * p_adv_report, data_t * dev_name);
+static uint32_t get_adv_16bit_uuid(ble_gap_evt_adv_report_t const * p_adv_report, data_t * uuid_data);
+static uint32_t get_adv_service_data(ble_gap_evt_adv_report_t const * p_adv_report, data_t * service_data, uint16_t target_uuid);
+uint32_t get_eddystone_frame(ble_gap_evt_adv_report_t const * p_adv_report, data_t * dev_name);
+uint32_t get_adv_manufacturer_specific_data(ble_gap_evt_adv_report_t const * p_adv_report, data_t * manufacturer_data, uint16_t target_manuf_uuid);
 static bool is_known_name(ble_gap_evt_adv_report_t const * p_adv_report, char const * name_to_find);
+bool is_16bit_uuid_included(ble_gap_evt_adv_report_t const * p_adv_report, uint16_t target_uuid);
 static bool is_known_eddystone(ble_gap_evt_adv_report_t const * p_adv_report, uint8_t const * namespace_to_find);
 
 //hardware init/callbacks/helpers
@@ -367,20 +387,22 @@ uint32_t add_node_to_report_payload(node_t *p_node, uint8_t* report_payload, uin
 
 	uint16_t idx = 0;
 
-	//add BD Address
-	memcpy(&report_payload[idx], &p_node->bd_address.addr, BLE_GAP_ADDR_LEN);
-	idx += BLE_GAP_ADDR_LEN;
+	//add ID
+	memcpy(&report_payload[idx], p_node->instance_id, EDDYSTONE_INSTANCE_ID_LENGTH);
+	idx += EDDYSTONE_INSTANCE_ID_LENGTH;
 
-	//add last/max rssi
+	//add last rssi
 	report_payload[idx++] = (uint8_t) p_node->last_rssi;
+
+	//add max rssi
 	report_payload[idx++] = (uint8_t) p_node->max_rssi;
 
-	//add first seen
-	uint32_t seen_since = app_timer_cnt_diff_compute(app_timer_cnt_get(), p_node->first_contact_ticks);
-	report_payload[idx++] = seen_since >> 24;
-	report_payload[idx++] = seen_since >> 16;
-	report_payload[idx++] = seen_since >> 8;
-	report_payload[idx++] = seen_since;
+	//add seen since
+	uint32_t seen_since_ms = APP_TIMER_MS( app_timer_cnt_diff_compute(app_timer_cnt_get(), p_node->first_contact_ticks) );
+	report_payload[idx++] = seen_since_ms >> 24;
+	report_payload[idx++] = seen_since_ms >> 16;
+	report_payload[idx++] = seen_since_ms >> 8;
+	report_payload[idx++] = seen_since_ms;
 	return idx;
 }
 
@@ -388,7 +410,7 @@ void send_neighbors_report(void) {
 
 	static uint16_t n = 0;
 	bool pkt_full = false;
-	uint8_t report_payload[UART_PKT_PAYLOAD_MAX_LEN / 2];
+	uint8_t report_payload[UART_PKT_PAYLOAD_MAX_LEN_SYMB];
 	uint16_t payload_free_from = 0;
 
 	uart_pkt_t packet;
@@ -408,8 +430,8 @@ void send_neighbors_report(void) {
 
 	while (n < MAXIMUM_NETWORK_SIZE && pkt_full == false) {
 		if (!is_position_free(&m_network[n])) {
-			if (UART_PKT_PAYLOAD_MAX_LEN / 2 - payload_free_from > SINGLE_NODE_REPORT_SIZE) {
-				uint32_t occupied_size = add_node_to_report_payload(&m_network[n], &report_payload[payload_free_from], UART_PKT_PAYLOAD_MAX_LEN / 2 - payload_free_from);
+			if (UART_PKT_PAYLOAD_MAX_LEN_SYMB - payload_free_from > SINGLE_NODE_REPORT_SIZE) {
+				uint32_t occupied_size = add_node_to_report_payload(&m_network[n], &report_payload[payload_free_from], UART_PKT_PAYLOAD_MAX_LEN_SYMB - payload_free_from);
 				payload_free_from += occupied_size;
 			} else {
 				pkt_full = true;
@@ -769,6 +791,46 @@ void tof_init()
 }
 #endif
 
+
+void on_scan_response(ble_gap_evt_adv_report_t const * p_adv_report) {
+	node_t *node = get_beacon_pos_by_bdaddr(&p_adv_report->peer_addr);
+	if (node != NULL) {
+		update_node(NULL, p_adv_report, node);
+	} else {
+		//		if (is_known_name(p_adv_report, m_target_periph_name_alt)) {	//the name could be in the scan response. But not for CLIMB nodes
+		//			add_node_to_network(NULL, p_adv_report, CLIMB_BEACON);
+		//		}
+	}
+}
+
+void on_adv(ble_gap_evt_adv_report_t const * p_adv_report) {
+	node_type_t node_type = UNKNOWN_TYPE;
+	if (is_known_name(p_adv_report, m_target_periph_name_alt)) {
+		node_type = CLIMB_BEACON;
+	} else if(is_known_name(p_adv_report, m_target_periph_name)){
+		node_type = NORDIC_BEACON;
+	}else{
+
+		uint8_t valid_eddystone_namespace[] = VALID_EDDYSTONE_NAMESPACES;
+
+		if (is_known_eddystone(p_adv_report, valid_eddystone_namespace)) {
+
+			node_type = EDDYSTONE_BEACON;
+		}
+	}
+
+	if (node_type == EDDYSTONE_BEACON || node_type == CLIMB_BEACON) {
+		node_t *node = get_beacon_pos_by_bdaddr( &p_adv_report->peer_addr );
+		if (node == NULL) {
+			add_node_to_network(NULL, p_adv_report, node_type);
+		} else {
+			update_node(NULL, p_adv_report, node);
+		}
+	} else {
+		return;
+	}
+}
+
 void network_maintainance_check(void) {
 	for (uint32_t n = 0; n < MAXIMUM_NETWORK_SIZE; n++) {
 		if (m_network[n].first_contact_ticks != 0) { //exclude non valid nodes
@@ -823,12 +885,62 @@ static void remove_node_from_network(node_t* p_node) {
 	return;
 }
 
-static node_t* add_node_to_network(const ble_gap_evt_t *p_conn_evt, const ble_gap_evt_adv_report_t *p_adv_evt) {
+static node_t* add_node_to_network(const ble_gap_evt_t *p_conn_evt, const ble_gap_evt_adv_report_t *p_adv_evt, node_type_t node_type) {
 	node_t* p_node = get_first_free_network_pos();
 	if (p_node == NULL) {
 		return NULL;
 	}
+
+	if (p_adv_evt != NULL) {
+		if (node_type == CLIMB_BEACON) {
+			data_t manuf_data;
+
+			if (get_adv_manufacturer_specific_data(p_adv_evt, &manuf_data, TI_MANUFACTURER_UUID) != NRF_SUCCESS) {
+				return NULL; //manufacturer data not found
+			}
+
+			uint8_t climb_namespace[] = CLIMB_BEACON_NAMESPACE;
+			if (manuf_data.data_len >= 5) { //climb manufacturer specific data length >= 7 (1B node id, 1B node state, 2B battery mV, 1B counter)
+				memcpy(p_node->namespace_id, climb_namespace, EDDYSTONE_NAMESPACE_ID_LENGTH);
+				memset(p_node->instance_id, 0x00, EDDYSTONE_INSTANCE_ID_LENGTH - 1); //zero padding the 5 unused bytes (CLIMB beacon id is one byte long)
+				p_node->instance_id[EDDYSTONE_INSTANCE_ID_LENGTH-1] = manuf_data.p_data[0];
+			}
+
+		} else if (node_type == EDDYSTONE_BEACON) {
+			data_t eddystone_frame;
+			if (get_eddystone_frame(p_adv_evt, &eddystone_frame) != NRF_SUCCESS) {
+				return NULL; //eddystone frame not found
+			}
+
+			if (eddystone_frame.p_data[0] == EDDYSTONE_UID_FRAME_TYPE) {
+				memcpy(p_node->namespace_id, &eddystone_frame.p_data[2], EDDYSTONE_NAMESPACE_ID_LENGTH);
+				memcpy(p_node->instance_id, &eddystone_frame.p_data[12], EDDYSTONE_INSTANCE_ID_LENGTH);
+			} else if (eddystone_frame.p_data[0] == EDDYSTONE_URL_FRAME_TYPE) {
+				return NULL; //don't know what to do with this kind of frame for now
+			} else if (eddystone_frame.p_data[0] == EDDYSTONE_TLM_FRAME_TYPE) {
+				return NULL; //don't know what to do with this kind of frame for now
+			} else if (eddystone_frame.p_data[0] == EDDYSTONE_EID_FRAME_TYPE) {
+				return NULL; //don't know what to do with this kind of frame for now
+			} else {
+				return NULL; //not valid frame type
+			}
+		} else if (node_type == NORDIC_BEACON) {
+			return NULL;
+		} else if (node_type == UNKNOWN_TYPE) {
+			return NULL;
+		} else {
+			return NULL;
+		}
+	}
+
+	if (p_adv_evt != NULL) {
+		memcpy(&p_node->bd_address, &p_adv_evt->peer_addr, sizeof(ble_gap_addr_t));
+	} else if (p_conn_evt != NULL) {
+		memcpy(&p_node->bd_address, &p_conn_evt->params.connected.peer_addr, sizeof(ble_gap_addr_t));
+	}
+	p_node-> node_type = node_type;
 	p_node->first_contact_ticks = app_timer_cnt_get();
+
 	return update_node(p_conn_evt, p_adv_evt, p_node);
 }
 
@@ -839,14 +951,12 @@ static node_t* update_node(const ble_gap_evt_t *p_conn_evt, const ble_gap_evt_ad
 
 	if (p_conn_evt != NULL) {
 		p_node->conn_handle = p_conn_evt->conn_handle;
-		memcpy(&p_node->bd_address, &p_conn_evt->params.connected.peer_addr, sizeof(ble_gap_addr_t));
 		p_node->local_role = p_conn_evt->params.connected.role;
 	} else if (p_adv_evt != NULL) {
 		p_node->last_rssi = p_adv_evt->rssi;
 		if (p_node->last_rssi > p_node->max_rssi) {
 			p_node->max_rssi = p_node->last_rssi;
 		}
-		memcpy(&p_node->bd_address, &p_adv_evt->peer_addr, sizeof(ble_gap_addr_t));
 		if (p_adv_evt->scan_rsp) {
 			memcpy(&p_node->scan_data.p_data, &p_adv_evt->data, p_adv_evt->dlen);
 			p_node->scan_data.len = p_adv_evt->dlen;
@@ -1267,40 +1377,9 @@ static void on_ble_gap_evt_connected(ble_gap_evt_t const * p_gap_evt) {
 static void on_ble_gap_evt_adv_report(ble_gap_evt_t const * p_gap_evt) {
 
 	if (p_gap_evt->params.adv_report.scan_rsp) {	//if it is a scan response it won't contain eddystone frame. It may contain the name. And it may be valid if the node is already in the list
-
-		node_t *node = get_beacon_pos_by_bdaddr(&p_gap_evt->params.adv_report.peer_addr);
-		if (node == NULL) {
-			if (is_known_name(&p_gap_evt->params.adv_report, m_target_periph_name) || is_known_name(&p_gap_evt->params.adv_report, m_target_periph_name_alt)) {
-				add_node_to_network(NULL, &p_gap_evt->params.adv_report);
-			}
-		} else {
-			update_node(NULL, &p_gap_evt->params.adv_report, node);
-		}
+		return on_scan_response(&p_gap_evt->params.adv_report);
 	} else {
-
-		bool node_to_track = false;
-		if (is_known_name(&p_gap_evt->params.adv_report, m_target_periph_name) || is_known_name(&p_gap_evt->params.adv_report, m_target_periph_name_alt)) {
-			node_to_track = true;
-		} else {
-
-			uint8_t valid_eddystone_namespace[] = VALID_EDDYSTONE_NAMESPACES;
-
-			if (is_known_eddystone(&p_gap_evt->params.adv_report, valid_eddystone_namespace)) {
-
-				node_to_track = true;
-			}
-		}
-
-		if (node_to_track) {
-			node_t *node = get_beacon_pos_by_bdaddr(&p_gap_evt->params.adv_report.peer_addr);
-			if (node == NULL) {
-				add_node_to_network(NULL, &p_gap_evt->params.adv_report);
-			} else {
-				update_node(NULL, &p_gap_evt->params.adv_report, node);
-			}
-		} else {
-			return;
-		}
+		return on_adv(&p_gap_evt->params.adv_report);
 	}
 #ifdef ENABLE_TOF
 
@@ -1423,8 +1502,6 @@ char const * phy_str(ble_gap_phys_t phys) {
 
 	case BLE_GAP_PHY_CODED:
 		return str[2];
-		while (1) {
-		}
 	default:
 		return str[3];
 	}
@@ -1463,6 +1540,122 @@ static uint32_t adv_report_parse(uint8_t type, data_t * p_advdata, data_t * p_ty
 	return NRF_ERROR_NOT_FOUND;
 }
 
+
+/**@brief Function for searching the name in the advertisement packets.
+ *
+ * @details Use this function to parse received advertising data and to find the name
+ * in them either as 'complete_local_name' or as 'short_local_name'.
+ *
+ * @param[in]   p_adv_report   advertising data to parse.
+ * @param[in]   dev_name       output data structure
+ * @return   NRF_SUCCESS if the name was found, NRF_ERROR_NOT_FOUND otherwise.
+ */
+static uint32_t get_adv_name(ble_gap_evt_adv_report_t const * p_adv_report, data_t * dev_name) {
+
+	ret_code_t err_code;
+	data_t adv_data;
+
+	// Initialize advertisement report for parsing.
+	adv_data.p_data = (uint8_t *) p_adv_report->data;
+	adv_data.data_len = p_adv_report->dlen;
+
+	// Search for matching advertising names.
+	err_code = adv_report_parse(BLE_GAP_AD_TYPE_COMPLETE_LOCAL_NAME, &adv_data, dev_name);
+
+	if (err_code != NRF_SUCCESS) {
+		// Look for the short local name if the complete name was not found.
+		err_code = adv_report_parse(BLE_GAP_AD_TYPE_SHORT_LOCAL_NAME, &adv_data, dev_name);
+
+	}
+
+	return err_code;
+}
+
+//finds the first 16bit uuid included in the adv data
+static uint32_t get_adv_16bit_uuid(ble_gap_evt_adv_report_t const * p_adv_report, data_t * uuid_data) {
+
+	ret_code_t err_code;
+	data_t adv_data;
+
+	// Initialize advertisement report for parsing.
+	adv_data.p_data = (uint8_t *) p_adv_report->data;
+	adv_data.data_len = p_adv_report->dlen;
+
+	err_code = adv_report_parse(BLE_GAP_AD_TYPE_16BIT_SERVICE_UUID_COMPLETE, &adv_data, uuid_data);
+
+	return err_code;
+}
+
+static uint32_t get_adv_service_data(ble_gap_evt_adv_report_t const * p_adv_report, data_t * service_data, uint16_t target_uuid) {
+
+	ret_code_t err_code;
+	data_t adv_data;
+
+	// Initialize advertisement report for parsing.
+	adv_data.p_data = (uint8_t *) p_adv_report->data;
+	adv_data.data_len = p_adv_report->dlen;
+
+	err_code = adv_report_parse(BLE_GAP_AD_TYPE_SERVICE_DATA, &adv_data, service_data);
+	if (err_code == NRF_SUCCESS) {
+		if(service_data->data_len > 1){
+			uint16_t uuid = (service_data->p_data[1] << 8) + service_data->p_data[0];
+			if (uuid == target_uuid) {
+				service_data->p_data = &service_data->p_data[2];
+				service_data->data_len = service_data->data_len - 2;
+			}else{	//service data found, but with wrong uuid
+				err_code = NRF_ERROR_NOT_FOUND;
+			}
+		}else{	//service data found but with zero len. Probably the packet is badly formatted by the beacon
+			err_code = NRF_ERROR_INVALID_LENGTH;
+		}
+	}
+
+	return err_code;
+}
+
+uint32_t get_eddystone_frame(ble_gap_evt_adv_report_t const * p_adv_report, data_t * eddystone_frame){
+
+	ret_code_t err_code;
+
+	err_code = get_adv_service_data(p_adv_report, eddystone_frame, EDDYSTONE_SERVICE_UUID_16BIT);
+	if (err_code == NRF_SUCCESS) {
+		if (eddystone_frame->data_len == 0) {
+			err_code = NRF_ERROR_INVALID_LENGTH; //the length is not compatible with eddystone
+		}
+	} else {
+		err_code = NRF_ERROR_NOT_FOUND; //service data not found
+	}
+
+	return err_code;
+}
+
+uint32_t get_adv_manufacturer_specific_data(ble_gap_evt_adv_report_t const * p_adv_report, data_t * manufacturer_data, uint16_t target_manuf_uuid){
+
+	ret_code_t err_code;
+	data_t adv_data;
+
+	// Initialize advertisement report for parsing.
+	adv_data.p_data = (uint8_t *) p_adv_report->data;
+	adv_data.data_len = p_adv_report->dlen;
+
+	err_code = adv_report_parse(BLE_GAP_AD_TYPE_MANUFACTURER_SPECIFIC_DATA, &adv_data, manufacturer_data);
+	if (err_code == NRF_SUCCESS) {
+		if(manufacturer_data->data_len > 1){
+			uint16_t uuid = (manufacturer_data->p_data[1] << 8) + manufacturer_data->p_data[0];
+			if (uuid == target_manuf_uuid) {
+				manufacturer_data->p_data = &manufacturer_data->p_data[2];
+				manufacturer_data->data_len = manufacturer_data->data_len - 2;
+			}else{	//service data found, but with wrong uuid
+				err_code = NRF_ERROR_NOT_FOUND;
+			}
+		}else{	//service data found but with zero len. Probably the packet is badly formatted by the beacon
+			err_code = NRF_ERROR_INVALID_LENGTH;
+		}
+	}
+
+	return err_code;
+}
+
 /**@brief Function for searching a given name in the advertisement packets.
  *
  * @details Use this function to parse received advertising data and to find a given
@@ -1475,26 +1668,39 @@ static uint32_t adv_report_parse(uint8_t type, data_t * p_advdata, data_t * p_ty
 static bool is_known_name(ble_gap_evt_adv_report_t const * p_adv_report, char const * name_to_find) {
 
 	ret_code_t err_code;
-	data_t adv_data;
 	data_t dev_name;
 	bool found = false;
 
-	// Initialize advertisement report for parsing.
-	adv_data.p_data = (uint8_t *) p_adv_report->data;
-	adv_data.data_len = p_adv_report->dlen;
+	err_code = get_adv_name(p_adv_report, &dev_name);
 
-	// Search for matching advertising names.
-	err_code = adv_report_parse(BLE_GAP_AD_TYPE_COMPLETE_LOCAL_NAME, &adv_data, &dev_name);
-
-	if ((err_code == NRF_SUCCESS) && (strlen(name_to_find) == dev_name.data_len) && (memcmp(name_to_find, dev_name.p_data, dev_name.data_len) == 0)) {
-		found = true;
-	} else {
-		// Look for the short local name if the complete name was not found.
-		err_code = adv_report_parse(BLE_GAP_AD_TYPE_SHORT_LOCAL_NAME, &adv_data, &dev_name);
-
-		if ((err_code == NRF_SUCCESS) && (strlen(name_to_find) == dev_name.data_len) && (memcmp(m_target_periph_name, dev_name.p_data, dev_name.data_len) == 0)) {
+	if(err_code == NRF_SUCCESS){
+		if((strlen(name_to_find) == dev_name.data_len) && (memcmp(name_to_find, dev_name.p_data, dev_name.data_len) == 0)){
 			found = true;
 		}
+	}
+
+	return found;
+}
+
+bool is_16bit_uuid_included(ble_gap_evt_adv_report_t const * p_adv_report, uint16_t target_uuid){
+	ret_code_t err_code;
+	bool found = false;
+	data_t uuid_data;
+
+	err_code = get_adv_16bit_uuid(p_adv_report, &uuid_data);
+	if (err_code == NRF_SUCCESS) {
+		if (uuid_data.data_len == 2) {
+			uint16_t uuid = (uuid_data.p_data[1] << 8) + uuid_data.p_data[0];
+			if (uuid == EDDYSTONE_SERVICE_UUID_16BIT) { //the uuid has been found and it equals the eddystone uuid
+				found = true;
+			} else { 	//an uuid has been found, but it doesn't mathc the eddystone uuid
+				found = false;
+			}
+		} else {	//the uuid data found is not long 2 (this should never happen)
+			found = false;
+		}
+	} else {	//no 16bit uuid found in the adv packet
+		found = false;
 	}
 
 	return found;
@@ -1503,66 +1709,40 @@ static bool is_known_name(ble_gap_evt_adv_report_t const * p_adv_report, char co
 static bool is_known_eddystone(ble_gap_evt_adv_report_t const * p_adv_report, uint8_t const * namespace_to_find) {
 
 	ret_code_t err_code;
-	data_t adv_data;
-	data_t uuid_data;
-
-	// Initialize advertisement report for parsing.
-	adv_data.p_data = (uint8_t *) p_adv_report->data;
-	adv_data.data_len = p_adv_report->dlen;
 
 #if 1
 	/* In the next two parts first we check if the eddystone uuid is broadcasted in the packet, then we check
 	 * if the eddystone frame is present in the packet. Probably checking just the second condition is enough.
 	 * For skipping the first check and speed up the process change to zero the #if statement
 	 */
-	err_code = adv_report_parse(BLE_GAP_AD_TYPE_16BIT_SERVICE_UUID_COMPLETE, &adv_data, &uuid_data);
-	if (err_code == NRF_SUCCESS) {
-		if (uuid_data.data_len == 2) {
-			uint16_t uuid = (uuid_data.p_data[1] << 8) + uuid_data.p_data[0];
-			if (uuid == EDDYSTONE_SERVICE_UUID_16BIT) { //the uuid has been found and it equals the eddystone uuid
-				//just go on
-			} else { 	//an uuid has been found, but it doesn't mathc the eddystone uuid
-				return false;
-			}
-		} else {	//the uuid data found is not long 2 (this should never happen)
-			return false;
-		}
-	} else {	//no 16bit uuid found in the adv packet
-		return false;
+
+	if(!is_16bit_uuid_included(p_adv_report, EDDYSTONE_SERVICE_UUID_16BIT)){
+		return false; // uuid not found
 	}
 #endif
 
-	data_t eddystone_ad_data;
-	err_code = adv_report_parse(BLE_GAP_AD_TYPE_SERVICE_DATA, &adv_data, &eddystone_ad_data);
-	if (err_code == NRF_SUCCESS) {
-		if (eddystone_ad_data.data_len == 22) {
-			uint16_t uuid = (eddystone_ad_data.p_data[1] << 8) + eddystone_ad_data.p_data[0];
-			if (uuid == EDDYSTONE_SERVICE_UUID_16BIT) { //the uuid has been found and it equals the eddystone uuid
-				uint8_t *eddystone_frame = &eddystone_ad_data.p_data[2];
-				if (eddystone_frame[0] == EDDYSTONE_UID_FRAME_TYPE) {
-					if (memcmp(&eddystone_frame[2], namespace_to_find, EDDYSTONE_NAMESPACE_LENGTH) == 0) {
-						return true;
-					} else {	//the eddystone namespace do not match with namespace_to_find
-						return false;
-					}
-				} else if (eddystone_frame[0] == EDDYSTONE_URL_FRAME_TYPE) {
-					return false; //don't know what to do with this kind of frame for now
-				} else if (eddystone_frame[0] == EDDYSTONE_TLM_FRAME_TYPE) {
-					return false; //don't know what to do with this kind of frame for now
-				} else if (eddystone_frame[0] == EDDYSTONE_EID_FRAME_TYPE) {
-					return false; //don't know what to do with this kind of frame for now
-				} else {
-					return false; //not valid frame type
-				}
-			} else {
-				return false;
-			}
-		} else {
-			return false; //the length is not compatible with eddystone
-		}
-	} else {
-		return false; //service data not found
+	data_t eddystone_frame;
+	err_code = get_eddystone_frame(p_adv_report, &eddystone_frame);
+	if (err_code != NRF_SUCCESS) {
+		return false; //eddystone frame not found
 	}
+
+	if (eddystone_frame.p_data[0] == EDDYSTONE_UID_FRAME_TYPE) {
+		if (memcmp(&eddystone_frame.p_data[2], namespace_to_find, EDDYSTONE_NAMESPACE_ID_LENGTH) == 0) {
+			return true;
+		} else {	//the eddystone namespace do not match with namespace_to_find
+			return false;
+		}
+	} else if (eddystone_frame.p_data[0] == EDDYSTONE_URL_FRAME_TYPE) {
+		return false; //don't know what to do with this kind of frame for now
+	} else if (eddystone_frame.p_data[0] == EDDYSTONE_TLM_FRAME_TYPE) {
+		return false; //don't know what to do with this kind of frame for now
+	} else if (eddystone_frame.p_data[0] == EDDYSTONE_EID_FRAME_TYPE) {
+		return false; //don't know what to do with this kind of frame for now
+	} else {
+		return false; //not valid frame type
+	}
+
 }
 
 void initialize_leds(void) {

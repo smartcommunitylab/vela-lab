@@ -9,7 +9,7 @@ The network components are:
 - Mesh Sink: Texas Instruments cc2650 launchpad
 - Gateway: Raspberry PI
 
-The BLE Scanner and the Mesh Node are packed into the same case and the communication between them happen through the UART interface. The same apply for the Mesh Sink and the Gateway, in this case the communication take place over an emulated serial port over USB.
+The BLE Scanner and the Mesh Node are packed into the same case and together they are called Mobile Stack. The communication between the two boards happen through the UART interface. The same apply for the Mesh Sink and the Gateway, in this case the communication take place over an emulated serial port over USB.
 
 The purpose of this network is to collect 'contacts' of BLE Beacons and push them, through the mesh network, to a cloud infrastructure (database).
 

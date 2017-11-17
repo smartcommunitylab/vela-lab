@@ -64,7 +64,7 @@
 #define UART_PKT_END_SYMBOL   			'\n'		//new line
 
 #ifndef CONTIKI
-	#define UART_FRAME_MAX_LEN				SERIAL_FIFO_TX_SIZE
+	#define UART_FRAME_MAX_LEN_BYTE				SERIAL_FIFO_TX_SIZE
 #else
 	#ifdef SERIAL_LINE_CONF_BUFSIZE
 		#if SERIAL_FIFOS_SIZE != SERIAL_LINE_CONF_BUFSIZE
@@ -73,16 +73,22 @@
 	#else
 		#define SERIAL_LINE_CONF_BUFSIZE		SERIAL_FIFOS_SIZE
 	#endif //SERIAL_LINE_CONF_BUFSIZE
-	#define UART_FRAME_MAX_LEN				SERIAL_LINE_CONF_BUFSIZE
+	#define UART_FRAME_MAX_LEN_BYTE				SERIAL_LINE_CONF_BUFSIZE
 #endif //!CONTIKI
 
-#define UART_FRAME_START_SEQ_LEN		1		//START SEQUENCE (0x02) LENGTH - this length is in byte.
-#define UART_FRAME_END_SEQ_LEN			1		//START SEQUENCE (0x02) LENGTH - this length is in byte. 0x** is long 1
+#define UART_FRAME_START_SEQ_LEN_BYTE	1		//START SEQUENCE (0x02) LENGTH - this length is in byte.
+#define UART_FRAME_END_SEQ_LEN_BYTE		1		//START SEQUENCE (0x02) LENGTH - this length is in byte. 0x** is long 1
 
-#define HEX_FRAME_LEN_LEN				4		//LENGTH FIELD LENGTH. This length is the memory occupancy of the PACKET LENGTH FIELD. The field will be sent as char sequence of hex symbols
-#define UART_PKT_TYPE_LEN				4		//PACKET TYPE FIELD LENGTH This length is the memory occupancy of the PACKET TYPE FIELD. The field will be sent as char sequence of hex symbols
-#define UART_PKT_HEX_FRAME_MAX_LEN		(uint16_t) (UART_FRAME_MAX_LEN - UART_FRAME_START_SEQ_LEN - UART_FRAME_END_SEQ_LEN)
-#define UART_PKT_PAYLOAD_MAX_LEN		(uint16_t) (UART_PKT_HEX_FRAME_MAX_LEN - HEX_FRAME_LEN_LEN - UART_PKT_TYPE_LEN)          //Maximum length of the PAYLOAD FIELD. The field will be sent as char sequence of hex symbols
+#define HEX_FRAME_LEN_LEN_BYTE			4		//Length in bytes (remember that the protocol use codings of bytes into hex, every symbol is two bytes long)
+#define UART_PKT_TYPE_LEN_BYTE			4		//Length in bytes (remember that the protocol use codings of bytes into hex, every symbol is two bytes long)
+#define UART_PKT_HEX_FRAME_MAX_LEN_BYTE	(uint16_t) (UART_FRAME_MAX_LEN_BYTE - UART_FRAME_START_SEQ_LEN_BYTE - UART_FRAME_END_SEQ_LEN_BYTE) //Length in bytes (remember that the protocol use codings of bytes into hex, every symbol is two bytes long)
+#define UART_PKT_PAYLOAD_MAX_LEN_BYTE	(uint16_t) (UART_PKT_HEX_FRAME_MAX_LEN_BYTE - HEX_FRAME_LEN_LEN_BYTE - UART_PKT_TYPE_LEN_BYTE)     //Length in bytes (remember that the protocol use codings of bytes into hex, every symbol is two bytes long)
+
+#define UART_FRAME_MAX_LEN_SYMB			UART_FRAME_MAX_LEN_BYTE / 2
+#define HEX_FRAME_LEN_LEN_SYMB			HEX_FRAME_LEN_LEN_BYTE / 2			//Length in symbols (remember that the protocol use codings of bytes into hex, every symbol is two bytes long)
+#define UART_PKT_TYPE_LEN_SYMB			UART_PKT_TYPE_LEN_BYTE / 2			//Length in symbols (remember that the protocol use codings of bytes into hex, every symbol is two bytes long)
+#define UART_PKT_HEX_FRAME_MAX_LEN_SYMB	UART_PKT_HEX_FRAME_MAX_LEN_BYTE / 2	//Length in symbols (remember that the protocol use codings of bytes into hex, every symbol is two bytes long)
+#define UART_PKT_PAYLOAD_MAX_LEN_SYMB	UART_PKT_PAYLOAD_MAX_LEN_BYTE / 2	//Length in symbols (remember that the protocol use codings of bytes into hex, every symbol is two bytes long)
 
 
 #ifdef CONTIKI
