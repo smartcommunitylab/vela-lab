@@ -398,11 +398,14 @@ uint32_t add_node_to_report_payload(node_t *p_node, uint8_t* report_payload, uin
 	report_payload[idx++] = (uint8_t) p_node->max_rssi;
 
 	//add seen since
-	uint32_t seen_since_ms = APP_TIMER_MS( app_timer_cnt_diff_compute(app_timer_cnt_get(), p_node->first_contact_ticks) );
-	report_payload[idx++] = seen_since_ms >> 24;
-	report_payload[idx++] = seen_since_ms >> 16;
-	report_payload[idx++] = seen_since_ms >> 8;
-	report_payload[idx++] = seen_since_ms;
+	uint32_t seen_since_tick = app_timer_cnt_diff_compute(app_timer_cnt_get(), p_node->first_contact_ticks);
+	uint16_t seen_since_s = APP_TIMER_MS( seen_since_tick/1000 );
+	report_payload[idx++] = seen_since_s >> 8;
+	report_payload[idx++] = seen_since_s;
+
+	//add packet counter
+	report_payload[idx++] = p_node->beacon_msg_count >> 8;
+	report_payload[idx++] = p_node->beacon_msg_count;
 	return idx;
 }
 
