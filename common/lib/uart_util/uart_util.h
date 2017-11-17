@@ -45,7 +45,11 @@
 		#define UART_BAUDRATE 					UART_BAUDRATE_BAUDRATE_Baud1M
 	#else
 		#define UART_RX_PIN_NUMBER 				NRF_GPIO_PIN_MAP(0,24)//TX_PIN_NUMBER//NRF_GPIO_PIN_MAP(0,24)
-		#define UART_TX_PIN_NUMBER 				TX_PIN_NUMBER//NRF_GPIO_PIN_MAP(0,25)
+		#ifdef DEBUG
+			#define UART_TX_PIN_NUMBER 				TX_PIN_NUMBER //this permits to use the uart-to-usb converteor on the board to sniff the communication from the pc
+		#else
+			#define UART_TX_PIN_NUMBER 				TX_PIN_NUMBER NRF_GPIO_PIN_MAP(0,25)
+		#endif
 		#define UART_RTS_PIN_NUMBER 			NRF_GPIO_PIN_MAP(0,23)
 		#define UART_CTS_PIN_NUMBER 			NRF_GPIO_PIN_MAP(0,22)
 		#define UART_FLOW_CONTROL 				NRF_UART_HWFC_ENABLED//NRF_UART_HWFC_ENABLED
@@ -64,7 +68,7 @@
 #else
 	#ifdef SERIAL_LINE_CONF_BUFSIZE
 		#if SERIAL_FIFOS_SIZE != SERIAL_LINE_CONF_BUFSIZE
-			error("SERIAL_FIFOS_SIZE and SERIAL_FIFO_TX_SIZE must be set to the same value");
+			error("SERIAL_FIFOS_SIZE and SERIAL_FIFO_TX_SIZE must be set to the same value. Look into project makefile.");
 		#endif
 	#else
 		#define SERIAL_LINE_CONF_BUFSIZE		SERIAL_FIFOS_SIZE
@@ -105,10 +109,16 @@
 
 #define SINGLE_NODE_REPORT_SIZE 				12		//TODO: give a better name
 
-
+#define APP_ACK_SUCCESS							NRF_SUCCESS
+#define APP_ERROR_GENERIC						NRF_ERROR_INTERNAL
+#define APP_ERROR_NO_MEM						NRF_ERROR_NO_MEM
+#define APP_ERROR_COMMAND_NOT_VALID				NRF_ERROR_NOT_SUPPORTED
+#define APP_ERROR_NOT_IMPLEMENTED				NRF_ERROR_NOT_FOUND
+#define APP_ERROR_NOT_FOUND						NRF_ERROR_NOT_FOUND
+#define APP_ERROR_INVALID_STATE					NRF_ERROR_INVALID_STATE
 
 typedef enum{
-	uart_ack 						= 0x0000,
+	uart_app_level_ack 				= 0x0001,
 	uart_evt_ready					= 0x0010,
 
 	uart_req_reset 					= 0x0100,
@@ -134,6 +144,7 @@ typedef enum{
 	uart_resp_bt_neigh_rep_format	= 0x0280,
 	uart_resp_bt_neigh_rep_start	= 0x0281,
 	uart_resp_bt_neigh_rep_more 	= 0x0282,
+	uart_resp_bt_neigh_rep_end  	= 0x0283,
 
 
 	uart_set_bt_state				= 0x0400,
@@ -161,16 +172,27 @@ typedef struct{
 	payload_t		 payload;
 } uart_pkt_t;
 
+
+typedef struct{
+	uint8_t ack_waiting;
+	uint32_t ack_wait_timeout_ticks;
+	uint32_t ack_wait_start_ticks;
+	uart_pkt_type_t waiting_ack_for_pkt_type;
+	uint16_t waiting_ack_for_pkt_length;
+} ack_wait_t;
+
+
 uint32_t uart_util_send_pkt(uart_pkt_t* uart_pkt_t);
 
 void uart_util_initialize(void);
 
 extern void uart_util_rx_handler(uart_pkt_t* p_packet);
-extern void uart_util_ack_error(void);
-extern void uart_util_tx_done(void);
+extern void uart_util_ack_error(ack_wait_t* ack_wait_data);
+extern void uart_util_ack_tx_done(void);
 
 void uart_util_flush(void);
 uint8_t to_hex(uint8_t i);
+void uart_util_send_ack(uart_pkt_t* p_packet, uint8_t error_code);
 
 #ifdef CONTIKI
 void process_uart_rx_data(uint8_t *serial_data);

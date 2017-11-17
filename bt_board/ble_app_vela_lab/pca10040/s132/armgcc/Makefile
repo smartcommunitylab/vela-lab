@@ -194,6 +194,7 @@ INC_FOLDERS += \
   $(SDK_ROOT)/components/libraries/mutex \
   $(SDK_ROOT)/components/drivers_nrf/power \
   ${COMMON_DIR}/lib/uart_util \
+  ${COMMON_DIR}/inc \
   $(PROJ_DIR)/tof \
 
 # Libraries common to all targets

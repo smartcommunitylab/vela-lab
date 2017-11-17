@@ -23,6 +23,7 @@
 #include <stdint.h>
 #include <string.h>
 #include "uart_util.h"
+#include "constraints.h"
 
 PROCESS(cc2650_uart_process, "cc2650 uart process");
 AUTOSTART_PROCESSES(&cc2650_uart_process);
@@ -37,14 +38,27 @@ typedef enum{
 	resetting,
 } app_state_t;
 
-#define PING_PACKET_SIZE		0
+typedef enum{
+	start_of_data,
+	more_data,
+	end_of_data
+} report_type_t;
 
-uint8_t ready_transmitted = 0, request_transmitted = 0;
+#define MAX_MESH_PAYLOAD_SIZE	MAX_NUMBER_OF_BT_BEACONS*SINGLE_NODE_REPORT_SIZE
+
+#define PING_PACKET_SIZE		0
+#define BT_REPORT_BUFFER_SIZE 	MAX_MESH_PAYLOAD_SIZE
+#define REPORT_TIMEOUT_MS		5000
+
 app_state_t m_app_state = stop;
 uint8_t no_of_attempts = 0;
+uint8_t bt_report_buffer[BT_REPORT_BUFFER_SIZE];
+
+uint32_t report_rx_handler(uart_pkt_t* p_packet, report_type_t m_report_type );
 
 void fsm_state_update(void);
 void fsm_state_process(void);
+void fsm_stop(void);
 void fsm_start(void);
 void fsm_reset(void);
 void reset_nodric(void);
@@ -54,11 +68,58 @@ void send_set_bt_scan_on(void);
 void send_set_bt_scan_params(void);
 void send_ready(void);
 void send_reset(void);
-void request_report_to_nordic(void);
+void request_periodic_report_to_nordic(uint32_t report_timeout_ms);
 
 void uart_util_rx_handler(uart_pkt_t* p_packet);
-void uart_util_tx_done(void);
-void uart_util_ack_error(void);
+void uart_util_ack_tx_done(void);
+extern void uart_util_ack_error(ack_wait_t* ack_wait_data);
+
+uint32_t report_ready(uint8_t *p_buff, uint16_t size){
+	//PROCESS REPORT: return APP_ACK_SUCCESS as soon as possible
+	leds_toggle(LEDS_YELLOW);
+	return APP_ACK_SUCCESS;
+}
+
+uint32_t report_rx_handler(uart_pkt_t* p_packet, report_type_t m_report_type ){
+	static uint16_t buff_free_from = 0;
+	uint32_t ret;
+
+	switch(m_report_type){
+	case start_of_data:
+		if((buff_free_from + p_packet->payload.data_len) < BT_REPORT_BUFFER_SIZE){
+			memcpy(p_packet->payload.p_data, &bt_report_buffer[buff_free_from], p_packet->payload.data_len);
+			buff_free_from+=p_packet->payload.data_len;
+			ret = APP_ACK_SUCCESS;
+		}else{
+			ret = APP_ERROR_NO_MEM;
+		}
+		break;
+	case more_data:
+		if((buff_free_from + p_packet->payload.data_len) < BT_REPORT_BUFFER_SIZE){
+			memcpy(p_packet->payload.p_data, &bt_report_buffer[buff_free_from], p_packet->payload.data_len);
+			buff_free_from+=p_packet->payload.data_len;
+			ret = APP_ACK_SUCCESS;
+		}else{
+			ret = APP_ERROR_NO_MEM;
+		}
+		break;
+	case end_of_data:
+		if((buff_free_from + p_packet->payload.data_len) < BT_REPORT_BUFFER_SIZE){
+			memcpy(p_packet->payload.p_data, &bt_report_buffer[buff_free_from], p_packet->payload.data_len);
+			buff_free_from+=p_packet->payload.data_len;
+			ret = report_ready(bt_report_buffer, buff_free_from);
+		}else{
+			ret = APP_ERROR_NO_MEM;
+		}
+		buff_free_from = 0;
+		break;
+	default:
+		ret = APP_ERROR_COMMAND_NOT_VALID;
+		break;
+	}
+
+	return ret;
+}
 
 void fsm_state_update(void) {
 
@@ -107,7 +168,7 @@ void fsm_state_process(void) {
 		send_set_bt_scan_on();
 		break;
 	case initializing4:
-		request_report_to_nordic();
+		request_periodic_report_to_nordic(REPORT_TIMEOUT_MS);
 		break;
 	case run:
 		leds_on(LEDS_GREEN);
@@ -119,6 +180,10 @@ void fsm_state_process(void) {
 	default:
 		break;
 	}
+}
+
+void fsm_stop(void){
+	m_app_state = stop;
 }
 
 void fsm_start(void) {
@@ -236,9 +301,8 @@ void send_reset(void) {
 	uart_util_send_pkt(&packet);
 }
 
-void request_report_to_nordic(void){
+void request_periodic_report_to_nordic(uint32_t report_timeout_ms){
 	uint8_t payload[4];
-	uint32_t report_timeout_ms = 5000;
 	payload[0] = report_timeout_ms >> 24;
 	payload[1] = report_timeout_ms >> 16;
 	payload[2] = report_timeout_ms >> 8;
@@ -254,107 +318,112 @@ void request_report_to_nordic(void){
 }
 
 #define MAX_ATTEMPTS 3
-void uart_util_ack_error(void) {
+void uart_util_ack_error(ack_wait_t* ack_wait_data) {
 	leds_on(LEDS_RED);
 	if(no_of_attempts < MAX_ATTEMPTS){
 		no_of_attempts++;
 		fsm_state_process(); //if there is an error try to resend
 	}else{
+		fsm_stop();
 		reset_nodric(); //when the nordic will reboot it will generate the uart_ready evt. When the TI receives it, it restart the FSM
 	}
 }
 
-void uart_util_tx_done(void){
-	leds_off(LEDS_RED);
-	no_of_attempts = 1;
-	fsm_state_update();
-	fsm_state_process();
+void uart_util_ack_tx_done(void){
 }
 
 void uart_util_rx_handler(uart_pkt_t* p_packet) { //once it arrives here the ack is already sent
 
 	uart_pkt_type_t type = p_packet->type;
+	uint8_t *p_payload_data = p_packet->payload.p_data;
+	uint32_t ack_value;
 
 	switch (type) {
-	case uart_ack:
-		//nothing to do, event not reported by uart_util module
+	case uart_app_level_ack:
+		if (p_packet->payload.data_len == 5) {
+			if (p_payload_data[0] == APP_ACK_SUCCESS) {//if the app ack is positive go on with fsm
+				leds_off(LEDS_RED);
+				no_of_attempts = 1;
+				fsm_state_update();
+				fsm_state_process();
+			} else {	//otherwise call the ack error handler
+				uart_util_ack_error(NULL); //attention, this function can be called also from uart_util when the timeout for ack expires
+			}
+		}
+		return; //this avoids sending ack for ack messages
 		break;
-	case uart_evt_ready:	//if the nordic sends this it means that it has been rebooted, then restart the local finite state machine
+	case uart_evt_ready:
+//		uart_util_send_ack(p_packet, APP_ACK_SUCCESS); //ack message for evt_ready can be avoided
+		//here we shall wait the previous message to be sent, but if the uart buffers are enough long the two messages will fit together
 		fsm_start();
+		return;  //ready message may not send ack
 		break;
 	case uart_req_reset:
+		ack_value = APP_ERROR_NOT_IMPLEMENTED;
 //		sd_nvic_SystemReset();
 		break;
 	case uart_req_bt_state:
-		//still not implemented
-		break;
 	case uart_req_bt_scan_state:
-		//still not implemented
-		break;
 	case uart_req_bt_adv_state:
-		//still not implemented
-		break;
 	case uart_req_bt_scan_params:
-		//still not implemented
-		break;
 	case uart_req_bt_adv_params:
-		//still not implemented
-		break;
 	case uart_req_bt_neigh_rep:
-		//not implemented on the TI side
+		ack_value = APP_ERROR_COMMAND_NOT_VALID;
+		//never called on the Mesh side of the uart
 		break;
 	case uart_resp_bt_state:
+		ack_value = APP_ERROR_NOT_IMPLEMENTED;
 		//still not implemented
 		break;
 	case uart_resp_bt_scan_state:
+		ack_value = APP_ERROR_NOT_IMPLEMENTED;
 		//still not implemented
 		break;
 	case uart_resp_bt_adv_state:
+		ack_value = APP_ERROR_NOT_IMPLEMENTED;
 		//still not implemented
 		break;
 	case uart_resp_bt_scan_params:
+		ack_value = APP_ERROR_NOT_IMPLEMENTED;
 		//still not implemented
 		break;
 	case uart_resp_bt_adv_params:
+		ack_value = APP_ERROR_NOT_IMPLEMENTED;
 		//still not implemented
 		break;
 	case uart_resp_bt_neigh_rep_start:
-		leds_toggle(LEDS_YELLOW);
-		//still not implemented
+		ack_value = report_rx_handler(p_packet, start_of_data);
 		break;
 	case uart_resp_bt_neigh_rep_more:
-		//still not implemented
+		ack_value = report_rx_handler(p_packet, more_data);
+		break;
+	case uart_resp_bt_neigh_rep_end:
+		ack_value = report_rx_handler(p_packet, end_of_data);
 		break;
 	case uart_set_bt_state:
-		//still not implemented
-		break;
 	case uart_set_bt_scan_state:
-//		if(p_packet->payload.data_len == 1){
-//			if(p_packet->payload.p_data[0]){ //enable scanner
-//				scan_start();
-//			}else{	//disable scanner
-//				scan_stop();
-//			}
-//		}
-		break;
 	case uart_set_bt_adv_state:
-		//still not implemented
-		break;
 	case uart_set_bt_scan_params:
-		//still not implemented
-		break;
 	case uart_set_bt_adv_params:
-		//still not implemented
+		ack_value = APP_ERROR_COMMAND_NOT_VALID;
+		//never called on the Mesh side of the uart
 		break;
 	case uart_ping:
+		ack_value = APP_ACK_SUCCESS;
+		uart_util_send_ack(p_packet, ack_value); //send the ack before pong message
+		//here we shall wait the previous message to be sent, but if the buffers are enough long the two messages will fit
 		send_pong(p_packet);
+		return;	//do not send the ack twice
 		break;
 	case uart_pong:
-		//nothing to do
+		ack_value = APP_ACK_SUCCESS;
 		break;
 	default:
+		ack_value = APP_ERROR_NOT_FOUND;
 		break;
 	}
+
+	uart_util_send_ack(p_packet, ack_value);
 	return;
 }
 

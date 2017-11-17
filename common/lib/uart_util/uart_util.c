@@ -23,7 +23,7 @@
 #include "sys/ctimer.h"
 #define UART_ACK_TIMEOUT 						40			//for small reasonable values (from 1 to 10) it doesn't work, the timeout handler triggered on the first transfer. May it be that contiki takes a long time to reschedule the process??
 #else
-#define UART_ACK_TIMEOUT						APP_TIMER_TICKS(10)
+#define UART_ACK_TIMEOUT						APP_TIMER_TICKS(100)
 #endif
 
 //TODO: Maybe it is better to use the serial library and implement the same using the DMA
@@ -39,7 +39,6 @@ typedef enum{
 uint8_t is_an_ack(uart_pkt_t* p_packet);
 uint8_t uart_util_ack_check(uart_pkt_t* p_packet);
 static void stop_wait_for_ack(void);
-void uart_util_send_ack(uart_pkt_t* p_packet);
 
 #ifndef CONTIKI
 static void sleep_handler(void);
@@ -71,9 +70,17 @@ static void sleep_handler(void)
 }
 #endif
 
-uint8_t ack_wait = false;
-uint32_t ack_wait_timeout = 0, ack_wait_start = 0;
-uart_pkt_type_t waiting_ack_for_pkt_type;
+ack_wait_t m_ack_wait = {
+		false,
+		0,
+		0,
+		uart_evt_ready,
+		0
+};
+
+//uint8_t ack_wait = false;
+//uint32_t ack_wait_timeout = 0, ack_wait_start = 0;
+//uart_pkt_type_t waiting_ack_for_pkt_type;
 #ifdef CONTIKI
 static struct ctimer m_ack_timer;
 #endif
@@ -254,10 +261,8 @@ void process_uart_rx_data(uint8_t *serial_data){
 			}
 			p_packet.payload.data_len = byte_len - UART_PKT_TYPE_LEN/2;
 
-			if(uart_util_ack_check(&p_packet)){
-				uart_util_send_ack(&p_packet);
-				uart_util_rx_handler(&p_packet);
-			}
+			uart_util_ack_check(&p_packet);
+			uart_util_rx_handler(&p_packet);
 
 #ifdef CONTIKI
 			done = 1;
@@ -282,17 +287,17 @@ void process_uart_rx_data(uint8_t *serial_data){
 //false if the packet was an ack
 uint8_t uart_util_ack_check(uart_pkt_t* p_packet) {
 	if (is_an_ack(p_packet)) {
-		if (ack_wait) {
+		if (m_ack_wait.ack_waiting) {
 			stop_wait_for_ack();
-			uart_util_tx_done();
 		}else{
 			//we received and ack while we were not waiting it, then discard it!
 		}
 		return 0; //in any case ack pacekts are not passed to the application
 	}else{
-		if (ack_wait) { //if we receive an generic packet while we were waiting an ack, stop waiting and signal the error
+		if (m_ack_wait.ack_waiting) { //if we receive an generic packet while we were waiting an ack, stop waiting and signal the error
+			ack_wait_t old_wait = m_ack_wait; //stop_wait_for_ack() resets the m_ack_wait variable. So we store a temporary version to pass it to uart_util_ack_error(...)
 			stop_wait_for_ack();
-			uart_util_ack_error();
+			uart_util_ack_error(&old_wait);
 			return 0;
 		}else{ //if we receive a generic packet while we were not waiting anything just return true to pass the packet to the application
 			return 1;
@@ -327,7 +332,7 @@ void serial_evt_handle(struct nrf_serial_s const * p_serial, nrf_serial_event_t 
 
 
 uint8_t is_an_ack(uart_pkt_t* p_packet){
-	if( p_packet->type == uart_ack ){
+	if( p_packet->type == uart_app_level_ack ){ //todo check also the state of the ack
 //		uart_pkt_type_t ack_for_type = (p_packet->payload[2] << 8) + p_packet->payload[3];
 		return 1;
 	}else{
@@ -341,23 +346,22 @@ void ack_timeout_handler(void *ptr){
 #else
 void ack_timeout_handler(){
 #endif
-
-	uint8_t old_ack_wait = ack_wait;
-    ack_wait = false;
-    ack_wait_timeout = 0;
-	ack_wait_start = 0;
-	if(old_ack_wait){ //if this is triggered but we are not waiting an ack, reset variables but not call packet_error_handler
-		uart_util_ack_error(); //ack is not valid, check if it is normal packet
+	if (m_ack_wait.ack_waiting) {
+		ack_wait_t old_wait = m_ack_wait; //stop_wait_for_ack() resets the m_ack_wait variable. So we store a temporary version to pass it to uart_util_ack_error(...)
+		stop_wait_for_ack();
+		uart_util_ack_error(&old_wait);
+	}else{ //if ack_timeout_handler() is triggered but we are not waiting an ack, reset variables but not call packet_error_handler
+		stop_wait_for_ack();
 	}
 }
 
 
 static void stop_wait_for_ack(void){
 	// Start application timers.
-	ack_wait = false;
-	ack_wait_timeout = 0;
-	ack_wait_start = 0;
-
+	m_ack_wait.ack_waiting = false;
+	m_ack_wait.ack_wait_timeout_ticks = 0;
+	m_ack_wait.ack_wait_start_ticks = 0;
+	m_ack_wait.waiting_ack_for_pkt_type = uart_evt_ready;
 #ifndef CONTIKI
 	ret_code_t err_code = app_timer_stop(m_ack_timer_id);
 	APP_ERROR_CHECK(err_code);
@@ -371,16 +375,17 @@ static void start_wait_for_ack(uint32_t timeout, uart_pkt_t *p_paket){ //timeout
 #ifndef CONTIKI
     ret_code_t err_code;
     // Start application timers.
-    ack_wait = true;
-    ack_wait_timeout = timeout;
-	ack_wait_start = app_timer_cnt_get();
-	waiting_ack_for_pkt_type = p_paket->type;
-    err_code = app_timer_start(m_ack_timer_id, ack_wait_timeout, NULL);
+    m_ack_wait.ack_waiting = true;
+    m_ack_wait.ack_wait_timeout_ticks = timeout;
+    m_ack_wait.ack_wait_start_ticks = app_timer_cnt_get();
+    m_ack_wait.waiting_ack_for_pkt_type = p_paket->type;
+    err_code = app_timer_start(m_ack_timer_id, timeout, NULL);
     APP_ERROR_CHECK(err_code);
 #else
-    ack_wait = true;
-    ack_wait_timeout = timeout;
-    ack_wait_start = clock_time();
+    m_ack_wait.ack_waiting = true;
+    m_ack_wait.ack_wait_timeout_ticks = timeout;
+    m_ack_wait.ack_wait_start_ticks = clock_time();
+    m_ack_wait.waiting_ack_for_pkt_type = p_paket->type;
 
     ctimer_set(&m_ack_timer, timeout, ack_timeout_handler, NULL); //the smallest timeout is 1/CLOCK_SECOND. Here it is 1/128 s, i.e. 8ms, which is quite fine for a timeout
 #endif
@@ -422,7 +427,7 @@ uint32_t uart_util_send_pkt(uart_pkt_t* uart_pkt_t){
 		return NRF_ERROR_NULL;
 	}
 
-	if(ack_wait){
+	if(m_ack_wait.ack_waiting){
 		return NRF_ERROR_INVALID_STATE;
 	}
 
@@ -462,7 +467,7 @@ uint32_t uart_util_send_pkt(uart_pkt_t* uart_pkt_t){
 #endif
 
 	if(ret == NRF_SUCCESS){
-		if(uart_pkt_t->type != uart_ack){ //do not send acknowledge to ack packets
+		if(uart_pkt_t->type != uart_app_level_ack){ //do not send acknowledge to ack packets
 			start_wait_for_ack(UART_ACK_TIMEOUT, uart_pkt_t);
 		}
 	}
@@ -471,19 +476,22 @@ uint32_t uart_util_send_pkt(uart_pkt_t* uart_pkt_t){
 }
 
 
-void uart_util_send_ack(uart_pkt_t* p_packet){
+void uart_util_send_ack(uart_pkt_t* p_packet, uint8_t error_code){
 	uart_pkt_t ack_pkt;
-	ack_pkt.type = uart_ack;
+	ack_pkt.type = uart_app_level_ack;
 	uint8_t ack_data[] = {
+			  	  	  	  error_code,
 						  0xFF & ((p_packet->payload.data_len) >> 8),
 						  0xFF & (p_packet->payload.data_len),
 						  0xFF & ((p_packet->type) >> 8),
 			  	  	      0xFF & (p_packet->type),
 	};
 	ack_pkt.payload.p_data = ack_data;
-	ack_pkt.payload.data_len = 4; //TODO: for now it is hardcoded
+	ack_pkt.payload.data_len = 5; //TODO: for now it is hardcoded, use defines or enum
 
 	uart_util_send_pkt(&ack_pkt);
+
+	uart_util_ack_tx_done();
 }
 
 //initialize uart based on defines in uart_util.h

@@ -63,6 +63,7 @@
 #include "app_timer.h"
 #include "app_error.h"
 #include "nrf_soc.h"
+
 //#include "nrf_cli.h"
 //#include "nrf_cli_rtt.h"
 //#include "nrf_cli_uart.h"
@@ -71,6 +72,7 @@
 //#include "nrf_log_ctrl.h"
 //#include "nrf_log_default_backends.h"
 #include "uart_util.h"
+#include "constraints.h"
 
 #ifdef ENABLE_TOF
 #include "ifs_tof.h"
@@ -99,7 +101,7 @@
 #define USE_NANOSECOND
 #define nENABLE_PHY_UPDATE
 
-#define MAXIMUM_NETWORK_SIZE			50//NRF_SDH_BLE_TOTAL_LINK_COUNT
+#define MAXIMUM_NETWORK_SIZE			MAX_NUMBER_OF_BT_BEACONS//NRF_SDH_BLE_TOTAL_LINK_COUNT
 #define MAXIMUM_NUMBER_OF_PERIPH_CONN	NRF_SDH_BLE_PERIPHERAL_LINK_COUNT
 #define MAXIMUM_NUMBER_OF_CENTRAL_CONN	IFT_TOF_MAX_NUM_OF_CENTRAL_LINKS
 
@@ -158,7 +160,7 @@ typedef struct
 	uint32_t 			last_contact_ticks;
 	int8_t				last_rssi;
 	int8_t				max_rssi;
-	uint16_t			beacon_count;
+	uint16_t			beacon_msg_count;
 } node_t;
 
 
@@ -261,14 +263,15 @@ uint32_t bd_addr_to_string(ble_gap_addr_t *p_addr, char* p_str, uint8_t max_len)
 //application helpers
 uint32_t add_node_to_report_payload(node_t *m_network, uint8_t* report_payload, uint16_t max_size);
 void send_neighbors_report(void);
-static void send_ping(void);
+void cancel_ongoing_report(void);
 static void send_pong(uart_pkt_t* p_packet);
+static void send_ping(void);
 static void send_ready(void);
 
 //uart communication helpers
-void uart_util_rx_handler(uart_pkt_t* p_packet);
-void uart_util_tx_done(void);
-void uart_util_ack_error(void);
+extern void uart_util_rx_handler(uart_pkt_t* p_packet);
+extern void uart_util_ack_tx_done(void);
+extern void uart_util_ack_error(ack_wait_t* ack_wait_data);
 
 //ToF
 #ifdef ENABLE_TOF
@@ -277,7 +280,7 @@ static void tof_results_print(ifs_tof_t * p_ctx);
 #endif
 
 //BT neighbors list management
-static void network_maintainance_check(void);
+void network_maintainance_check(void);
 uint32_t get_time_since_last_contact(node_t *p_node);
 node_t* get_beacon_pos_by_bdaddr(const ble_gap_addr_t *target_addr);
 node_t* get_network_pos_by_conn_handle(uint16_t target_conn_h);
@@ -288,10 +291,6 @@ static node_t* add_node_to_network(const ble_gap_evt_t *p_conn_evt, const ble_ga
 static node_t* update_node(const ble_gap_evt_t *p_conn_evt, const ble_gap_evt_adv_report_t *p_adv_evt, node_t * p_node);
 static void reset_node(node_t* p_node);
 static void reset_network(void);
-#if 0
-static bool find_adv_name(ble_gap_evt_adv_report_t const * p_adv_report, char const * name_to_find);
-static uint32_t adv_report_parse(uint8_t type, data_t * p_advdata, data_t * p_typedata);
-#endif
 
 //application timers helpers/callbacks
 void application_timers_start(void);
@@ -313,8 +312,11 @@ static void scan_stop(void);
 static void scan_start(void);
 static void advertising_stop(void);
 static void advertising_start(void);
-static void set_scan_params(uint8_t scan_active,uint16_t scan_interval,uint16_t scan_window,uint16_t scan_timeout);
+static void set_scan_params(uint8_t scan_active, uint16_t scan_interval, uint16_t scan_window, uint16_t scan_timeout);
 char const * phy_str(ble_gap_phys_t phys);
+static uint32_t adv_report_parse(uint8_t type, data_t * p_advdata, data_t * p_typedata);
+static bool is_known_name(ble_gap_evt_adv_report_t const * p_adv_report, char const * name_to_find);
+static bool is_known_eddystone(ble_gap_evt_adv_report_t const * p_adv_report, uint8_t const * namespace_to_find);
 
 //hardware init/callbacks/helpers
 static void initialize_leds(void);
@@ -343,7 +345,7 @@ uint32_t bd_addr_to_string(ble_gap_addr_t *p_addr, char* p_str, uint8_t max_len)
 		p_str[str_i++] = to_hex((p_addr->addr[5 - i] >> 4) & 0x0F);
 		p_str[str_i++] = to_hex((p_addr->addr[5 - i]) & 0x0F);
 	}
-	return str_i; //todo: check the return value
+	return str_i;
 }
 
 uint32_t adv_data_to_string(s_data_t *p_adv_data, char* p_str, uint8_t max_len) {
@@ -355,11 +357,11 @@ uint32_t adv_data_to_string(s_data_t *p_adv_data, char* p_str, uint8_t max_len) 
 		p_str[str_i++] = to_hex((p_adv_data->p_data[i] >> 4) & 0x0F);
 		p_str[str_i++] = to_hex((p_adv_data->p_data[i]) & 0x0F);
 	}
-	return str_i; //todo: check the return value
+	return str_i;
 }
 
 uint32_t add_node_to_report_payload(node_t *p_node, uint8_t* report_payload, uint16_t max_size) {
-	if(p_node == NULL || report_payload == NULL || max_size < SINGLE_NODE_REPORT_SIZE){
+	if (p_node == NULL || report_payload == NULL || max_size < SINGLE_NODE_REPORT_SIZE) {
 		return 0;
 	}
 
@@ -370,8 +372,8 @@ uint32_t add_node_to_report_payload(node_t *p_node, uint8_t* report_payload, uin
 	idx += BLE_GAP_ADDR_LEN;
 
 	//add last/max rssi
-	report_payload[idx++] = (uint8_t)p_node->last_rssi;
-	report_payload[idx++] = (uint8_t)p_node->max_rssi;
+	report_payload[idx++] = (uint8_t) p_node->last_rssi;
+	report_payload[idx++] = (uint8_t) p_node->max_rssi;
 
 	//add first seen
 	uint32_t seen_since = app_timer_cnt_diff_compute(app_timer_cnt_get(), p_node->first_contact_ticks);
@@ -383,14 +385,20 @@ uint32_t add_node_to_report_payload(node_t *p_node, uint8_t* report_payload, uin
 }
 
 void send_neighbors_report(void) {
-	report_procedure_running = 1;
 
 	static uint16_t n = 0;
 	bool pkt_full = false;
-	uint8_t report_payload[UART_PKT_PAYLOAD_MAX_LEN/2];
+	uint8_t report_payload[UART_PKT_PAYLOAD_MAX_LEN / 2];
 	uint16_t payload_free_from = 0;
 
 	uart_pkt_t packet;
+
+	if (report_procedure_running == 0) { //sanity check, if the report procedure was not active (maybe it was cancelled) reset n to zero
+		n = 0;
+	}
+
+	report_procedure_running = 1;
+
 	packet.payload.p_data = report_payload;
 	if (n == 0) {	//if this is the first packet of the report the type will end with the '_start'
 		packet.type = uart_resp_bt_neigh_rep_start;
@@ -400,27 +408,32 @@ void send_neighbors_report(void) {
 
 	while (n < MAXIMUM_NETWORK_SIZE && pkt_full == false) {
 		if (!is_position_free(&m_network[n])) {
-			if (UART_PKT_PAYLOAD_MAX_LEN/2 - payload_free_from > SINGLE_NODE_REPORT_SIZE) {
-				uint32_t occupied_size = add_node_to_report_payload(&m_network[n], &report_payload[payload_free_from], UART_PKT_PAYLOAD_MAX_LEN/2 - payload_free_from);
+			if (UART_PKT_PAYLOAD_MAX_LEN / 2 - payload_free_from > SINGLE_NODE_REPORT_SIZE) {
+				uint32_t occupied_size = add_node_to_report_payload(&m_network[n], &report_payload[payload_free_from], UART_PKT_PAYLOAD_MAX_LEN / 2 - payload_free_from);
 				payload_free_from += occupied_size;
-			}else{
+			} else {
 				pkt_full = true;
 			}
 		}
 		n++;
 	}
 
-	if (payload_free_from != 0) { //if there was no node, do not send
-		packet.payload.data_len = payload_free_from;
-		uart_util_send_pkt(&packet);
-	}
-
-	if (n >= MAXIMUM_NETWORK_SIZE) {
+	packet.payload.data_len = payload_free_from;
+	if (n >= MAXIMUM_NETWORK_SIZE) { //if it is the last packet for this report change the message type to uart_resp_bt_neigh_rep_end
+		packet.type = uart_resp_bt_neigh_rep_end;
 		n = 0;
 		report_procedure_running = 0;
 		payload_free_from = 0;
+	}
+	uart_util_send_pkt(&packet);
+
+	if (n == 0) {	//this is executed after the transmission of uart_resp_bt_neigh_rep_end
 		network_maintainance_check();
 	}
+}
+
+void cancel_ongoing_report(void) {
+	report_procedure_running = 0;
 }
 
 static void send_pong(uart_pkt_t* p_packet) {
@@ -481,66 +494,76 @@ void uart_util_rx_handler(uart_pkt_t* p_packet) { //once it arrives here the ack
 
 	uart_pkt_type_t type = p_packet->type;
 	uint8_t *p_payload_data = p_packet->payload.p_data;
+	uint32_t ack_value;
+
+	if (report_procedure_running == 1 && type != uart_app_level_ack) { //during report procedures accept only ack packet
+		ack_value = APP_ERROR_INVALID_STATE;
+		uart_util_send_ack(p_packet, ack_value);
+		return;
+	}
 
 	switch (type) {
-	case uart_ack:
-		//nothing to do, event not reported by uart_util module
+	case uart_app_level_ack:
+		if (p_packet->payload.data_len == 5) {
+			if (p_payload_data[0] == APP_ACK_SUCCESS) { //if the app ack is positive go on with the report
+				bsp_board_led_off(ERROR_LED);
+				if (report_procedure_running == 1) { //if it was ongoing
+					send_neighbors_report();
+				}
+			} else {	//otherwise cancel this report
+				cancel_ongoing_report();
+			}
+		}
+		return; //this avoids sending ack for ack messages
 		break;
 	case uart_evt_ready:
+		ack_value = APP_ACK_SUCCESS;
 		//still not implemented
 		break;
 	case uart_req_reset:
 		sd_nvic_SystemReset();
 		break;
 	case uart_req_bt_state:
+		ack_value = APP_ERROR_NOT_IMPLEMENTED;
 		//still not implemented
 		break;
 	case uart_req_bt_scan_state:
+		ack_value = APP_ERROR_NOT_IMPLEMENTED;
 		//still not implemented
 		break;
 	case uart_req_bt_adv_state:
+		ack_value = APP_ERROR_NOT_IMPLEMENTED;
 		//still not implemented
 		break;
 	case uart_req_bt_scan_params:
+		ack_value = APP_ERROR_NOT_IMPLEMENTED;
 		//still not implemented
 		break;
 	case uart_req_bt_adv_params:
+		ack_value = APP_ERROR_NOT_IMPLEMENTED;
 		//still not implemented
 		break;
 	case uart_req_bt_neigh_rep:
 		if (p_packet->payload.data_len == 4) {
 			uint32_t timeout_ms = (p_payload_data[0] << 24) + (p_payload_data[1] << 16) + (p_payload_data[2] << 8) + (p_payload_data[3]);
 			start_periodic_report(timeout_ms);
+			//TODO: does it need to check something before sending ack?
+			ack_value = APP_ACK_SUCCESS;
 		}
 		break;
 	case uart_resp_bt_state:
-		//still not implemented
-		break;
 	case uart_resp_bt_scan_state:
-		//still not implemented
-		break;
 	case uart_resp_bt_adv_state:
-		//still not implemented
-		break;
 	case uart_resp_bt_scan_params:
-		if (p_packet->payload.data_len == 7) {
-			uint8_t active = p_payload_data[0];
-			uint16_t scan_interval = (p_payload_data[1] << 8) + p_payload_data[2];
-			uint16_t scan_window = (p_payload_data[3] << 8) + p_payload_data[4];
-			uint16_t timeout = (p_payload_data[5] << 8) + p_payload_data[6];
-			set_scan_params(active, scan_interval, scan_window, timeout);
-		}
-		break;
 	case uart_resp_bt_adv_params:
-		//still not implemented
-		break;
 	case uart_resp_bt_neigh_rep_start:
-		//still not implemented
-		break;
 	case uart_resp_bt_neigh_rep_more:
-		//still not implemented
+	case uart_resp_bt_neigh_rep_end:
+		ack_value = APP_ERROR_COMMAND_NOT_VALID;
+		//never called on the BLE side of the uart
 		break;
 	case uart_set_bt_state:
+		ack_value = APP_ERROR_COMMAND_NOT_VALID;
 		//still not implemented
 		break;
 	case uart_set_bt_scan_state:
@@ -550,6 +573,8 @@ void uart_util_rx_handler(uart_pkt_t* p_packet) { //once it arrives here the ack
 			} else {	//disable scanner
 				scan_stop();
 			}
+			//TODO: does it need to check something before sending ack?
+			ack_value = APP_ACK_SUCCESS;
 		}
 		break;
 	case uart_set_bt_adv_state:
@@ -559,42 +584,59 @@ void uart_util_rx_handler(uart_pkt_t* p_packet) { //once it arrives here the ack
 			} else {	//disable advertiser
 				advertising_stop();
 			}
+			//TODO: does it need to check something before sending ack?
+			ack_value = APP_ACK_SUCCESS;
 		}
 		break;
 	case uart_set_bt_scan_params:
-		//still not implemented
+		if (p_packet->payload.data_len == 7) {
+			uint8_t active = p_payload_data[0];
+			uint16_t scan_interval = (p_payload_data[1] << 8) + p_payload_data[2];
+			uint16_t scan_window = (p_payload_data[3] << 8) + p_payload_data[4];
+			uint16_t timeout = (p_payload_data[5] << 8) + p_payload_data[6];
+			set_scan_params(active, scan_interval, scan_window, timeout);
+			//TODO: does it need to check something before sending ack?
+			ack_value = APP_ACK_SUCCESS;
+		}
 		break;
 	case uart_set_bt_adv_params:
+		ack_value = APP_ERROR_NOT_IMPLEMENTED;
 		//still not implemented
 		break;
 	case uart_ping:
+		ack_value = APP_ACK_SUCCESS;
+		uart_util_send_ack(p_packet, ack_value); //send the ack before pong message
+		//here we shall wait the previous message to be sent, but if the buffers are enough long the two messages will fit
 		send_pong(p_packet);
+		return;	//do not send the ack twice
 		break;
 	case uart_pong:
-		//nothing to do
+		ack_value = APP_ACK_SUCCESS;
 		break;
 	default:
+		ack_value = APP_ERROR_NOT_FOUND;
 		break;
 	}
+
+	uart_util_send_ack(p_packet, ack_value);
 	return;
 }
 
-void uart_util_tx_done(void) {
-	if (report_procedure_running == 1) {	//if the report was not completed
-		send_neighbors_report();
-	}
+void uart_util_ack_tx_done(void) {
 	return;
 }
 
-void uart_util_ack_error(void) { //todo:add error type
+void uart_util_ack_error(ack_wait_t* ack_wait_data) {
 	bsp_board_led_on(ERROR_LED);
 }
 
 #ifdef ENABLE_TOF
-static uint32_t calculate_ifs_offset(ble_gap_phys_t actual_phy) { //check/compare results with matlab!
+static uint32_t calculate_ifs_offset(ble_gap_phys_t actual_phy)
+{ //check/compare results with matlab!
 //#ifdef S140
 	uint8_t data_rate_mbps;
-	switch (actual_phy.rx_phys) {
+	switch (actual_phy.rx_phys)
+	{
 		case BLE_GAP_PHY_1MBPS:
 		data_rate_mbps = 1;
 		return (uint32_t) (T_IFS_us + PREAMBLE_LEGNTH_us + ACCESS_ADDRESS_LENGTH_bit / data_rate_mbps + RX_CHAIN_DELAY_1MPHY_us)
@@ -619,25 +661,32 @@ static uint32_t calculate_ifs_offset(ble_gap_phys_t actual_phy) { //check/compar
 //#endif
 }
 
-static void tof_results_print(ifs_tof_t * p_ctx) {
+static void tof_results_print(ifs_tof_t * p_ctx)
+{
 //	if (m_board_role == BOARD_TESTER)
 	{
 		char c;
-		if (m_test_params.continuous_test) {
+		if (m_test_params.continuous_test)
+		{
 			c = 's'; //when the test is continuous just print the summary
-		} else {
+		}
+		else
+		{
 			c = 'p';
 		}
 
-		if (c == 'p' || c == 's') {
+		if (c == 'p' || c == 's')
+		{
 			float ifs_duration_ticks_avg = 0;
 			float rssi_avg = 0;
 
 			static char addr_str[30]; //18 should be enough, but it mess up
 			bd_addr_to_string(&p_ctx->bd_address, addr_str);
 
-			for (uint32_t i = 0; i < TOF_SAMPLES_TO_ACQUIRE; i++) {
-				if (c == 'p') {
+			for (uint32_t i = 0; i < TOF_SAMPLES_TO_ACQUIRE; i++)
+			{
+				if (c == 'p')
+				{
 					NRF_LOG_INFO("i = %u ifs_duration_ticks_avg = %u rssi = %d radio_freq = 0x%08x\n\r", i,
 							p_ctx->buffer[i].ifs_duration_ticks, p_ctx->buffer[i].rssi,
 							p_ctx->buffer[i].frequency_reg);
@@ -646,7 +695,8 @@ static void tof_results_print(ifs_tof_t * p_ctx) {
 				ifs_duration_ticks_avg += p_ctx->buffer[i].ifs_duration_ticks;
 				rssi_avg += p_ctx->buffer[i].rssi;
 
-				if (i % 25 == 0 && c == 'p') {
+				if (i % 25 == 0 && c == 'p')
+				{
 					NRF_LOG_FLUSH()
 					;
 				}
@@ -662,7 +712,8 @@ static void tof_results_print(ifs_tof_t * p_ctx) {
 			NRF_LOG_RAW_INFO("Average values are ifs_duration_ticks_avg = "NRF_LOG_FLOAT_MARKER" rssi_avg = "NRF_LOG_FLOAT_MARKER"\n\r",
 					NRF_LOG_FLOAT(ifs_duration_ticks_avg), NRF_LOG_FLOAT(rssi_avg));
 #endif
-			if (!m_test_params.continuous_test) {
+			if (!m_test_params.continuous_test)
+			{
 				NRF_LOG_INFO("Total number of connection events %u, %u packets were not received",
 						p_ctx->buffer[TOF_SAMPLES_TO_ACQUIRE- 1].connection_events_counter,
 						p_ctx->buffer[TOF_SAMPLES_TO_ACQUIRE - 1].connection_events_counter - TOF_SAMPLES_TO_ACQUIRE);
@@ -671,88 +722,8 @@ static void tof_results_print(ifs_tof_t * p_ctx) {
 	}
 }
 
-/**@brief Parses advertisement data, providing length and location of the field in case
- *        matching data is found.
- *
- * @param[in]  Type of data to be looked for in advertisement data.
- * @param[in]  Advertisement report length and pointer to report.
- * @param[out] If data type requested is found in the data report, type data length andwhile(1){
-
- }
- *             pointer to data will be populated here.
- *
- * @retval NRF_SUCCESS if the data type is found in the report.
- * @retval NRF_ERROR_NOT_FOUND if the data type could not be found.
- */
-static uint32_t adv_report_parse(uint8_t type, data_t * p_advdata, data_t * p_typedata)
+static bool is_adv_connectable(ble_gap_evt_adv_report_t const * p_adv_report)
 {
-	uint32_t index = 0;
-	uint8_t * p_data;
-
-	p_data = p_advdata->p_data;
-
-	while (index < p_advdata->data_len)
-	{
-		uint8_t field_length = p_data[index];
-		uint8_t field_type = p_data[index + 1];
-
-		if (field_type == type)
-		{
-			p_typedata->p_data = &p_data[index + 2];
-			p_typedata->data_len = field_length - 1;
-			return NRF_SUCCESS;
-		}
-		index += field_length + 1;
-	}
-	return NRF_ERROR_NOT_FOUND;
-}
-
-/**@brief Function for searching a given name in the advertisement packets.
- *
- * @details Use this function to parse received advertising data and to find a given
- * name in them either as 'complete_local_name' or as 'short_local_name'.
- *
- * @param[in]   p_adv_report   advertising data to parse.
- * @param[in]   name_to_find   name to search.
- * @return   true if the given name was found, false otherwise.
- */
-static bool find_adv_name(ble_gap_evt_adv_report_t const * p_adv_report, char const * name_to_find)
-{
-	ret_code_t err_code;
-	data_t adv_data;
-	data_t dev_name;
-	bool found = false;
-
-	// Initialize advertisement report for parsing.
-	adv_data.p_data = (uint8_t *)p_adv_report->data;
-	adv_data.data_len = p_adv_report->dlen;
-
-	// Search for matching advertising names.
-	err_code = adv_report_parse(BLE_GAP_AD_TYPE_COMPLETE_LOCAL_NAME, &adv_data, &dev_name);
-
-	if ( (err_code == NRF_SUCCESS)
-			&& (strlen(name_to_find) == dev_name.data_len)
-			&& (memcmp(name_to_find, dev_name.p_data, dev_name.data_len) == 0))
-	{
-		found = true;
-	}
-	else
-	{
-		// Look for the short local name if the complete name was not found.
-		err_code = adv_report_parse(BLE_GAP_AD_TYPE_SHORT_LOCAL_NAME, &adv_data, &dev_name);
-
-		if ( (err_code == NRF_SUCCESS)
-				&& (strlen(name_to_find) == dev_name.data_len)
-				&& (memcmp(m_target_periph_name, dev_name.p_data, dev_name.data_len) == 0))
-		{
-			found = true;
-		}
-	}
-
-	return found;
-}
-
-static bool is_adv_connectable(ble_gap_evt_adv_report_t const * p_adv_report) {
 
 	ret_code_t err_code;
 	data_t flags;
@@ -763,17 +734,24 @@ static bool is_adv_connectable(ble_gap_evt_adv_report_t const * p_adv_report) {
 	// Look for the short local name if the complete name was not found.
 	err_code = adv_report_parse(BLE_GAP_AD_TYPE_FLAGS, &adv_data, &flags);
 
-	if (err_code != NRF_SUCCESS) {
+	if (err_code != NRF_SUCCESS)
+	{
 		return false;
-	} else {
+	}
+	else
+	{
 		return flags.p_data[0] && (BLE_GAP_ADV_FLAG_LE_GENERAL_DISC_MODE | BLE_GAP_ADV_FLAG_BR_EDR_NOT_SUPPORTED);
 	}
 }
 
-static bool is_link_present(ble_gap_evt_adv_report_t const * p_adv_report) {
-	for(uint8_t n = 0; n < MAXIMUM_NETWORK_SIZE; n++) {
-		if(m_network[n].conn_handle != BLE_CONN_HANDLE_INVALID) {
-			if(memcmp(&p_adv_report->peer_addr, &m_network[n].bd_address, sizeof(ble_gap_addr_t) )== 0) {
+static bool is_link_present(ble_gap_evt_adv_report_t const * p_adv_report)
+{
+	for(uint8_t n = 0; n < MAXIMUM_NETWORK_SIZE; n++)
+	{
+		if(m_network[n].conn_handle != BLE_CONN_HANDLE_INVALID)
+		{
+			if(memcmp(&p_adv_report->peer_addr, &m_network[n].bd_address, sizeof(ble_gap_addr_t) )== 0)
+			{
 				return true;
 			}
 		}
@@ -781,16 +759,18 @@ static bool is_link_present(ble_gap_evt_adv_report_t const * p_adv_report) {
 	return false;
 }
 
-void tof_init() {
+void tof_init()
+{
 	ifs_tof_init(m_ifs_tof);
-	for (uint8_t i = 0; i < MAXIMUM_NUMBER_OF_CENTRAL_CONN; i++) { //reset all instance of m_ifs_tof and register the same handler for each node
+	for (uint8_t i = 0; i < MAXIMUM_NUMBER_OF_CENTRAL_CONN; i++)
+	{ //reset all instance of m_ifs_tof and register the same handler for each node
 		ifs_tof_init_struct(&m_ifs_tof[i]);
 	}
 }
 #endif
 
-static void network_maintainance_check(void) {
-	for (uint32_t n; n < MAXIMUM_NETWORK_SIZE; n++) {
+void network_maintainance_check(void) {
+	for (uint32_t n = 0; n < MAXIMUM_NETWORK_SIZE; n++) {
 		if (m_network[n].first_contact_ticks != 0) { //exclude non valid nodes
 			if (get_time_since_last_contact(&m_network[n]) > APP_TIMER_TICKS(beacon_timeout_ms)) {
 				remove_node_from_network(&m_network[n]);
@@ -871,7 +851,7 @@ static node_t* update_node(const ble_gap_evt_t *p_conn_evt, const ble_gap_evt_ad
 			memcpy(&p_node->scan_data.p_data, &p_adv_evt->data, p_adv_evt->dlen);
 			p_node->scan_data.len = p_adv_evt->dlen;
 		} else {
-			p_node->beacon_count++;
+			p_node->beacon_msg_count++;
 			memcpy(&p_node->adv_data.p_data, &p_adv_evt->data, p_adv_evt->dlen);
 			p_node->adv_data.len = p_adv_evt->dlen;
 		}
@@ -882,7 +862,7 @@ static node_t* update_node(const ble_gap_evt_t *p_conn_evt, const ble_gap_evt_ad
 	return p_node;
 }
 
-static void reset_node(node_t* p_node){
+static void reset_node(node_t* p_node) {
 	memset(&p_node->bd_address, 0x00, sizeof(ble_gap_addr_t));
 	p_node->conn_handle = BLE_CONN_HANDLE_INVALID;
 	p_node->local_role = BLE_GAP_ROLE_INVALID;
@@ -996,7 +976,7 @@ static void gap_params_init(void) {
 /**@brief Function for setting up advertising data. */
 static void advertising_data_set(void) {
 	ble_advdata_t const adv_data = { .name_type = BLE_ADVDATA_FULL_NAME, .flags = BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE, .include_appearance =
-			false, };
+	false, };
 
 	ret_code_t err_code = ble_advdata_set(&adv_data, NULL);
 	APP_ERROR_CHECK(err_code);
@@ -1093,7 +1073,8 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context) {
 
 			m_phy_updated = true;
 
-			ble_gap_phys_t phys = {0};
+			ble_gap_phys_t phys =
+			{	0};
 			phys.tx_phys = p_phy_evt->tx_phy;
 			phys.rx_phys = p_phy_evt->rx_phy;
 
@@ -1120,23 +1101,29 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context) {
 	}
 }
 #ifdef ENABLE_TOF
-static void on_ifs_tof_buffer_full(ifs_tof_t * p_ctx) {
+static void on_ifs_tof_buffer_full(ifs_tof_t * p_ctx)
+{
 	bsp_board_led_invert(DONE_LED);
-	if (!m_test_params.continuous_test) {
+	if (!m_test_params.continuous_test)
+	{
 		test_terminate();
 	}
 	tof_results_print(p_ctx);
 }
 
 /**@brief Evt dispatcher for ifs_tof module*/
-void ifs_tof_evt_handler(ifs_tof_evt_t * p_evt) {
+void ifs_tof_evt_handler(ifs_tof_evt_t * p_evt)
+{
 
-	switch (p_evt->evt_type) {
-		case IFS_TOF_EVT_BUFFER_FULL: {
+	switch (p_evt->evt_type)
+	{
+		case IFS_TOF_EVT_BUFFER_FULL:
+		{
 			on_ifs_tof_buffer_full(p_evt->p_ctx);
 		}
 		break;
-		default: {
+		default:
+		{
 			//no implementation needed
 		}
 		break;
@@ -1154,26 +1141,31 @@ static void on_ble_gap_evt_disconnected(ble_gap_evt_t const * p_gap_evt) {
 	//NRF_LOG_DEBUG("Disconnected: reason 0x%x.\n\r", p_gap_evt->params.disconnected.reason);
 
 	node_t * p_node = get_network_pos_by_conn_handle(p_gap_evt->conn_handle);
-	if (p_node->local_role == BLE_GAP_ROLE_CENTRAL) {
+	if (p_node->local_role == BLE_GAP_ROLE_CENTRAL)
+	{
 		m_no_of_central_links--;
 		if (m_run_test)
 		{
 			NRF_LOG_WARNING("GAP disconnection from Central role while test was running.\n\r")
 		}
-	} else {
+	}
+	else
+	{
 		m_no_of_peripheral_links--;
 		if (m_run_test)
 		{
 			NRF_LOG_WARNING("GAP disconnection from Peripheral role while test was running.\n\r")
 		}
 	}
-	if(m_board_role == BOARD_DUMMY) {
+	if(m_board_role == BOARD_DUMMY)
+	{
 		advertising_start();
 	}
 	scan_start();
 	bsp_board_led_off(READY_LED);
 
-	if(m_no_of_central_links == 0) {
+	if(m_no_of_central_links == 0)
+	{
 		//bsp_board_leds_off();
 		//	test_terminate();
 	}
@@ -1192,7 +1184,8 @@ static void on_ble_gap_evt_connected(ble_gap_evt_t const * p_gap_evt) {
 //    m_conn_handle = p_gap_evt->conn_handle;
 //    m_gap_role    = p_gap_evt->params.connected.role;
 	node_t* p_node = add_node_to_network(p_gap_evt, NULL);
-	if(p_node == NULL) {
+	if(p_node == NULL)
+	{
 		return;
 	}
 	bsp_board_leds_off();
@@ -1201,10 +1194,13 @@ static void on_ble_gap_evt_connected(ble_gap_evt_t const * p_gap_evt) {
 	{
 		NRF_LOG_INFO("Connected as a peripheral.\n\r");
 		m_no_of_peripheral_links++;
-		if (m_no_of_peripheral_links < MAXIMUM_NUMBER_OF_PERIPH_CONN) {
+		if (m_no_of_peripheral_links < MAXIMUM_NUMBER_OF_PERIPH_CONN)
+		{
 			m_advertising_active = false; //workaround needed
 			advertising_start();
-		} else {
+		}
+		else
+		{
 			advertising_stop();
 		}
 	}
@@ -1214,25 +1210,33 @@ static void on_ble_gap_evt_connected(ble_gap_evt_t const * p_gap_evt) {
 
 		m_no_of_central_links++;
 		ifs_tof_register_conn_handle(p_gap_evt, ifs_tof_evt_handler);
-		if(m_board_role == BOARD_DUMMY) {
+		if(m_board_role == BOARD_DUMMY)
+		{
 			advertising_start();
 		}
-		if (m_no_of_central_links < MAXIMUM_NUMBER_OF_CENTRAL_CONN) {
+		if (m_no_of_central_links < MAXIMUM_NUMBER_OF_CENTRAL_CONN)
+		{
 			scan_start();
-		} else {
+		}
+		else
+		{
 			scan_stop();
 		}
 
-		if (m_test_params.conn_interval != CONN_INTERVAL_DEFAULT) {
+		if (m_test_params.conn_interval != CONN_INTERVAL_DEFAULT)
+		{
 			NRF_LOG_DEBUG("Updating connection parameters..\n\r");
 			m_conn_param.min_conn_interval = m_test_params.conn_interval;
 			m_conn_param.max_conn_interval = m_test_params.conn_interval;
 			err_code = sd_ble_gap_conn_param_update(p_node->local_role, &m_conn_param);
 
-			if (err_code != NRF_SUCCESS) {
+			if (err_code != NRF_SUCCESS)
+			{
 				NRF_LOG_ERROR("sd_ble_gap_conn_param_update() failed: 0x%x.\n\r", err_code);
 			}
-		} else {
+		}
+		else
+		{
 			m_conn_interval_configured = true;
 		}
 
@@ -1262,30 +1266,58 @@ static void on_ble_gap_evt_connected(ble_gap_evt_t const * p_gap_evt) {
  */
 static void on_ble_gap_evt_adv_report(ble_gap_evt_t const * p_gap_evt) {
 
-	node_t *node = get_beacon_pos_by_bdaddr(&p_gap_evt->params.adv_report.peer_addr);
-	if (node == NULL) {
-		add_node_to_network(NULL, &p_gap_evt->params.adv_report);
+	if (p_gap_evt->params.adv_report.scan_rsp) {	//if it is a scan response it won't contain eddystone frame. It may contain the name. And it may be valid if the node is already in the list
+
+		node_t *node = get_beacon_pos_by_bdaddr(&p_gap_evt->params.adv_report.peer_addr);
+		if (node == NULL) {
+			if (is_known_name(&p_gap_evt->params.adv_report, m_target_periph_name) || is_known_name(&p_gap_evt->params.adv_report, m_target_periph_name_alt)) {
+				add_node_to_network(NULL, &p_gap_evt->params.adv_report);
+			}
+		} else {
+			update_node(NULL, &p_gap_evt->params.adv_report, node);
+		}
 	} else {
-		update_node(NULL, &p_gap_evt->params.adv_report, node);
-	}
 
+		bool node_to_track = false;
+		if (is_known_name(&p_gap_evt->params.adv_report, m_target_periph_name) || is_known_name(&p_gap_evt->params.adv_report, m_target_periph_name_alt)) {
+			node_to_track = true;
+		} else {
+
+			uint8_t valid_eddystone_namespace[] = VALID_EDDYSTONE_NAMESPACES;
+
+			if (is_known_eddystone(&p_gap_evt->params.adv_report, valid_eddystone_namespace)) {
+
+				node_to_track = true;
+			}
+		}
+
+		if (node_to_track) {
+			node_t *node = get_beacon_pos_by_bdaddr(&p_gap_evt->params.adv_report.peer_addr);
+			if (node == NULL) {
+				add_node_to_network(NULL, &p_gap_evt->params.adv_report);
+			} else {
+				update_node(NULL, &p_gap_evt->params.adv_report, node);
+			}
+		} else {
+			return;
+		}
+	}
 #ifdef ENABLE_TOF
-	if (!find_adv_name(&p_gap_evt->params.adv_report, m_target_periph_name)
-			&& !find_adv_name(&p_gap_evt->params.adv_report, m_target_periph_name_alt)) {
+
+	if (!is_adv_connectable(&p_gap_evt->params.adv_report))
+	{
 		return;
 	}
 
-	if (!is_adv_connectable(&p_gap_evt->params.adv_report)) {
-		return;
-	}
-
-	if(is_link_present(&p_gap_evt->params.adv_report)) {
+	if(is_link_present(&p_gap_evt->params.adv_report))
+	{
 		return;
 	}
 
 	bsp_board_led_invert(PROGRESS_LED);
 
-	if (allow_new_connections && m_no_of_central_links < MAXIMUM_NUMBER_OF_CENTRAL_CONN) {
+	if (allow_new_connections && m_no_of_central_links < MAXIMUM_NUMBER_OF_CENTRAL_CONN)
+	{
 		//m_no_of_central_links = false;
 		NRF_LOG_INFO("Device \"%s\" found, sending a connection request.\n\r", (uint32_t ) m_target_periph_name);
 
@@ -1302,7 +1334,8 @@ static void on_ble_gap_evt_adv_report(ble_gap_evt_t const * p_gap_evt) {
 		err_code = sd_ble_gap_connect(&p_gap_evt->params.adv_report.peer_addr, &m_scan_param, &m_conn_param,
 				APP_BLE_CONN_CFG_TAG);
 
-		if (err_code != NRF_SUCCESS) {
+		if (err_code != NRF_SUCCESS)
+		{
 			NRF_LOG_ERROR("sd_ble_gap_connect() failed: 0x%x.\n\r", err_code);
 		}
 	}
@@ -1359,8 +1392,8 @@ static void advertising_start(void) {
 	}
 }
 
-static void set_scan_params(uint8_t scan_active,uint16_t scan_interval,uint16_t scan_window,uint16_t scan_timeout){
-	if(m_scan_active){
+static void set_scan_params(uint8_t scan_active, uint16_t scan_interval, uint16_t scan_window, uint16_t scan_timeout) {
+	if (m_scan_active) {
 		ret_code_t err_code = sd_ble_gap_scan_stop();
 		APP_ERROR_CHECK(err_code);
 	}
@@ -1370,7 +1403,7 @@ static void set_scan_params(uint8_t scan_active,uint16_t scan_interval,uint16_t 
 	m_scan_param.window = scan_window;
 	m_scan_param.timeout = scan_timeout;
 
-	if(m_scan_active){
+	if (m_scan_active) {
 		ret_code_t err_code = sd_ble_gap_scan_start(&m_scan_param);
 		APP_ERROR_CHECK(err_code);
 	}
@@ -1394,6 +1427,141 @@ char const * phy_str(ble_gap_phys_t phys) {
 		}
 	default:
 		return str[3];
+	}
+}
+
+/**@brief Parses advertisement data, providing length and location of the field in case
+ *        matching data is found.
+ *
+ * @param[in]  Type of data to be looked for in advertisement data.
+ * @param[in]  Advertisement report length and pointer to report.
+ * @param[out] If data type requested is found in the data report, type data length andwhile(1){
+
+ }
+ *             pointer to data will be populated here.
+ *
+ * @retval NRF_SUCCESS if the data type is found in the report.
+ * @retval NRF_ERROR_NOT_FOUND if the data type could not be found.
+ */
+static uint32_t adv_report_parse(uint8_t type, data_t * p_advdata, data_t * p_typedata) {
+	uint32_t index = 0;
+	uint8_t * p_data;
+
+	p_data = p_advdata->p_data;
+
+	while (index < p_advdata->data_len) {
+		uint8_t field_length = p_data[index];
+		uint8_t field_type = p_data[index + 1];
+
+		if (field_type == type) {
+			p_typedata->p_data = &p_data[index + 2];
+			p_typedata->data_len = field_length - 1;
+			return NRF_SUCCESS;
+		}
+		index += field_length + 1;
+	}
+	return NRF_ERROR_NOT_FOUND;
+}
+
+/**@brief Function for searching a given name in the advertisement packets.
+ *
+ * @details Use this function to parse received advertising data and to find a given
+ * name in them either as 'complete_local_name' or as 'short_local_name'.
+ *
+ * @param[in]   p_adv_report   advertising data to parse.
+ * @param[in]   name_to_find   name to search.
+ * @return   true if the given name was found, false otherwise.
+ */
+static bool is_known_name(ble_gap_evt_adv_report_t const * p_adv_report, char const * name_to_find) {
+
+	ret_code_t err_code;
+	data_t adv_data;
+	data_t dev_name;
+	bool found = false;
+
+	// Initialize advertisement report for parsing.
+	adv_data.p_data = (uint8_t *) p_adv_report->data;
+	adv_data.data_len = p_adv_report->dlen;
+
+	// Search for matching advertising names.
+	err_code = adv_report_parse(BLE_GAP_AD_TYPE_COMPLETE_LOCAL_NAME, &adv_data, &dev_name);
+
+	if ((err_code == NRF_SUCCESS) && (strlen(name_to_find) == dev_name.data_len) && (memcmp(name_to_find, dev_name.p_data, dev_name.data_len) == 0)) {
+		found = true;
+	} else {
+		// Look for the short local name if the complete name was not found.
+		err_code = adv_report_parse(BLE_GAP_AD_TYPE_SHORT_LOCAL_NAME, &adv_data, &dev_name);
+
+		if ((err_code == NRF_SUCCESS) && (strlen(name_to_find) == dev_name.data_len) && (memcmp(m_target_periph_name, dev_name.p_data, dev_name.data_len) == 0)) {
+			found = true;
+		}
+	}
+
+	return found;
+}
+
+static bool is_known_eddystone(ble_gap_evt_adv_report_t const * p_adv_report, uint8_t const * namespace_to_find) {
+
+	ret_code_t err_code;
+	data_t adv_data;
+	data_t uuid_data;
+
+	// Initialize advertisement report for parsing.
+	adv_data.p_data = (uint8_t *) p_adv_report->data;
+	adv_data.data_len = p_adv_report->dlen;
+
+#if 1
+	/* In the next two parts first we check if the eddystone uuid is broadcasted in the packet, then we check
+	 * if the eddystone frame is present in the packet. Probably checking just the second condition is enough.
+	 * For skipping the first check and speed up the process change to zero the #if statement
+	 */
+	err_code = adv_report_parse(BLE_GAP_AD_TYPE_16BIT_SERVICE_UUID_COMPLETE, &adv_data, &uuid_data);
+	if (err_code == NRF_SUCCESS) {
+		if (uuid_data.data_len == 2) {
+			uint16_t uuid = (uuid_data.p_data[1] << 8) + uuid_data.p_data[0];
+			if (uuid == EDDYSTONE_SERVICE_UUID_16BIT) { //the uuid has been found and it equals the eddystone uuid
+				//just go on
+			} else { 	//an uuid has been found, but it doesn't mathc the eddystone uuid
+				return false;
+			}
+		} else {	//the uuid data found is not long 2 (this should never happen)
+			return false;
+		}
+	} else {	//no 16bit uuid found in the adv packet
+		return false;
+	}
+#endif
+
+	data_t eddystone_ad_data;
+	err_code = adv_report_parse(BLE_GAP_AD_TYPE_SERVICE_DATA, &adv_data, &eddystone_ad_data);
+	if (err_code == NRF_SUCCESS) {
+		if (eddystone_ad_data.data_len == 22) {
+			uint16_t uuid = (eddystone_ad_data.p_data[1] << 8) + eddystone_ad_data.p_data[0];
+			if (uuid == EDDYSTONE_SERVICE_UUID_16BIT) { //the uuid has been found and it equals the eddystone uuid
+				uint8_t *eddystone_frame = &eddystone_ad_data.p_data[2];
+				if (eddystone_frame[0] == EDDYSTONE_UID_FRAME_TYPE) {
+					if (memcmp(&eddystone_frame[2], namespace_to_find, EDDYSTONE_NAMESPACE_LENGTH) == 0) {
+						return true;
+					} else {	//the eddystone namespace do not match with namespace_to_find
+						return false;
+					}
+				} else if (eddystone_frame[0] == EDDYSTONE_URL_FRAME_TYPE) {
+					return false; //don't know what to do with this kind of frame for now
+				} else if (eddystone_frame[0] == EDDYSTONE_TLM_FRAME_TYPE) {
+					return false; //don't know what to do with this kind of frame for now
+				} else if (eddystone_frame[0] == EDDYSTONE_EID_FRAME_TYPE) {
+					return false; //don't know what to do with this kind of frame for now
+				} else {
+					return false; //not valid frame type
+				}
+			} else {
+				return false;
+			}
+		} else {
+			return false; //the length is not compatible with eddystone
+		}
+	} else {
+		return false; //service data not found
 	}
 }
 
@@ -1426,8 +1594,7 @@ static void timer_init(void) {
  */
 static void buttons_init(void) {
 	// The array must be static because a pointer to it will be saved in the button library.
-	static app_button_cfg_t buttons[] = { { TOGGLE_SCAN_BUTTON, false, BUTTON_PULL, button_evt_handler }, { TOGGLE_ADV_BUTTON, false, BUTTON_PULL,
-			button_evt_handler }
+	static app_button_cfg_t buttons[] = { { TOGGLE_SCAN_BUTTON, false, BUTTON_PULL, button_evt_handler }, { TOGGLE_ADV_BUTTON, false, BUTTON_PULL, button_evt_handler }
 	//{TOGGLE_TOF_BUTTON,  false, BUTTON_PULL, button_evt_handler}
 			};
 
@@ -1448,7 +1615,6 @@ static void buttons_enable(void) {
 //    ret_code_t err_code = app_button_disable();
 //    APP_ERROR_CHECK(err_code);
 //}
-
 /**@brief Function for handling events from the button handler module.
  *
  * @param[in] pin_no        The pin that the event applies to.
