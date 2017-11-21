@@ -467,12 +467,15 @@ PROCESS_THREAD(cc2650_uart_process, ev, data) {
 		;
 
 		initialize_reset_pin();
-		uart_util_initialize();
 
 		cc26xx_uart_set_input(serial_line_input_byte);
+
+		uart_util_initialize();
+
 		leds_off(LEDS_CONF_ALL);
 
 		fsm_stop();
+
 		reset_nodric();
 
 		while (1) {

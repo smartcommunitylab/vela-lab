@@ -21,6 +21,7 @@
 #include "dev/serial-line.h"
 #include "dev/leds.h"
 #include "sys/ctimer.h"
+#include "ti-lib.h"
 #define UART_ACK_TIMEOUT 						40			//for small reasonable values (from 1 to 10) it doesn't work, the timeout handler triggered on the first transfer. May it be that contiki takes a long time to reschedule the process??
 #else
 #define UART_ACK_TIMEOUT						APP_TIMER_TICKS(100)
@@ -39,7 +40,9 @@ typedef enum{
 uint8_t is_an_ack(uart_pkt_t* p_packet);
 uint8_t uart_util_ack_check(uart_pkt_t* p_packet);
 static void stop_wait_for_ack(void);
-
+#ifdef CONTIKI
+void enable_uart_flow_control(void);
+#endif
 #ifndef CONTIKI
 static void sleep_handler(void);
 void serial_evt_handle(struct nrf_serial_s const * p_serial, nrf_serial_event_t event);
@@ -487,6 +490,36 @@ void uart_util_send_ack(uart_pkt_t* p_packet, uint8_t error_code){
 	uart_util_ack_tx_done();
 }
 
+#ifdef CONTIKI
+void enable_uart_flow_control(void){
+
+	/* disable the UART */
+    ti_lib_uart_disable(UART0_BASE);
+
+    /* Disable all UART interrupts and clear all flags */
+    /* Acknowledge UART interrupts */
+    ti_lib_int_disable(INT_UART0_COMB);
+
+    /* Disable all UART module interrupts */
+    ti_lib_uart_int_disable(UART0_BASE, UART_INT_OE | UART_INT_BE | UART_INT_PE | UART_INT_FE | UART_INT_RT | UART_INT_TX | UART_INT_RX | UART_INT_CTS);
+
+    /* Clear all UART interrupts */
+    ti_lib_uart_int_clear(UART0_BASE, UART_INT_OE | UART_INT_BE | UART_INT_PE | UART_INT_FE | UART_INT_RT | UART_INT_TX | UART_INT_RX | UART_INT_CTS);
+
+    /* Configure hardware flow control if the CTS and RTS are assigned */
+    ti_lib_uart_hw_flow_control_en(UART0_BASE);
+
+      /* Enable UART interrupts */
+    /* Configure which interrupts to generate: FIFO level or after RX timeout */
+    ti_lib_uart_int_enable(UART0_BASE, UART_INT_RX | UART_INT_RT);
+
+    /* Acknowledge UART interrupts */
+    ti_lib_int_enable(INT_UART0_COMB);
+
+    /* enable the UART */
+    ti_lib_uart_enable(UART0_BASE);
+}
+#endif
 //initialize uart based on defines in uart_util.h
 void uart_util_initialize(void){
 #ifndef CONTIKI
@@ -498,6 +531,10 @@ void uart_util_initialize(void){
                                 ack_timeout_handler);
 
     APP_ERROR_CHECK(ret);
+#else
+#if BOARD_IOID_UART_CTS != IOID_UNUSED && BOARD_IOID_UART_RTS != IOID_UNUSED
+    enable_uart_flow_control();
+#endif
 #endif
 }
 
