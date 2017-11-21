@@ -50,6 +50,9 @@ typedef enum{
 #define BT_REPORT_BUFFER_SIZE 	MAX_MESH_PAYLOAD_SIZE
 #define REPORT_TIMEOUT_MS		5000
 
+/** Converts a macro argument into a character constant.
+ */
+#define STRINGIFY(val)  #val
 app_state_t m_app_state = stop;
 uint8_t no_of_attempts = 0;
 uint8_t bt_report_buffer[BT_REPORT_BUFFER_SIZE];
@@ -284,9 +287,12 @@ void send_set_bt_scan_params(void) {
 }
 
 void send_ready(void) {
+
+	char version_string[] = STRINGIFY(VERSION_STRING);
+
 	uart_pkt_t pong_packet;
-	pong_packet.payload.p_data = NULL;
-	pong_packet.payload.data_len = 0;
+	pong_packet.payload.p_data = (uint8_t*)version_string;
+	pong_packet.payload.data_len = strlen(version_string);
 	pong_packet.type = uart_evt_ready;
 
 	uart_util_send_pkt(&pong_packet);

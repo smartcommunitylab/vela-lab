@@ -6,4 +6,15 @@ export CONTIKI_ROOT={absolute_path_to_contiki}
 
 export CONTIKI_ROOT=/home/giova/workspaces/GIT/contiki
 
-make "$@" V=1 PORT=/dev/ttyUSB1
+while IFS=. read major minor build
+do
+VERSION_MAJOR=$major
+VERSION_MINOR=$minor
+VERSION_BUILD=$build
+done < version
+
+VERSION_BUILD=$((${VERSION_BUILD}+1))
+export VERSION_STRING=$((VERSION_MAJOR)).$((VERSION_MINOR)).$((VERSION_BUILD))
+echo $VERSION_STRING > version
+
+make "$@" V=1 PORT=/dev/ttyACM1

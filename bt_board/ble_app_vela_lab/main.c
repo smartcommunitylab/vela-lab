@@ -89,6 +89,7 @@
 #define PROGRESS_LED                    BSP_BOARD_LED_2
 #define ERROR_LED                       BSP_BOARD_LED_3
 
+#define LED_BLINK_TIMEOUT_MS			50
 #define TOGGLE_SCAN_BUTTON             	BSP_BUTTON_2                                    /**< Button to press at beginning of the test to indicate that this board is connected to the PC and takes input from it via the UART. */
 #define TOGGLE_ADV_BUTTON           	BSP_BUTTON_3                                    /**< Button to press at beginning of the test to indicate that this board is standalone (automatic behavior). */
 //#define TOGGLE_TOF_BUTTON				BSP_BUTTON_3
@@ -116,6 +117,7 @@
 
 APP_TIMER_DEF(m_periodic_timer_id);
 APP_TIMER_DEF(m_report_timer_id);
+APP_TIMER_DEF(m_led_timer_id);
 
 typedef enum
 {
@@ -311,6 +313,8 @@ void application_timers_start(void);
 void start_periodic_report(uint32_t timeout_ms);
 static void report_timeout_handler(void * p_context);
 static void periodic_timer_timeout_handler(void * p_context);
+static void led_timeout_handler(void * p_context);
+void blink_led(uint8_t led_idx, uint32_t blink_timeout);
 
 //bt callbacks/helpers
 static void ble_stack_init(void);
@@ -507,9 +511,12 @@ static void send_ping(void) {
 }
 
 static void send_ready(void) {
+
+	char version_string[] = STRINGIFY(VERSION_STRING);
+
 	uart_pkt_t pong_packet;
-	pong_packet.payload.p_data = NULL;
-	pong_packet.payload.data_len = 0;
+	pong_packet.payload.p_data = (uint8_t*)version_string;
+	pong_packet.payload.data_len = strlen(version_string);
 	pong_packet.type = uart_evt_ready;
 
 	uart_util_send_pkt(&pong_packet);
@@ -652,7 +659,7 @@ void uart_util_ack_tx_done(void) {
 }
 
 void uart_util_ack_error(ack_wait_t* ack_wait_data) {
-	bsp_board_led_on(ERROR_LED);
+	blink_led(ERROR_LED, LED_BLINK_TIMEOUT_MS);
 }
 
 #ifdef ENABLE_TOF
@@ -1040,8 +1047,20 @@ static void periodic_timer_timeout_handler(void * p_context) {
 		bsp_board_led_invert(PROGRESS_LED);
 		send_ping();
 	} else {
-		bsp_board_led_on(ERROR_LED);
+		blink_led(ERROR_LED, LED_BLINK_TIMEOUT_MS);
 	}
+}
+
+static void led_timeout_handler(void * p_context) {
+	uint32_t *blinking_led = (uint32_t*)p_context;
+	bsp_board_led_off(*blinking_led);
+}
+
+void blink_led(uint8_t led_idx, uint32_t blink_timeout_ms) {
+	static uint32_t blinking_led = 0;
+	blinking_led = led_idx;
+	bsp_board_led_on(blinking_led);
+	app_timer_start(m_led_timer_id, APP_TIMER_TICKS(blink_timeout_ms), &blinking_led);
 }
 
 /**@brief Function for initializing the BLE stack.
