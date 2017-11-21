@@ -148,13 +148,6 @@ typedef struct
     bool 			continuous_test;			/**< if set to true the test keeps going on (works without data stream) */
 } test_params_t;
 
-/**@brief Variable length data encapsulation in terms of length and pointer to data. */
-typedef struct
-{
-    uint8_t  * p_data;      /**< Pointer to data. */
-    uint16_t   data_len;    /**< Length of data. */
-} data_t;
-
 typedef struct
 {
     uint8_t    p_data[31];      /**< Pointer to data. */
