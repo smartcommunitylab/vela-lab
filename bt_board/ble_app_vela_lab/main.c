@@ -90,9 +90,10 @@
 #define ERROR_LED                       BSP_BOARD_LED_3
 
 #define LED_BLINK_TIMEOUT_MS			50
+
 #define TOGGLE_SCAN_BUTTON             	BSP_BUTTON_2                                    /**< Button to press at beginning of the test to indicate that this board is connected to the PC and takes input from it via the UART. */
 #define TOGGLE_ADV_BUTTON           	BSP_BUTTON_3                                    /**< Button to press at beginning of the test to indicate that this board is standalone (automatic behavior). */
-//#define TOGGLE_TOF_BUTTON				BSP_BUTTON_3
+//#define VERBOSE_LED_BUTTON				BSP_BUTTON_3
 #define BUTTON_DETECTION_DELAY          APP_TIMER_TICKS(50)                             /**< Delay from a GPIOTE event until a button is reported as pushed (in number of timer ticks). */
 
 #define APP_BLE_CONN_CFG_TAG            1                                               /**< A tag that refers to the BLE stack configuration. */
@@ -208,6 +209,7 @@ static uint32_t m_periodic_report_timeout = 0;
 uint32_t report_procedure_running = 0;
 uint8_t stop = 0;
 uint32_t beacon_timeout_ms = NODE_TIMEOUT_DEFAULT_MS;
+//uint32_t blinking_led;
 
 #ifdef ENABLE_TOF
 static uint8_t m_no_of_central_links = 0;
@@ -403,7 +405,7 @@ uint32_t add_node_to_report_payload(node_t *p_node, uint8_t* report_payload, uin
 
 	//add seen since
 	uint32_t seen_since_tick = app_timer_cnt_diff_compute(app_timer_cnt_get(), p_node->first_contact_ticks);
-	uint16_t seen_since_s = APP_TIMER_MS( seen_since_tick/1000 );
+	uint16_t seen_since_s = APP_TIMER_MS( seen_since_tick / 1000 ) ;
 	report_payload[idx++] = seen_since_s >> 8;
 	report_payload[idx++] = seen_since_s;
 
@@ -538,11 +540,11 @@ void uart_util_rx_handler(uart_pkt_t* p_packet) { //once it arrives here the ack
 	case uart_app_level_ack:
 		if (p_packet->payload.data_len == 5) {
 			if (p_payload_data[0] == APP_ACK_SUCCESS) { //if the app ack is positive go on with the report
-				bsp_board_led_off(ERROR_LED);
 				if (report_procedure_running == 1) { //if it was ongoing
 					send_neighbors_report();
 				}
 			} else {	//otherwise cancel this report
+				blink_led(ERROR_LED, LED_BLINK_TIMEOUT_MS);
 				cancel_ongoing_report();
 			}
 		}
@@ -1790,14 +1792,29 @@ static void timer_init(void) {
 
 	err_code = app_timer_create(&m_report_timer_id, APP_TIMER_MODE_REPEATED, report_timeout_handler);
 	APP_ERROR_CHECK(err_code);
+
+	err_code = app_timer_create(&m_led_timer_id, APP_TIMER_MODE_SINGLE_SHOT, led_timeout_handler);
+	APP_ERROR_CHECK(err_code);
+
 }
 
 /**@brief Function for initializing the button library.
  */
 static void buttons_init(void) {
 	// The array must be static because a pointer to it will be saved in the button library.
-	static app_button_cfg_t buttons[] = { { TOGGLE_SCAN_BUTTON, false, BUTTON_PULL, button_evt_handler }, { TOGGLE_ADV_BUTTON, false, BUTTON_PULL, button_evt_handler }
-	//{TOGGLE_TOF_BUTTON,  false, BUTTON_PULL, button_evt_handler}
+	static app_button_cfg_t buttons[] = {
+											{
+											TOGGLE_SCAN_BUTTON,
+											false,
+											BUTTON_PULL,
+											button_evt_handler
+											},
+											{
+											TOGGLE_ADV_BUTTON,
+											false,
+											BUTTON_PULL,
+											button_evt_handler
+											}
 			};
 
 	ret_code_t err_code = app_button_init(buttons, ARRAY_SIZE(buttons), BUTTON_DETECTION_DELAY);

@@ -8,11 +8,10 @@ SDK_ROOT := ${NRF52_SDK_ROOT}
 # ${NRF52_SDK_ROOT}
 
 PROJ_DIR := ../../..
-
 COMMON_DIR := ${PROJ_DIR}/../../common
 
 $(OUTPUT_DIRECTORY)/nrf52832_xxaa.out: \
-  LINKER_SCRIPT  := ble_app_vela_lab_gcc_nrf52.ld
+LINKER_SCRIPT  := ble_app_vela_lab_gcc_nrf52.ld
 
 # Source files common to all targets
 SRC_FILES += \
