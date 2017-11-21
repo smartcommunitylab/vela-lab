@@ -24,12 +24,13 @@
 #include <string.h>
 #include "uart_util.h"
 #include "constraints.h"
+#include "sys/ctimer.h"
 
 PROCESS(cc2650_uart_process, "cc2650 uart process");
 AUTOSTART_PROCESSES(&cc2650_uart_process);
 
 typedef enum{
-	stop,
+	wait,
 	initializing1,
 	initializing2,
 	initializing3,
@@ -46,18 +47,25 @@ typedef enum{
 
 #define MAX_MESH_PAYLOAD_SIZE	MAX_NUMBER_OF_BT_BEACONS*SINGLE_NODE_REPORT_SIZE
 
-#define PING_PACKET_SIZE		0
+#define PING_PACKET_SIZE		50
 #define BT_REPORT_BUFFER_SIZE 	MAX_MESH_PAYLOAD_SIZE
 #define REPORT_TIMEOUT_MS		5000
+#define PING_TIMEOUT 			CLOCK_SECOND*5
 
 /** Converts a macro argument into a character constant.
  */
 #define STRINGIFY(val)  #val
-app_state_t m_app_state = stop;
+
+static struct ctimer m_ping_timer;
+
+app_state_t m_app_state = wait;
 uint8_t no_of_attempts = 0;
 uint8_t bt_report_buffer[BT_REPORT_BUFFER_SIZE];
 
+uint32_t report_ready(uint8_t *p_buff, uint16_t size);
 uint32_t report_rx_handler(uart_pkt_t* p_packet, report_type_t m_report_type );
+
+void ping_timeout_handler(void *ptr);
 
 void fsm_state_update(void);
 void fsm_state_process(void);
@@ -124,12 +132,18 @@ uint32_t report_rx_handler(uart_pkt_t* p_packet, report_type_t m_report_type ){
 	return ret;
 }
 
+void ping_timeout_handler(void *ptr){
+	ctimer_reset(&m_ping_timer);
+
+	send_ping();
+}
+
 void fsm_state_update(void) {
 
 	app_state_t new_app_state = m_app_state;
 	switch (m_app_state) {
-	case stop:
-		new_app_state = stop;
+	case wait:
+		new_app_state = wait;
 		break;
 	case initializing1:
 		new_app_state = initializing2;
@@ -157,11 +171,13 @@ void fsm_state_update(void) {
 }
 
 void fsm_state_process(void) {
-	leds_off(LEDS_GREEN);
+	leds_off(LEDS_RED);
 	switch (m_app_state) {
-	case stop:
+	case wait:
+		ctimer_set(&m_ping_timer, PING_TIMEOUT, ping_timeout_handler, NULL);
 		break;
 	case initializing1:
+		ctimer_stop(&m_ping_timer); //stop pinging
 		send_ready();
 		break;
 	case initializing2:
@@ -186,7 +202,8 @@ void fsm_state_process(void) {
 }
 
 void fsm_stop(void){
-	m_app_state = stop;
+	m_app_state = wait;
+	fsm_state_process();
 }
 
 void fsm_start(void) {
@@ -326,6 +343,10 @@ void request_periodic_report_to_nordic(uint32_t report_timeout_ms){
 #define MAX_ATTEMPTS 3
 void uart_util_ack_error(ack_wait_t* ack_wait_data) {
 	leds_on(LEDS_RED);
+	if(m_app_state == wait){
+		return;
+	}
+
 	if(no_of_attempts < MAX_ATTEMPTS){
 		no_of_attempts++;
 		fsm_state_process(); //if there is an error try to resend
@@ -449,6 +470,7 @@ PROCESS_THREAD(cc2650_uart_process, ev, data) {
 		cc26xx_uart_set_input(serial_line_input_byte);
 		leds_off(LEDS_CONF_ALL);
 
+		fsm_stop();
 		reset_nodric();
 
 		while (1) {
