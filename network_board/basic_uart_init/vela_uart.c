@@ -98,7 +98,7 @@ void vela_uart_init() {
 
 uint32_t report_ready(data_t *p_data){
 	//PROCESS REPORT: return APP_ACK_SUCCESS as soon as possible
-	leds_toggle(LEDS_YELLOW);
+	process_post(&vela_sender_process, event_data_ready, p_data);
 	return APP_ACK_SUCCESS;
 }
 
