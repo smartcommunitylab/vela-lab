@@ -23,9 +23,9 @@
 #include "dev/leds.h"
 #include "sys/ctimer.h"
 #include "ti-lib.h"
-#define UART_ACK_TIMEOUT 						40			//for small reasonable values (from 1 to 10) it doesn't work, the timeout handler triggered on the first transfer. May it be that contiki takes a long time to reschedule the process??
+#define UART_ACK_TIMEOUT 						CLOCK_SECOND/2			//for small reasonable values (from 1 to 10) it doesn't work, the timeout handler triggered on the first transfer. May it be that contiki takes a long time to reschedule the process??
 #else
-#define UART_ACK_TIMEOUT						APP_TIMER_TICKS(100)
+#define UART_ACK_TIMEOUT						APP_TIMER_TICKS(500)
 #endif
 
 //TODO: Maybe it is better to use the serial library and implement the same using the DMA
