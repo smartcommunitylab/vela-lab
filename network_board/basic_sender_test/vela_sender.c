@@ -12,7 +12,8 @@
 #include "sys/node-id.h"
 #include "simple-udp.h"
 #include "servreg-hack.h"
-#include "fake_uart.h"
+#include "vela_uart.h"
+#include "vela_shared.h"
 #include "vela_sender.h"
 #include <stdio.h>
 

@@ -12,7 +12,7 @@ channel check interval
 #include "sys/etimer.h"
 #include <stdio.h>
 #include <string.h>
-#include "fake_uart.h"
+#include "vela_uart.h"
 #include "vela_sender.h"
 
 
@@ -30,7 +30,7 @@ PROCESS_THREAD(vela_node_process, ev, data)
   printf("main: started\n");
 
   // initialize and start the other threads
-  fake_uart_init();
+  vela_uart_init();
   vela_sender_init();
 
   // do something, probably related to the watchdog

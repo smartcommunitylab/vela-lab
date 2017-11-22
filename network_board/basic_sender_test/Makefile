@@ -18,7 +18,7 @@ BOARD  ?= launchpad/cc2650
 
 CFLAGS += -DPROJECT_CONF_H=\"project-conf.h\"
 
-PROJECT_SOURCEFILES += fake_uart.c
+PROJECT_SOURCEFILES += vela_uart.c
 PROJECT_SOURCEFILES += vela_sender.c
 PROJECT_SOURCEFILES += sink_receiver.c
 
