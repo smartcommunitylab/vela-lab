@@ -10,7 +10,7 @@
 //#include "net/ip/uip-debug.h"
 #include "vela_uart.h"
 #include "vela_sender.h"
-
+#include "dev/leds.h"
 
 
 PROCESS(vela_sender_process, "vela sender (fake) process");
@@ -42,7 +42,7 @@ PROCESS_THREAD(vela_sender_process, ev, data) {
     {
       // wait until we get a data_ready event
       PROCESS_WAIT_EVENT_UNTIL(ev == event_data_ready);
-      //printf("vela_sender: received an event\n");
+      leds_toggle(LEDS_GREEN);
     }
 
   PROCESS_END();
