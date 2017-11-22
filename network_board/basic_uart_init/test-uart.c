@@ -27,7 +27,8 @@
 #include "sys/ctimer.h"
 
 PROCESS(cc2650_uart_process, "cc2650 uart process");
-AUTOSTART_PROCESSES(&cc2650_uart_process);
+// ALM -- removed next line
+//AUTOSTART_PROCESSES(&cc2650_uart_process);
 
 typedef enum{
 	wait,
@@ -84,6 +85,15 @@ void request_periodic_report_to_nordic(uint32_t report_timeout_ms);
 void uart_util_rx_handler(uart_pkt_t* p_packet);
 void uart_util_ack_tx_done(void);
 extern void uart_util_ack_error(ack_wait_t* ack_wait_data);
+
+//ALM
+void uart_init() {
+  // start the uart process
+  process_start(&cc2650_uart_process, "cc2650 uart process");
+  return;
+
+}
+
 
 uint32_t report_ready(data_t *p_data){
 	//PROCESS REPORT: return APP_ACK_SUCCESS as soon as possible

@@ -15,6 +15,12 @@
 */
 
 
+typedef struct
+{
+    uint8_t  * p_data;      /**< Pointer to data. */
+    uint16_t   data_len;    /**< Length of data. */
+} data_t;
+
 
 #define MAX_NUMBER_OF_BT_BEACONS 		100
 

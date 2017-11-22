@@ -15,9 +15,9 @@
 */
 
 #include "uart_util.h"
+#include "constraints.h"
 
 #ifdef CONTIKI
-#include "vela_shared.h" // ALM added to have the definition of data_t, a struct that contains the buffer and its length
 #include "dev/cc26xx-uart.h"
 #include "dev/serial-line.h"
 #include "dev/leds.h"

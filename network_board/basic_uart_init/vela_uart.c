@@ -26,7 +26,6 @@
 #include "constraints.h"
 #include "sys/ctimer.h"
 #include "vela_uart.h"
-#include "vela_shared.h"
 
 PROCESS(cc2650_uart_process, "cc2650 uart process");
 // ALM -- removed next line
