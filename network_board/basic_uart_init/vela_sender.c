@@ -9,7 +9,6 @@
 //#include "net/ipv6/uip-ds6.h"
 //#include "net/ip/uip-debug.h"
 #include "vela_uart.h"
-#include "vela_shared.h"
 #include "vela_sender.h"
 
 
