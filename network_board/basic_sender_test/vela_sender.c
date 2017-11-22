@@ -15,11 +15,14 @@
 #include "vela_uart.h"
 #include "vela_sender.h"
 #include "constraints.h"
+#include "dev/leds.h"
 #include <stdio.h>
 
 
 static struct simple_udp_connection unicast_connection;
 static uint8_t message_number;
+
+bool debug;
 
 
 PROCESS(vela_sender_process, "vela sender process");
@@ -33,8 +36,8 @@ receiver(struct simple_udp_connection *c,
          const uint8_t *data,
          uint16_t datalen)
 {
-  printf("Data received on port %d from port %d with length %d\n",
-         receiver_port, sender_port, datalen);
+  if (debug) printf("Data received on port %d from port %d with length %d\n",
+                    receiver_port, sender_port, datalen);
 }
 /*---------------------------------------------------------------------------*/
 static void
@@ -48,13 +51,13 @@ set_global_address(void)
   uip_ds6_set_addr_iid(&ipaddr, &uip_lladdr);
   uip_ds6_addr_add(&ipaddr, 0, ADDR_AUTOCONF);
 
-  printf("IPv6 addresses: ");
+  if (debug) printf("IPv6 addresses: ");
   for(i = 0; i < UIP_DS6_ADDR_NB; i++) {
     state = uip_ds6_if.addr_list[i].state;
     if(uip_ds6_if.addr_list[i].isused &&
        (state == ADDR_TENTATIVE || state == ADDR_PREFERRED)) {
       uip_debug_ipaddr_print(&uip_ds6_if.addr_list[i].ipaddr);
-      printf("\n");
+      if (debug) printf("\n");
     }
   }
 }
@@ -62,7 +65,9 @@ set_global_address(void)
 void vela_sender_init() {
   // set some parameters locally
 
-  printf("vela_sender: initializing \n");
+  debug=false;
+
+  if (debug) printf("vela_sender: initializing \n");
 
   servreg_hack_init();
 
@@ -95,7 +100,7 @@ static void send_to_sink(uint8_t *buffer, int offset, int size, bool last) {
   }
 
   simple_udp_sendto(&unicast_connection, buf, size+1, addr);
-  printf("sending %d bytes %u:%u %u\n",size+1,(uint8_t)buf[0], (uint8_t)buf[1], (uint8_t)buf[2]);
+  if (debug) printf("sending %d bytes %u:%u %u\n",size+1,(uint8_t)buf[0], (uint8_t)buf[1], (uint8_t)buf[2]);
 
 }
 /*---------------------------------------------------------------------------*/
@@ -112,12 +117,13 @@ PROCESS_THREAD(vela_sender_process, ev, data) {
 
   uip_ipaddr_t *addr;
 
-  printf("unicast: started\n");
+  if (debug) printf("unicast: started\n");
   while (1)
     {
       // wait until we get a data_ready event
       PROCESS_WAIT_EVENT_UNTIL(ev == event_data_ready);
-      printf("vela_sender: received an event\n");
+      leds_toggle(LEDS_GREEN);
+      if (debug) printf("vela_sender: received an event\n");
 
       data_t* eventData = (data_t*) data;
 
@@ -146,7 +152,7 @@ PROCESS_THREAD(vela_sender_process, ev, data) {
       } 
 
     } else {
-      printf("Service %d not found\n", SERVICE_ID);
+       if (debug) printf("Service %d not found\n", SERVICE_ID);
      }
 
     }
