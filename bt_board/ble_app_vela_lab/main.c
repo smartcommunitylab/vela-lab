@@ -431,15 +431,15 @@ void send_neighbors_report(void) {
 	}
 
 	while (n < MAXIMUM_NETWORK_SIZE && pkt_full == false) {
-		if (!is_position_free(&m_network[n])) {
-			if (UART_PKT_PAYLOAD_MAX_LEN_SYMB - payload_free_from > SINGLE_NODE_REPORT_SIZE) {
+		if (UART_PKT_PAYLOAD_MAX_LEN_SYMB - payload_free_from > SINGLE_NODE_REPORT_SIZE) {
+			if (!is_position_free(&m_network[n])) {
 				uint32_t occupied_size = add_node_to_report_payload(&m_network[n], &report_payload[payload_free_from], UART_PKT_PAYLOAD_MAX_LEN_SYMB - payload_free_from);
 				payload_free_from += occupied_size;
-			} else {
-				pkt_full = true;
 			}
+			n++;
+		} else {
+			pkt_full = true;
 		}
-		n++;
 	}
 
 	packet.payload.data_len = payload_free_from;
