@@ -173,13 +173,16 @@ typedef struct
     uint16_t   data_len;    /**< Length of data. */
 } payload_t;
 
+
+
 /**@brief Variable length data encapsulation in terms of length and pointer to data. */
+// ALM : moved the definiton to the uart.h inside the network_board
 //TODO: use just one of the two struct typedef (payload_t and data_t are the same)
-typedef struct
-{
-    uint8_t  * p_data;      /**< Pointer to data. */
-    uint16_t   data_len;    /**< Length of data. */
-} data_t;
+//typedef struct
+//{
+//    uint8_t  * p_data;      /**< Pointer to data. */
+//    uint16_t   data_len;    /**< Length of data. */
+//} data_t;
 
 typedef struct{
 	uart_pkt_type_t  type;
