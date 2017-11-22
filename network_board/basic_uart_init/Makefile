@@ -1,5 +1,5 @@
 DEFINES+=PROJECT_CONF_H=\"project-conf.h\"
-CONTIKI_PROJECT = test-uart
+CONTIKI_PROJECT = vela_node
 
 all: $(CONTIKI_PROJECT)
 
@@ -17,6 +17,10 @@ $(info $$COMMON_DIR_REL_PATH is: ${COMMON_DIR_REL_PATH})
 
 MODULES+=${COMMON_DIR_REL_PATH}/lib/uart_util
 MODULES+=${COMMON_DIR_REL_PATH}/inc
+
+PROJECT_SOURCEFILES += vela_uart.c
+PROJECT_SOURCEFILES += vela_sender.c
+
 
 BOARD=launchpad/cc2650
 #BOARD=srf06/cc26xx
