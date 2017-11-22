@@ -15,6 +15,8 @@
 */
 
 
+#ifndef CONSTRAINTS_H
+#define CONSTRAINTS_H
 typedef struct
 {
     uint8_t  * p_data;      /**< Pointer to data. */
@@ -36,3 +38,5 @@ typedef struct
 #define EDDYSTONE_EID_FRAME_TYPE		0x30
 
 #define TI_MANUFACTURER_UUID			0x000D
+
+#endif

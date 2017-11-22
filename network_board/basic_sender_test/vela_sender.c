@@ -13,8 +13,8 @@
 #include "simple-udp.h"
 #include "servreg-hack.h"
 #include "vela_uart.h"
-#include "vela_shared.h"
 #include "vela_sender.h"
+#include "constraints.h"
 #include <stdio.h>
 
 

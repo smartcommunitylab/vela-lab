@@ -20,6 +20,7 @@
 #undef  NETSTACK_CONF_RDC_CHANNEL_CHECK_RATE
 #define NETSTACK_CONF_RDC_CHANNEL_CHECK_RATE 8
 /*---------------------------------------------------------------------------*/
+#undef UDP_PORT
 #define UDP_PORT 							1234
 #define SERVICE_ID 							190
 
