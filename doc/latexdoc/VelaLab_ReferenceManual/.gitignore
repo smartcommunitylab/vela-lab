@@ -1,0 +1,4 @@
+# esclude aux and other build files
+*.aux
+*.log
+*.gz
