@@ -22,7 +22,7 @@
 static struct simple_udp_connection unicast_connection;
 static uint8_t message_number;
 
-bool debug;
+static bool debug;
 
 
 PROCESS(vela_sender_process, "vela sender process");
@@ -65,15 +65,16 @@ set_global_address(void)
 void vela_sender_init() {
   // set some parameters locally
 
-  debug=false;
+  debug=true;
 
   if (debug) printf("vela_sender: initializing \n");
+  message_number = 0;
 
   servreg_hack_init();
 
   set_global_address();
 
- simple_udp_register(&unicast_connection, UDP_PORT, NULL, UDP_PORT, receiver);
+  simple_udp_register(&unicast_connection, UDP_PORT, NULL, UDP_PORT, receiver);
 
   // start this process
   process_start(&vela_sender_process, "vela sender process");
@@ -84,9 +85,9 @@ void vela_sender_init() {
 /*---------------------------------------------------------------------------*/
 static void send_to_sink(uint8_t *buffer, int offset, int size, bool last) {
   uip_ipaddr_t *addr = servreg_hack_lookup(SERVICE_ID);
-  if (++message_number == 128)  message_number = 1; 
+  if (++message_number == 128)  message_number = 1; // message counter goes from 0 to 127, then wraps
 
-  static char buf[MAX_RPL_SEND_SIZE+1]; // add one for the message counter
+  static char buf[MAX_RPL_SEND_SIZE+1]; // add one byte for the  message counter
 
   // prepend the message counter
   buf[0] = message_number;
@@ -94,6 +95,7 @@ static void send_to_sink(uint8_t *buffer, int offset, int size, bool last) {
   uint8_t mask = 128;
   if (last) buf[0]=buf[0]^mask; // if this is the last of a packet sequence, flip most significant bit
 
+  // copy the data to send
   int i;
   for (i=1;i<size;i++) {
     buf[i] = buffer[offset+i-1];
@@ -113,6 +115,12 @@ PROCESS_THREAD(vela_sender_process, ev, data) {
 
   PROCESS_BEGIN();
 
+  static struct etimer pause_timer;
+  static data_t* eventData;
+  static int offset = 0;
+  static int sizeToSend=0;
+  etimer_set(&pause_timer, CLOCK_SECOND/4); // time between sends
+
   event_buffer_empty = process_alloc_event();
 
   uip_ipaddr_t *addr;
@@ -123,38 +131,42 @@ PROCESS_THREAD(vela_sender_process, ev, data) {
       // wait until we get a data_ready event
       PROCESS_WAIT_EVENT_UNTIL(ev == event_data_ready);
       leds_toggle(LEDS_GREEN);
-      if (debug) printf("vela_sender: received an event\n");
+      eventData = (data_t*) data;
+      if (debug) printf("vela_sender: received an event, size=%d\n",eventData->data_len);
 
-      data_t* eventData = (data_t*) data;
 
 
      addr = servreg_hack_lookup(SERVICE_ID);
 
-     if(addr != NULL && eventData->data_len > 0) 
-       {
+     if(addr != NULL && eventData->data_len > 0)  {
+       
+       offset=0; // offset from the begging of the buffer to send next
+       sizeToSend = eventData->data_len; // amount of data in the buffer not yet sent
+       while ( sizeToSend > 0 ) {
 
-      int offset=0;
-      int sizeToSend = eventData->data_len;
-      while ( sizeToSend > 0 ) {
-
-        if (sizeToSend > MAX_RPL_SEND_SIZE) {
-          // I have more data to send that will fit in one packet
-          send_to_sink(eventData->p_data, offset, MAX_RPL_SEND_SIZE, false);
-          sizeToSend -= MAX_RPL_SEND_SIZE; 
-          offset += MAX_RPL_SEND_SIZE;
-        } else {
-          // this is my last packet
-          send_to_sink(eventData->p_data, offset, sizeToSend, true);
-          sizeToSend = 0;
-          offset += sizeToSend;
-        }
+         if (sizeToSend > MAX_RPL_SEND_SIZE) {
+           // I have more data to send that will fit in one packet
+           send_to_sink(eventData->p_data, offset, MAX_RPL_SEND_SIZE, false);
+           sizeToSend -= MAX_RPL_SEND_SIZE; 
+           offset += MAX_RPL_SEND_SIZE;
+           if (sizeToSend>0){ // if there is more data to send, wait a bit before sending
+             etimer_restart(&pause_timer); 
+             PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&pause_timer));
+           }
+         } else {
+           // this is my last packet
+           send_to_sink(eventData->p_data, offset, sizeToSend, true);
+           sizeToSend = 0;
+           offset += sizeToSend;
+         }
+         
         
-      } 
+       } 
 
-    } else {
+     } else {
        if (debug) printf("Service %d not found\n", SERVICE_ID);
      }
-
+     
     }
 
   PROCESS_END();

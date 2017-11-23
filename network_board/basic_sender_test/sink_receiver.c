@@ -37,9 +37,13 @@ receiver(struct simple_udp_connection *c,
          const uint8_t *data,
          uint16_t datalen)
 {
-  printf("Data received from ");
+  printf("Received from ");
   uip_debug_ipaddr_print(sender_addr);
-  printf(" with length %d: '%u: %u %u'\n", datalen, (uint8_t)data[0], (uint8_t)data[1], (uint8_t)data[2]);
+  printf(" length=%d: count=%u: ", datalen, (uint8_t)data[0] ); //, (uint8_t)data[0]);//, (uint8_t)data[4], (uint8_t)data[5]);
+  int i;
+  for (i=1;i<3;i++) 
+    printf("%x",(uint8_t)data[i]);
+  printf("\n");
 }
 /*---------------------------------------------------------------------------*/
 static uip_ipaddr_t *
