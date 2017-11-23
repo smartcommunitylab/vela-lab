@@ -63,6 +63,7 @@ static struct ctimer m_ping_timer;
 app_state_t m_app_state = wait;
 uint8_t no_of_attempts = 0;
 uint8_t bt_report_buffer[BT_REPORT_BUFFER_SIZE];
+data_t complete_report_data;
 
 uint32_t report_ready(data_t *p_data);
 uint32_t report_rx_handler(uart_pkt_t* p_packet, report_type_t m_report_type );
@@ -109,7 +110,7 @@ uint32_t report_rx_handler(uart_pkt_t* p_packet, report_type_t m_report_type ){
 	switch(m_report_type){
 	case start_of_data:
 		if((buff_free_from + p_packet->payload.data_len) < BT_REPORT_BUFFER_SIZE){
-			memcpy(p_packet->payload.p_data, &bt_report_buffer[buff_free_from], p_packet->payload.data_len);
+			memcpy(&bt_report_buffer[buff_free_from], p_packet->payload.p_data, p_packet->payload.data_len);
 			buff_free_from+=p_packet->payload.data_len;
 			ret = APP_ACK_SUCCESS;
 		}else{
@@ -118,7 +119,7 @@ uint32_t report_rx_handler(uart_pkt_t* p_packet, report_type_t m_report_type ){
 		break;
 	case more_data:
 		if((buff_free_from + p_packet->payload.data_len) < BT_REPORT_BUFFER_SIZE){
-			memcpy(p_packet->payload.p_data, &bt_report_buffer[buff_free_from], p_packet->payload.data_len);
+			memcpy(&bt_report_buffer[buff_free_from], p_packet->payload.p_data, p_packet->payload.data_len);
 			buff_free_from+=p_packet->payload.data_len;
 			ret = APP_ACK_SUCCESS;
 		}else{
@@ -127,9 +128,9 @@ uint32_t report_rx_handler(uart_pkt_t* p_packet, report_type_t m_report_type ){
 		break;
 	case end_of_data:
 		if((buff_free_from + p_packet->payload.data_len) < BT_REPORT_BUFFER_SIZE){
-			memcpy(p_packet->payload.p_data, &bt_report_buffer[buff_free_from], p_packet->payload.data_len);
-			data_t complete_report_data;
-			complete_report_data.data_len = p_packet->payload.data_len;
+			memcpy(&bt_report_buffer[buff_free_from], p_packet->payload.p_data, p_packet->payload.data_len);
+
+			complete_report_data.data_len = buff_free_from + p_packet->payload.data_len;
 			complete_report_data.p_data = bt_report_buffer;
 			ret = report_ready(&complete_report_data);
 		}else{

@@ -165,7 +165,7 @@ typedef struct
 	uint32_t 			last_contact_ticks;
 	int8_t				last_rssi;
 	int8_t				max_rssi;
-	uint16_t			beacon_msg_count;
+	uint8_t				beacon_msg_count;
 	uint8_t				namespace_id[EDDYSTONE_NAMESPACE_ID_LENGTH];
 	uint8_t				instance_id[EDDYSTONE_INSTANCE_ID_LENGTH];
 	node_type_t			node_type;
@@ -396,14 +396,7 @@ uint32_t add_node_to_report_payload(node_t *p_node, uint8_t* report_payload, uin
 	//add max rssi
 	report_payload[idx++] = (uint8_t) p_node->max_rssi;
 
-	//add seen since
-	uint32_t seen_since_tick = app_timer_cnt_diff_compute(app_timer_cnt_get(), p_node->first_contact_ticks);
-	uint16_t seen_since_s = APP_TIMER_MS( seen_since_tick / 1000 ) ;
-	report_payload[idx++] = seen_since_s >> 8;
-	report_payload[idx++] = seen_since_s;
-
 	//add packet counter
-	report_payload[idx++] = p_node->beacon_msg_count >> 8;
 	report_payload[idx++] = p_node->beacon_msg_count;
 	return idx;
 }
@@ -431,15 +424,15 @@ void send_neighbors_report(void) {
 	}
 
 	while (n < MAXIMUM_NETWORK_SIZE && pkt_full == false) {
-		if (!is_position_free(&m_network[n])) {
-			if (UART_PKT_PAYLOAD_MAX_LEN_SYMB - payload_free_from > SINGLE_NODE_REPORT_SIZE) {
+		if (UART_PKT_PAYLOAD_MAX_LEN_SYMB - payload_free_from > SINGLE_NODE_REPORT_SIZE) {
+			if (!is_position_free(&m_network[n])) {
 				uint32_t occupied_size = add_node_to_report_payload(&m_network[n], &report_payload[payload_free_from], UART_PKT_PAYLOAD_MAX_LEN_SYMB - payload_free_from);
 				payload_free_from += occupied_size;
-			} else {
-				pkt_full = true;
 			}
+			n++;
+		} else {
+			pkt_full = true;
 		}
-		n++;
 	}
 
 	packet.payload.data_len = payload_free_from;
@@ -452,7 +445,7 @@ void send_neighbors_report(void) {
 	uart_util_send_pkt(&packet);
 
 	if (n == 0) {	//this is executed after the transmission of uart_resp_bt_neigh_rep_end
-		network_maintainance_check();
+		reset_network();
 	}
 }
 
