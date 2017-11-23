@@ -1,7 +1,7 @@
 Smart City Vela Lab
 ========================
 
-This repository contains the code for the embedded network devices used in the Smart City Lab located in Vela (Trento - Italy).
+This repository contains the code for the embedded network devices used in the Smart City Lab located in Vela (Trento, Italy).
 The network components are:
 - BLE Beacons: Eddystone or CLIMB (https://github.com/smartcommunitylab/sco.climb.driverapp) proprietary beacons
 - BLE Scanner: Nordic nRF52 DK (nRF52832 SoC)

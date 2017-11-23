@@ -1,7 +1,7 @@
 Building the Smart City Vela Lab
 ========================
 
-This guide is for linux machines (tested with Ubuntu 16.04LTS).
+This guide is for linux machines (tested with Ubuntu 16.04 LTS).
 
 Building the code for the components of the Vela Lab requires some external modules and some external tools not included in this repository.
 Before building install the following prerequisite software :
@@ -12,6 +12,7 @@ Before building install the following prerequisite software :
 
 Once done clone the repository with
 git clone https://github.com/smartcommunitylab/vela-lab.git
+
 
 Building the BLE Scanner firmware
 ========================
