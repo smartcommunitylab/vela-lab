@@ -63,7 +63,7 @@ static struct ctimer m_ping_timer;
 app_state_t m_app_state = wait;
 uint8_t no_of_attempts = 0;
 uint8_t bt_report_buffer[BT_REPORT_BUFFER_SIZE];
-data_t complete_report_data;
+data_t complete_report_data = {bt_report_buffer, 0};
 
 uint32_t report_ready(data_t *p_data);
 uint32_t report_rx_handler(uart_pkt_t* p_packet, report_type_t m_report_type );
