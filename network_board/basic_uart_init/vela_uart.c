@@ -109,6 +109,7 @@ uint32_t report_rx_handler(uart_pkt_t* p_packet, report_type_t m_report_type ){
 
 	switch(m_report_type){
 	case start_of_data:
+		buff_free_from = 0;
 		if((buff_free_from + p_packet->payload.data_len) < BT_REPORT_BUFFER_SIZE){
 			memcpy(&bt_report_buffer[buff_free_from], p_packet->payload.p_data, p_packet->payload.data_len);
 			buff_free_from+=p_packet->payload.data_len;
