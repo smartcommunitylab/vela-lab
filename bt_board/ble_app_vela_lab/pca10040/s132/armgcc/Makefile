@@ -287,11 +287,17 @@ $(foreach target, $(TARGETS), $(call define_target, $(target)))
 
 .PHONY: flash flash_softdevice erase
 
-# Flash the program
+# Flash the program on the specific target
 flash_682368845: $(OUTPUT_DIRECTORY)/nrf52832_xxaa.hex
 	@echo Flashing: $<
 	nrfjprog -f nrf52 --program $< --sectorerase -s 682368845
 	nrfjprog -f nrf52 --reset -s 682368845
+	
+# Flash the program on the first available target
+flash: $(OUTPUT_DIRECTORY)/nrf52832_xxaa.hex
+	@echo Flashing: $<
+	nrfjprog -f nrf52 --program $< --sectorerase
+	nrfjprog -f nrf52 --reset
 
 # Flash softdevice
 flash_softdevice:
