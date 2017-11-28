@@ -1386,6 +1386,10 @@ static void on_ble_gap_evt_connected(ble_gap_evt_t const * p_gap_evt) {
  */
 static void on_ble_gap_evt_adv_report(ble_gap_evt_t const * p_gap_evt) {
 
+	if(report_procedure_running){ //do not update the network during report, just for safety
+		return;
+	}
+
 	if (p_gap_evt->params.adv_report.scan_rsp) {	//if it is a scan response it won't contain eddystone frame. It may contain the name. And it may be valid if the node is already in the list
 		return on_scan_response(&p_gap_evt->params.adv_report);
 	} else {
