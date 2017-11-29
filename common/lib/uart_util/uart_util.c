@@ -62,15 +62,13 @@ NRF_SERIAL_BUFFERS_DEF(serial_buffs, SERIAL_BUFF_TX_SIZE, SERIAL_BUFF_RX_SIZE);
 
 NRF_SERIAL_UART_DEF(serial_uart, 0);
 
-NRF_SERIAL_CONFIG_DEF(serial_config, NRF_SERIAL_MODE_DMA, &serial_queues, &serial_buffs, serial_evt_handle, sleep_handler);
+NRF_SERIAL_CONFIG_DEF(serial_config, NRF_SERIAL_MODE_IRQ, &serial_queues, &serial_buffs, serial_evt_handle, sleep_handler);
 
 APP_TIMER_DEF(m_ack_timer_id);
 
 static void sleep_handler(void)
 {
-    __WFE();
-    __SEV();
-    __WFE();
+	(void) sd_app_evt_wait();
 }
 #endif
 
@@ -178,6 +176,10 @@ void process_uart_rx_data(uint8_t *serial_data){
 #else
 		ret = contiki_serial_read(&serial_data[idx], &uart_frame[idx], UART_FRAME_MAX_LEN_BYTE - idx, &written_size);
 #endif
+		if(written_size == 0){
+			new_status = status;
+			break;
+		}
 		if(ret != NRF_SUCCESS && ret != NRF_ERROR_TIMEOUT){
 			new_status = error; //this shoud go to error...but maybe it is better to stay here
 		}
@@ -195,6 +197,10 @@ void process_uart_rx_data(uint8_t *serial_data){
 #else
 		ret = contiki_serial_read(&serial_data[idx], &uart_frame[idx], UART_FRAME_MAX_LEN_BYTE - idx, &written_size);
 #endif
+		if(written_size == 0){
+			new_status = status;
+			break;
+		}
 		idx += written_size;
 
 		if( ret != NRF_SUCCESS && ret != NRF_ERROR_TIMEOUT ) {
@@ -224,6 +230,10 @@ void process_uart_rx_data(uint8_t *serial_data){
 #else
 		ret = contiki_serial_read(&serial_data[idx], &uart_frame[idx], UART_FRAME_MAX_LEN_BYTE - idx, &written_size);
 #endif
+		if(written_size == 0){
+			new_status = status;
+			break;
+		}
 		idx += written_size;
 
 		if (ret != NRF_SUCCESS && ret != NRF_ERROR_TIMEOUT) {
@@ -244,6 +254,10 @@ void process_uart_rx_data(uint8_t *serial_data){
 #else
 		ret = contiki_serial_read(&serial_data[idx], &uart_frame[idx], UART_FRAME_MAX_LEN_BYTE - idx, &written_size);
 #endif
+		if(written_size == 0){
+			new_status = status;
+			break;
+		}
 		if(ret != NRF_SUCCESS && ret != NRF_ERROR_TIMEOUT){
 			new_status = error; //this shoud go to error...but maybe it is better to stay here
 		}
