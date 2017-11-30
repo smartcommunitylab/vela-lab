@@ -302,10 +302,10 @@ void send_set_bt_scan_params(void) {
 	pong_packet.payload.data_len = 7;
 	pong_packet.type = uart_set_bt_scan_params;
 
-	uint8_t active_scan = 1;
-	uint16_t scan_interval = 8;
-	uint16_t scan_window = 8;
-	uint16_t timeout = 0;
+	uint8_t active_scan = 1;		//boolean
+	uint16_t scan_interval = 3520;		/**< Scan interval between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
+	uint16_t scan_window = 1920;		/**< Scan window between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
+	uint16_t timeout = 0;			/**< Scan timeout between 0x0001 and 0xFFFF in seconds, 0x0000 disables timeout. */
 
 	payload[0] = active_scan; //active_scan
 	payload[1] = scan_interval >> 8;
