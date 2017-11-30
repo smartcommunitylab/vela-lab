@@ -65,7 +65,7 @@ set_global_address(void)
 void vela_sender_init() {
   // set some parameters locally
 
-  debug=false;
+  debug=true;
 
   if (debug) printf("vela_sender: initializing \n");
   message_number = 0;
@@ -97,12 +97,17 @@ static void send_to_sink(uint8_t *buffer, int offset, int size, bool last) {
 
   // copy the data to send
   int i;
-  for (i=1;i<size;i++) {
+  for (i=1;i<=size;i++) {
     buf[i] = buffer[offset+i-1];
   }
 
   simple_udp_sendto(&unicast_connection, buf, size+1, addr);
-  if (debug) printf("sending %d bytes %u:%u %u\n",size+1,(uint8_t)buf[0], (uint8_t)buf[1], (uint8_t)buf[2]);
+  if (debug) printf("size=%d msgNum=%u\n",size+1,message_number);
+  for (i=1;i<=size;i++)
+    if (debug) printf("[%d]=%u ",i,buf[i]);
+  if (debug) printf("\n");
+
+
 
 }
 /*---------------------------------------------------------------------------*/
@@ -119,7 +124,7 @@ PROCESS_THREAD(vela_sender_process, ev, data) {
   static data_t* eventData;
   static int offset = 0;
   static int sizeToSend=0;
-  etimer_set(&pause_timer, CLOCK_SECOND/4); // time between sends
+  etimer_set(&pause_timer, CLOCK_SECOND*10); // time between sends
 
   event_buffer_empty = process_alloc_event();
 
