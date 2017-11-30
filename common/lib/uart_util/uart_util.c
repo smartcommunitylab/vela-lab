@@ -210,14 +210,11 @@ void process_uart_rx_data(uint8_t *serial_data){
 
 		if( idx >= UART_FRAME_START_SEQ_LEN_BYTE + HEX_FRAME_LEN_LEN_BYTE ){	//we have just received the length field
 			ret = hex_array_to_uint8(&uart_frame[UART_FRAME_START_SEQ_LEN_BYTE], HEX_FRAME_LEN_LEN_BYTE, temp_array);
-			if( ret == HEX_FRAME_LEN_LEN_SYMB ){
-				expected_lenght = 2 * ( (temp_array[0] << 8) + temp_array[1] ); //todo: check if expected_lenght_byte is a reasonable value
-				if(expected_lenght == 0){
-					new_status = waiting_end_seq;
-				}
-				new_status = receiving_packet;
-			}else{
+			expected_lenght = 2 * ( (temp_array[0] << 8) + temp_array[1] );
+			if(expected_lenght == 0 || expected_lenght > UART_PKT_HEX_FRAME_MAX_LEN_BYTE){
 				new_status = error;
+			}else{
+				new_status = receiving_packet;
 			}
 		}else{
 			new_status = status; //remain here till the whole LEN field is received
@@ -252,7 +249,7 @@ void process_uart_rx_data(uint8_t *serial_data){
 #ifndef CONTIKI
 		ret = nrf_serial_read(&serial_uart, &uart_frame[idx], UART_FRAME_MAX_LEN_BYTE - idx, &written_size, 0);
 #else
-		ret = contiki_serial_read(&serial_data[idx], &uart_frame[idx], UART_FRAME_MAX_LEN_BYTE - idx, &written_size);
+		ret = contiki_serial_read(&serial_data[idx], &uart_frame[idx], UART_FRAME_MAX_LEN_BYTE - idx, &written_size); //todo: in place of idx use the calculated position for the end of tx character
 #endif
 		if(written_size == 0){
 			new_status = status;
