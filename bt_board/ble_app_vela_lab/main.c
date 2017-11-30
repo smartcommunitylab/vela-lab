@@ -84,12 +84,13 @@
 #define CONN_SUP_TIMEOUT                (uint16_t)(MSEC_TO_UNITS(100,  UNIT_10_MS))    /**< Connection supervisory timeout (4 seconds). */
 #define SLAVE_LATENCY                   0                                               /**< Slave latency. */
 
-#define SCAN_ADV_LED                    BSP_BOARD_LED_0
-#define READY_LED                       BSP_BOARD_LED_1
-#define PROGRESS_LED                    BSP_BOARD_LED_2
-#define ERROR_LED                       BSP_BOARD_LED_3
+#define READY_LED                       1 << BSP_BOARD_LED_0
+#define PROGRESS_LED                    1 << BSP_BOARD_LED_1
+#define SCAN_ADV_LED                    1 << BSP_BOARD_LED_2
+#define ERROR_LED                       1 << BSP_BOARD_LED_3
 
 #define LED_BLINK_TIMEOUT_MS			50
+#define LP_LED_INTERVAL					5000
 
 #define TOGGLE_SCAN_BUTTON             	BSP_BUTTON_2                                    /**< Button to press at beginning of the test to indicate that this board is connected to the PC and takes input from it via the UART. */
 #define TOGGLE_ADV_BUTTON           	BSP_BUTTON_3                                    /**< Button to press at beginning of the test to indicate that this board is standalone (automatic behavior). */
@@ -118,7 +119,8 @@
 
 APP_TIMER_DEF(m_periodic_timer_id);
 APP_TIMER_DEF(m_report_timer_id);
-APP_TIMER_DEF(m_led_timer_id);
+APP_TIMER_DEF(m_led_blink_timer_id);
+APP_TIMER_DEF(m_lp_led_timer_id);
 
 typedef enum
 {
@@ -197,12 +199,12 @@ static char const m_target_periph_name_alt[] = {'C',
 												'B',
 												'C'};
 
-bool m_scan_active = false, m_advertising_active = false;
+bool m_scan_active = false, m_advertising_active = false, m_ready_received = false, m_tx_error = false;
 static uint32_t m_periodic_report_timeout = 0;
 uint32_t report_procedure_running = 0;
 uint8_t stop = 0;
 uint32_t beacon_timeout_ms = NODE_TIMEOUT_DEFAULT_MS;
-//uint32_t blinking_led;
+//uint32_t blinking_led_bit_map;
 
 #ifdef ENABLE_TOF
 static uint8_t m_no_of_central_links = 0;
@@ -274,7 +276,7 @@ uint32_t add_node_to_report_payload(node_t *m_network, uint8_t* report_payload, 
 void send_neighbors_report(void);
 void cancel_ongoing_report(void);
 static void send_pong(uart_pkt_t* p_packet);
-static void send_ping(void);
+void send_ping(void);
 static void send_ready(void);
 
 //uart communication helpers
@@ -309,7 +311,8 @@ void start_periodic_report(uint32_t timeout_ms);
 static void report_timeout_handler(void * p_context);
 static void periodic_timer_timeout_handler(void * p_context);
 static void led_timeout_handler(void * p_context);
-void blink_led(uint8_t led_idx, uint32_t blink_timeout);
+static void lp_led_timeout_handler(void * p_context);
+void blink_led(uint32_t led_idx, uint32_t blink_timeout);
 
 //bt callbacks/helpers
 static void ble_stack_init(void);
@@ -476,7 +479,7 @@ static void send_pong(uart_pkt_t* p_packet) {
 
 #define PING_PACKET_SIZE		10
 //example of use of uart_util_send. This function is called with a timer and send a packet to the UART
-static void send_ping(void) {
+void send_ping(void) {
 	/*  CREATE DUMMY UINT8 ARRAY   */
 #if PING_PACKET_SIZE != 0
 	uint8_t payload[PING_PACKET_SIZE];
@@ -537,6 +540,8 @@ void uart_util_rx_handler(uart_pkt_t* p_packet) { //once it arrives here the ack
 		return; //this avoids sending ack for ack messages
 		break;
 	case uart_evt_ready:
+		m_ready_received = true;
+		blink_led(READY_LED, LED_BLINK_TIMEOUT_MS);
 		ack_value = APP_ACK_SUCCESS;
 		//still not implemented
 		break;
@@ -567,6 +572,7 @@ void uart_util_rx_handler(uart_pkt_t* p_packet) { //once it arrives here the ack
 		if (p_packet->payload.data_len == 4) {
 			uint32_t timeout_ms = (p_payload_data[0] << 24) + (p_payload_data[1] << 16) + (p_payload_data[2] << 8) + (p_payload_data[3]);
 			start_periodic_report(timeout_ms);
+			blink_led(PROGRESS_LED, LED_BLINK_TIMEOUT_MS);
 			//TODO: does it need to check something before sending ack?
 			ack_value = APP_ACK_SUCCESS;
 		}
@@ -643,11 +649,13 @@ void uart_util_rx_handler(uart_pkt_t* p_packet) { //once it arrives here the ack
 }
 
 void uart_util_ack_tx_done(void) {
+	m_tx_error = false;
 	return;
 }
 
 void uart_util_ack_error(ack_wait_t* ack_wait_data) {
 	blink_led(ERROR_LED, LED_BLINK_TIMEOUT_MS);
+	m_tx_error = true;
 }
 
 #ifdef ENABLE_TOF
@@ -993,6 +1001,10 @@ void application_timers_start(void) {
 	// Start application timers.
 	err_code = app_timer_start(m_periodic_timer_id, PERIODIC_TIMER_INTERVAL, NULL);
 	APP_ERROR_CHECK(err_code);
+
+	// Start application timers.
+	err_code = app_timer_start(m_lp_led_timer_id, LP_LED_INTERVAL, NULL);
+	APP_ERROR_CHECK(err_code);
 }
 
 void start_periodic_report(uint32_t timeout_ms) {
@@ -1030,25 +1042,37 @@ static void report_timeout_handler(void * p_context) {
 
 static void periodic_timer_timeout_handler(void * p_context) {
 	UNUSED_PARAMETER(p_context);
-
-	if (!stop) {
-		bsp_board_led_invert(PROGRESS_LED);
-		send_ping();
-	} else {
-		blink_led(ERROR_LED, LED_BLINK_TIMEOUT_MS);
-	}
 }
 
 static void led_timeout_handler(void * p_context) {
-	uint32_t *blinking_led = (uint32_t*)p_context;
-	bsp_board_led_off(*blinking_led);
+	uint32_t * p_blinking_led_bit_map = (uint32_t*)p_context;
+	for(uint8_t led_idx = 0; led_idx < LEDS_NUMBER; led_idx++){
+		if((*p_blinking_led_bit_map >> led_idx) & 0b1){
+			bsp_board_led_off(led_idx);
+		}
+	}
+	*p_blinking_led_bit_map = 0;
 }
 
-void blink_led(uint8_t led_idx, uint32_t blink_timeout_ms) {
-	static uint32_t blinking_led = 0;
-	blinking_led = led_idx;
-	bsp_board_led_on(blinking_led);
-	app_timer_start(m_led_timer_id, APP_TIMER_TICKS(blink_timeout_ms), &blinking_led);
+static void lp_led_timeout_handler(void * p_context) {
+	uint32_t led_to_blink = 0;
+	if(m_scan_active || m_advertising_active) led_to_blink |= SCAN_ADV_LED;
+	if(m_ready_received)  led_to_blink |= READY_LED;
+	if(m_tx_error)  led_to_blink |= ERROR_LED;
+	if(m_periodic_report_timeout) led_to_blink |= PROGRESS_LED;
+
+	blink_led(led_to_blink, LED_BLINK_TIMEOUT_MS);
+}
+
+void blink_led(uint32_t led, uint32_t blink_timeout_ms) {
+	static uint32_t blinking_led_bit_map = 0;
+	blinking_led_bit_map |= led;
+	for(uint8_t led_idx = 0; led_idx < LEDS_NUMBER; led_idx++){
+		if((blinking_led_bit_map >> led_idx) & 0b1){
+			bsp_board_led_on(led_idx);
+		}
+	}
+	app_timer_start(m_led_blink_timer_id, APP_TIMER_TICKS(blink_timeout_ms), &blinking_led_bit_map);
 }
 
 /**@brief Function for initializing the BLE stack.
@@ -1223,7 +1247,6 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context) {
 #ifdef ENABLE_TOF
 static void on_ifs_tof_buffer_full(ifs_tof_t * p_ctx)
 {
-	bsp_board_led_invert(DONE_LED);
 	if (!m_test_params.continuous_test)
 	{
 		test_terminate();
@@ -1282,7 +1305,6 @@ static void on_ble_gap_evt_disconnected(ble_gap_evt_t const * p_gap_evt) {
 		advertising_start();
 	}
 	scan_start();
-	bsp_board_led_off(READY_LED);
 
 	if(m_no_of_central_links == 0)
 	{
@@ -1376,7 +1398,6 @@ static void on_ble_gap_evt_connected(ble_gap_evt_t const * p_gap_evt) {
 
 	NRF_LOG_DEBUG("Connection interval: "NRF_LOG_FLOAT_MARKER" ms, Slave latency: %d, Supervision timeout %d ms.\n\r", NRF_LOG_FLOAT(1.25 * p_gap_evt->params.connected.conn_params.max_conn_interval), p_gap_evt->params.connected.conn_params.slave_latency, p_gap_evt->params.connected.conn_params.conn_sup_timeout * 10 );
 
-	bsp_board_led_on(READY_LED);
 #endif
 }
 
@@ -1407,7 +1428,6 @@ static void on_ble_gap_evt_adv_report(ble_gap_evt_t const * p_gap_evt) {
 		return;
 	}
 
-	bsp_board_led_invert(PROGRESS_LED);
 
 	if (allow_new_connections && m_no_of_central_links < MAXIMUM_NUMBER_OF_CENTRAL_CONN)
 	{
@@ -1439,7 +1459,7 @@ static void scan_stop(void) {
 	if (m_scan_active) {
 //		NRF_LOG_INFO("Stopping scan.\n\r");
 
-		bsp_board_led_off(SCAN_ADV_LED);
+		blink_led(SCAN_ADV_LED, LED_BLINK_TIMEOUT_MS);
 		m_scan_active = false;
 		ret_code_t err_code = sd_ble_gap_scan_stop();
 		APP_ERROR_CHECK(err_code);
@@ -1451,7 +1471,7 @@ static void scan_start(void) {
 	if (!m_scan_active) {
 //        NRF_LOG_INFO("Starting scan.\n\r");
 		reset_network();
-		bsp_board_led_on(SCAN_ADV_LED);
+		blink_led(SCAN_ADV_LED, LED_BLINK_TIMEOUT_MS);
 		m_scan_active = true;
 		ret_code_t err_code = sd_ble_gap_scan_start(&m_scan_param);
 		APP_ERROR_CHECK(err_code);
@@ -1463,7 +1483,7 @@ static void advertising_stop(void) {
 	if (m_advertising_active) {
 //		NRF_LOG_INFO("Stopping advertising.\n\r");
 
-		bsp_board_led_off(SCAN_ADV_LED);
+		blink_led(SCAN_ADV_LED, LED_BLINK_TIMEOUT_MS);
 		m_advertising_active = false;
 		ret_code_t err_code = sd_ble_gap_adv_stop();
 		APP_ERROR_CHECK(err_code);
@@ -1478,7 +1498,7 @@ static void advertising_start(void) {
 
 //		NRF_LOG_INFO("Starting advertising.\n\r");
 
-		bsp_board_led_on(SCAN_ADV_LED);
+		blink_led(SCAN_ADV_LED, LED_BLINK_TIMEOUT_MS);
 		m_advertising_active = true;
 		ret_code_t err_code = sd_ble_gap_adv_start(&adv_params, APP_BLE_CONN_CFG_TAG);
 		APP_ERROR_CHECK(err_code);
@@ -1783,8 +1803,12 @@ static void timer_init(void) {
 	err_code = app_timer_create(&m_report_timer_id, APP_TIMER_MODE_REPEATED, report_timeout_handler);
 	APP_ERROR_CHECK(err_code);
 
-	err_code = app_timer_create(&m_led_timer_id, APP_TIMER_MODE_SINGLE_SHOT, led_timeout_handler);
+	err_code = app_timer_create(&m_led_blink_timer_id, APP_TIMER_MODE_SINGLE_SHOT, led_timeout_handler);
 	APP_ERROR_CHECK(err_code);
+
+	err_code = app_timer_create(&m_lp_led_timer_id, APP_TIMER_MODE_REPEATED, lp_led_timeout_handler);
+	APP_ERROR_CHECK(err_code);
+
 
 }
 
@@ -1890,7 +1914,7 @@ int main(void) {
 #endif
 	buttons_enable();
 
-//	application_timers_start();
+	application_timers_start();
 
 	send_ready();
 
