@@ -18,7 +18,7 @@ PROCESS(cc2650_uart_process, "cc2650 uart process STUB");
 
 data_t buffer;
 
-uint8_t childDataBuffer[500];
+uint8_t childDataBuffer[540];
 //int bufferSize;
 
 /*---------------------------------------------------------------------------*/
@@ -28,11 +28,11 @@ void vela_uart_init() {
   printf("uart (fake): initializing \n");
 
   // for fake, fill the buffer with the fake data to be sent
-  buffer.data_len = 500;
+  buffer.data_len = 171;
   buffer.p_data = childDataBuffer;
   int i;
   uint8_t j=0;
-  for (i=0;i<500;i++) {
+  for (i=0;i<540;i++) {
     buffer.p_data[i] = j++;
   }
 

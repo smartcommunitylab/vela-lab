@@ -19,31 +19,110 @@
 #include "sink_receiver.h"
 
 static struct simple_udp_connection unicast_connection;
+static uint8_t from_two;
+static uint8_t from_three;
+static uint8_t from_five;
 
 /*---------------------------------------------------------------------------*/
 PROCESS(sink_receiver_process, "Vela sink receiver process");
 /*---------------------------------------------------------------------------*/
 void sink_receiver_init() {
   process_start(&sink_receiver_process, "Vela sink receiver process");
+  from_two = 0;
+  from_three = 0;
+  from_five = 0;
   return;
 }
 /*---------------------------------------------------------------------------*/
 static void
 receiver(struct simple_udp_connection *c,
-         const uip_ipaddr_t *sender_addr,
+         const uip_ipaddr_t *sender_addr,  // 4 byte address
          uint16_t sender_port,
          const uip_ipaddr_t *receiver_addr,
          uint16_t receiver_port,
          const uint8_t *data,
          uint16_t datalen)
 {
-  printf("Received from ");
-  uip_debug_ipaddr_print(sender_addr);
-  printf(" length=%d: count=%u: ", datalen, (uint8_t)data[0] ); //, (uint8_t)data[0]);//, (uint8_t)data[4], (uint8_t)data[5]);
+
+  // send a START  sequence
+  printf("%c%c%c%c",42, 42, 42, 42);
+
+  // send the ID of the source node
+  printf("%c", sender_addr->u8[15]); // this gets only the nodeID
+
+  // send the packet number - 8 bts, 1st bit is 1 if this is the "last" of a sequence of packets
+  printf("%c", (uint8_t)data[0]);
+
+  // send the length of the data - 16 bits
+  printf("%c",(uint8_t)(datalen));
+  printf("%c",(uint8_t)(datalen>>8));
+    
+
+  // send the actual data.  datalen is actually the real data lenght + 1, where the 1 is the packet number. We still send this because of the \n
   int i;
-  for (i=1;i<3;i++) 
-    printf("%x",(uint8_t)data[i]);
+  for (i=1;i<datalen;i++) 
+    printf("%c",(uint8_t)data[i]);
   printf("\n");
+
+
+  /* HUMAN READABLE */
+  /*    // send a START  sequence
+  printf("%c%c%c%c",42, 42, 42, 42);
+
+  // send the ID of the source node
+  printf("nodeid.pkt=%u.", sender_addr->u8[15]); // this will get only the nodeID
+
+  // send the packet number - 8 bts, 1st bit is 1 if this is the "last" of a sequence of packets
+  uint8_t n = (uint8_t)data[0];  
+  if (n>128) n-=128;
+  printf("%u ", n);
+
+  // send the length of the data - 16 bits
+  printf("len=%d ",datalen);
+
+  // send the actual data.  datalen is actually the real data lenght + 1, where the 1 is the packet number. We still send this because of the \n
+  printf("data= ");
+  int i;
+  for (i=1;i<datalen;i++) 
+    printf("[%d]=%u ",i,(uint8_t)data[i]);
+  //  printf("last=%u ",(uint8_t)data[datalen]);
+  printf("\n");
+*/
+
+
+  /*
+  //// PRETTY PRINT SINK RECEIVED DATA
+  ///////////////checking that no packets are lost
+  uint8_t packet_num = (uint8_t)data[0]; 
+  if (packet_num > 128) packet_num -= 128;
+  uint8_t from = sender_addr->u8[15];
+  if (from == 2) {
+    if (from_two == 128) from_two = 1;
+    if (packet_num > from_two) printf("*************** 2 LOST PACKET last=%u, this=%u \n",from_two, packet_num);
+    from_two =  packet_num+1;
+  } if (from == 3) {
+    if (from_three == 128) from_three = 1;
+    if (packet_num > from_three) printf("*************** 3 LOST PACKET last=%u, this=%u \n",from_three, packet_num);
+    from_three =  packet_num+1;
+  }if (from == 4) {
+    if (from_five == 128) from_five = 1;
+    if (packet_num > from_five) printf("*************** 4 LOST PACKET last=%u, this=%u \n",from_five, packet_num);
+    from_five =  packet_num+1;
+  }
+  
+  printf("Received from ");
+  
+  printf(" %u ", sender_addr->u8[15]);
+  //uip_debug_ipaddr_print(sender_addr);
+  if ((uint8_t)data[0]<=128)
+    printf(" length=%d: count=%u: ", datalen, (uint8_t)data[0] ); //, (uint8_t)data[0]);//, (uint8_t)data[4], (uint8_t)data[5]);
+  else
+    printf(" length=%d: count=%u: ", datalen, (uint8_t)data[0] -128); //, (uint8_t)data[0]);//, (uint8_t)data[4], (uint8_t)data[5]);
+  //  int i;
+  //for (i=1;i<3;i++) 
+  //printf("%x",(uint8_t)data[i]); 
+  printf("\n");  
+*/
 }
 /*---------------------------------------------------------------------------*/
 static uip_ipaddr_t *
