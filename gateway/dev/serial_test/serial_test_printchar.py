@@ -30,7 +30,7 @@ logging.debug('# Time \tNodeID \tLast \tCounter \tDataLen')
 ser = serial.Serial()
 ser.port = "/dev/ttyACM0"
 #ser.baudrate = 1000000
-ser.baudrate = 115200
+ser.baudrate = 921600
 
 print('Opening port:', ser.port)
 ser.open()
@@ -76,17 +76,31 @@ while(1):
 
                     if dataLen < 500:
 
-                        dataBuf = ser.read(dataLen)
+                        dataBuf = ser.read(dataLen+1)
 
                         # print("PKT read! node:", nodeID, " last:", pktLast, " counter:", pktCount, "dataLen:", dataLen, "last bytes:", dataBuf[dataLen-8], dataBuf[dataLen-7], dataBuf[dataLen-6], dataBuf[dataLen-5], dataBuf[dataLen-4], dataBuf[dataLen-3], dataBuf[dataLen-2], dataBuf[dataLen-1])
-                        print("PKT read! node:", nodeID, "\tlast:", pktLast, "\tcounter:", pktCount, "\tdataLen:", dataLen, "\tlast bytes:", dataBuf[dataLen-16:])
+                        # print("PKT read! node:", nodeID, "\tlast:", pktLast, "\tcounter:", pktCount, "\tdataLen:", dataLen, "\tlast bytes:", dataBuf[dataLen-34:])
+
+
+                        check = 1;
+                        for i in range(1,dataLen-1):
+                            if  dataBuf[i] != dataBuf[i-1]+1:
+                                check = 0
+
+                        print("PKT read! node:", nodeID, "\tlast:", pktLast, "\tcounter:", pktCount, "\tdataLen:", dataLen, "\tlast bytes:", dataBuf[dataLen-4:], "Data check: ", check)
+
+
                         # logging.debug("%s; %s; %s; %s; %s;", time.strftime("%H%M%S"), nodeID, pktLast, pktCount, dataLen)
                         logging.debug("%s\t%s\t%s\t%s\t%s", time.strftime("%H%M%S"), nodeID, pktLast, pktCount, dataLen)
 
-                        lastChar = dataBuf[dataLen-1]
-                        if lastChar != 10:
-                            ser.reset_input_buffer()
+                        # lastChar = dataBuf[dataLen-1]
 
+                        # if lastChar != 10:
+                        #     ser.reset_input_buffer()
+
+
+
+                        dataBuf = None
 
                         # print("\n")
                         # print("Data type:", type(dataBuf))
