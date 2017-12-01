@@ -78,7 +78,12 @@ while(1):
                         # print("PKT read! node:", nodeID, " last:", pktLast, " counter:", pktCount, "dataLen:", dataLen, "last bytes:", dataBuf[dataLen-8], dataBuf[dataLen-7], dataBuf[dataLen-6], dataBuf[dataLen-5], dataBuf[dataLen-4], dataBuf[dataLen-3], dataBuf[dataLen-2], dataBuf[dataLen-1])
                         # print("PKT read! node:", nodeID, "\tlast:", pktLast, "\tcounter:", pktCount, "\tdataLen:", dataLen, "\tlast bytes:", dataBuf[dataLen-34:])
 
-                        print("\nPKT read! node:", nodeID, "\tlast:", pktLast, "\tcounter:", pktCount, "\tdataLen:", dataLen)
+                        timenow = time.time()
+                        timestamp = int(timenow)
+                        times = time.gmtime(timenow)
+                        timestr = time.strftime("%Y-%m-%d - %H:%M:%S", times)
+
+                        print("\n", timestr, "nodeID:", nodeID, "\tlast:", pktLast, "\tcounter:", pktCount, "\tdataLen:", dataLen)
 
 
                         numBuf = list(dataBuf)
