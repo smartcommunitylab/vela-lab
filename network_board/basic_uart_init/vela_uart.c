@@ -27,6 +27,12 @@
 #include "sys/ctimer.h"
 #include "vela_uart.h"
 
+#define NORDIC_WATCHDOG_ENABLED						0
+
+#if NORDIC_WATCHDOG_ENABLED
+#warning The nordic watchdog is not tested
+#endif
+
 PROCESS(cc2650_uart_process, "cc2650 uart process");
 // ALM -- removed next line
 //AUTOSTART_PROCESSES(&cc2650_uart_process);
@@ -51,7 +57,7 @@ typedef enum{
 
 #define PING_PACKET_SIZE		50
 #define BT_REPORT_BUFFER_SIZE 	MAX_MESH_PAYLOAD_SIZE
-#define REPORT_TIMEOUT_MS		2000
+#define REPORT_TIMEOUT_MS		15000
 #define PING_TIMEOUT 			CLOCK_SECOND*5
 
 /** Converts a macro argument into a character constant.
@@ -64,11 +70,17 @@ app_state_t m_app_state = wait;
 uint8_t no_of_attempts = 0;
 uint8_t bt_report_buffer[BT_REPORT_BUFFER_SIZE];
 data_t complete_report_data = {bt_report_buffer, 0};
-
+#if NORDIC_WATCHDOG_ENABLED
+static struct ctimer m_nordic_watchdog_timer;
+uint8_t nordic_watchdog_value = 0;
+#endif
 uint32_t report_ready(data_t *p_data);
 uint32_t report_rx_handler(uart_pkt_t* p_packet, report_type_t m_report_type );
 
 void ping_timeout_handler(void *ptr);
+#if NORDIC_WATCHDOG_ENABLED
+void nordic_watchdog_handler(void *ptr);
+#endif
 
 void fsm_state_update(void);
 void fsm_state_process(void);
@@ -100,6 +112,9 @@ void vela_uart_init() {
 uint32_t report_ready(data_t *p_data){
 	//PROCESS REPORT: return APP_ACK_SUCCESS as soon as possible
 	process_post(&vela_sender_process, event_data_ready, p_data);
+#if NORDIC_WATCHDOG_ENABLED
+	nordic_watchdog_value = 0; //reset the nordic watchdog
+#endif
 	return APP_ACK_SUCCESS;
 }
 
@@ -152,7 +167,16 @@ void ping_timeout_handler(void *ptr){
 
 	send_ping();
 }
+#if NORDIC_WATCHDOG_ENABLED
+void nordic_watchdog_handler(void *ptr){
+	nordic_watchdog_value++;
 
+	if(nordic_watchdog_value > 5){ //if the nordic doesn't sent packets anymore it may be stuck, reset it!
+		fsm_stop();
+		reset_nodric();
+	}
+}
+#endif
 void fsm_state_update(void) {
 
 	app_state_t new_app_state = m_app_state;
@@ -236,6 +260,7 @@ void reset_nodric(void){
 	GPIO_clearDio(RESET_PIN_IOID);
 	clock_wait(CLOCK_SECOND/10);
 	GPIO_setDio(RESET_PIN_IOID);
+	clock_wait(CLOCK_SECOND/10);
 }
 
 
@@ -353,6 +378,9 @@ void request_periodic_report_to_nordic(uint32_t report_timeout_ms){
 	packet.type = uart_req_bt_neigh_rep;
 
 	uart_util_send_pkt(&packet);
+#if NORDIC_WATCHDOG_ENABLED //turn this to one to enable the nordic watchdog
+	ctimer_set(&m_nordic_watchdog_timer, (report_timeout_ms*CLOCK_SECOND)/1000, nordic_watchdog_handler, NULL);
+#endif
 }
 
 #define MAX_ATTEMPTS 3
@@ -479,9 +507,11 @@ PROCESS_THREAD(cc2650_uart_process, ev, data) {
 	PROCESS_BEGIN()
 		;
 
-		initialize_reset_pin();
-
 		cc26xx_uart_set_input(serial_line_input_byte);
+
+		clock_wait(CLOCK_SECOND/4); //wait to send all the contiki text before enabling the uart flow control
+
+		initialize_reset_pin();
 
 		uart_util_initialize();
 

@@ -408,7 +408,7 @@ unsigned int uart1_send_bytes(const unsigned char *s, unsigned int len)
     if(i >= len) {
       break;
     }
-    cc26xx_uart_write_byte(*s++);
+    cc26xx_uart_write_byte(*s++);	//NB: this can block the execution
     i++;
   }
 
