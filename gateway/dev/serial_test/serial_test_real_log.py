@@ -25,8 +25,8 @@ print("Started log file:", filenameLog)
 # Serial init
 ser = serial.Serial()
 ser.port = "/dev/ttyACM0"
-#ser.baudrate = 1000000
-ser.baudrate = 921600
+ser.baudrate = 1000000
+# ser.baudrate = 921600
 
 print('Opening port:', ser.port)
 ser.open()
@@ -92,14 +92,14 @@ while(1):
                         # for i in range(0,dataLen):
                         #     print("", format(numBuf[i], "02X"), end='', flush=True)
 
-                        payloadStr = "hex: "
-                        for i in range(0,dataLen):
+                        payloadStr = "hex:"
+                        for i in range(0,dataLen-1):
                         	print(' {:02X}'.format(numBuf[i]), end='')
 	                        payloadStr = payloadStr + ' {:02X}'.format(numBuf[i])
 
                         print("")
 
-                        logging.debug("%s NodeID: %d Last: %d Counter: %d DataLen: %d Payload %s", timestamp, nodeID, pktLast, pktCount, dataLen, payloadStr)
+                        logging.debug("%s %s NodeID: %d Last: %d Counter: %d DataLen: %d Payload %s", timestr, timestamp, nodeID, pktLast, pktCount, dataLen, payloadStr)
 
 
                         dataBuf = None

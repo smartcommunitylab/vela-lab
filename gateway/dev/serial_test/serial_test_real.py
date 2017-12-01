@@ -25,8 +25,8 @@ LOG_LEVEL = logging.DEBUG
 # Serial init
 ser = serial.Serial()
 ser.port = "/dev/ttyACM0"
-#ser.baudrate = 1000000
-ser.baudrate = 921600
+ser.baudrate = 1000000
+# ser.baudrate = 921600
 
 print('Opening port:', ser.port)
 ser.open()
