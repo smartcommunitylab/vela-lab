@@ -51,7 +51,7 @@ typedef enum{
 
 #define PING_PACKET_SIZE		50
 #define BT_REPORT_BUFFER_SIZE 	MAX_MESH_PAYLOAD_SIZE
-#define REPORT_TIMEOUT_MS		2000
+#define REPORT_TIMEOUT_MS		15000
 #define PING_TIMEOUT 			CLOCK_SECOND*5
 
 /** Converts a macro argument into a character constant.
