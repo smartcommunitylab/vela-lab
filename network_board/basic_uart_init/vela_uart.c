@@ -57,7 +57,7 @@ typedef enum{
 
 #define PING_PACKET_SIZE		50
 #define BT_REPORT_BUFFER_SIZE 	MAX_MESH_PAYLOAD_SIZE
-#define REPORT_TIMEOUT_MS		15000
+#define REPORT_TIMEOUT_MS		30000
 #define PING_TIMEOUT 			CLOCK_SECOND*5
 
 /** Converts a macro argument into a character constant.
@@ -171,9 +171,11 @@ void ping_timeout_handler(void *ptr){
 void nordic_watchdog_handler(void *ptr){
 	nordic_watchdog_value++;
 
-	if(nordic_watchdog_value > 5){ //if the nordic doesn't sent packets anymore it may be stuck, reset it!
-		fsm_stop();
-		reset_nodric();
+	if(nordic_watchdog_value > 5){
+		while(1){ //Stay here. The reset of the mcu will be triggered by the watchdog timer initialized into contiki-main.c
+		}
+	}else{
+		ctimer_set(&m_nordic_watchdog_timer, (report_timeout_ms*CLOCK_SECOND)/1000, nordic_watchdog_handler, NULL);
 	}
 }
 #endif
