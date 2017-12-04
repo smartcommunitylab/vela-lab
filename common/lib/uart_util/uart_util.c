@@ -244,19 +244,21 @@ void process_uart_rx_data(uint8_t *serial_data){
 		break;
 
 	case waiting_end_seq:
+		if(idx == UART_FRAME_START_SEQ_LEN_BYTE + HEX_FRAME_LEN_LEN_BYTE + expected_lenght){
 #ifndef CONTIKI
-		ret = nrf_serial_read(&serial_uart, &uart_frame[idx], UART_FRAME_MAX_LEN_BYTE - idx, &written_size, 0);
+			ret = nrf_serial_read(&serial_uart, &uart_frame[idx], UART_FRAME_MAX_LEN_BYTE - idx, &written_size, 0);
 #else
-		ret = contiki_serial_read(&serial_data[idx], &uart_frame[idx], UART_FRAME_MAX_LEN_BYTE - idx, &written_size); //todo: in place of idx use the calculated position for the end of tx character
+			ret = contiki_serial_read(&serial_data[idx], &uart_frame[idx], UART_FRAME_MAX_LEN_BYTE - idx, &written_size); //todo: in place of idx use the calculated position for the end of tx character
 #endif
-		if(written_size == 0){
-			new_status = status;
-			break;
+			if(written_size == 0){
+				new_status = status;
+				break;
+			}
+			if(ret != NRF_SUCCESS && ret != NRF_ERROR_TIMEOUT){
+				new_status = error;
+			}
+			idx += written_size;
 		}
-		if(ret != NRF_SUCCESS && ret != NRF_ERROR_TIMEOUT){
-			new_status = error; //this shoud go to error...but maybe it is better to stay here
-		}
-		idx += written_size;
 		if( is_end_sequence( &uart_frame[ UART_FRAME_START_SEQ_LEN_BYTE + HEX_FRAME_LEN_LEN_BYTE + expected_lenght ]) ){
 			idx++;
 
