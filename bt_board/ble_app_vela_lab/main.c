@@ -529,6 +529,7 @@ void uart_util_rx_handler(uart_pkt_t* p_packet) { //once it arrives here the ack
 	case uart_app_level_ack:
 		if (p_packet->payload.data_len == 5) {
 			if (p_payload_data[0] == APP_ACK_SUCCESS) { //if the app ack is positive go on with the report
+				m_tx_error = false;
 				if (report_procedure_running == 1) { //if it was ongoing
 					send_neighbors_report();
 				}
