@@ -88,7 +88,9 @@ ser.open()
 #ser.read(ser.inWaiting())   # read and discard input buffer
 ser.reset_input_buffer()
 
-contactList = [];
+tmpContactList = []
+contactList = []
+timePostLast = time.time()
 
 ### run loop ###
 
@@ -144,6 +146,7 @@ while(1):
 
                     # decode payload: Contact data (9Byte) = [node_id(6Byte)][last_rssi(1Byte)][max_rssi(1Byte)][rx_pkt_count(1Byte)]
                     # node_id saved as big_endiann
+                    tmpContactList = []
                     i = 0;
                     while i < dataLen-1:
                         tmpContact = struct.unpack_from("6sbbB", dataBuf, i)
@@ -156,7 +159,7 @@ while(1):
                             beaconIDstr = beaconIDstr + "{:02X}".format(strid)
                         # print("type nodeIDstr:", type(nodeIDstr), "nodeIDstr:", nodeIDstr)
 
-                        contactList.append({"wsnNodeId":beaconIDstr, "eventType":EVENT_BECON_CONTACT, "timestamp":timestamp*1000, "payload":{"EndNodeID":str(nodeID), "lastRSSI":tmpContact[1], "maxRSSI":tmpContact[2], "pktCounter":tmpContact[3]}})
+                        tmpContactList.append({"wsnNodeId":beaconIDstr, "eventType":EVENT_BECON_CONTACT, "timestamp":timestamp*1000, "payload":{"EndNodeID":str(nodeID), "lastRSSI":tmpContact[1], "maxRSSI":tmpContact[2], "pktCounter":tmpContact[3]}})
                         i = i + 9
                     # end while
 
@@ -176,7 +179,7 @@ while(1):
                     # print("")
 
                     # print contacts from contactList
-                    for item in contactList:
+                    for item in tmpContactList:
                         print("BeaconID: ", item["wsnNodeId"], end=" ")
                         # print(" Timestamp: ", item["timestamp"], end="")
                         print("lastRSSI: ", item["payload"]["lastRSSI"], end=" ")
@@ -184,11 +187,10 @@ while(1):
                         print("pktcounter: ", item["payload"]["pktCounter"])
                     ## end for
 
-
                     ### log on local file
                     # log from contactList
                     contactStr = ""
-                    for item in contactList:
+                    for item in tmpContactList:
                         tmps = " " + item["wsnNodeId"] + " " + str(item["payload"]["lastRSSI"]) + " " + str(item["payload"]["maxRSSI"]) + " " + str(item["payload"]["pktCounter"])
                         contactStr = contactStr + tmps
                     # end for
@@ -196,14 +198,21 @@ while(1):
 
 
                     ### send data to server
-                    r = requests.post(urlDev, json=contactList, headers=headers)
-                    if r.status_code == requests.codes.ok:
-                        print("POST request sent. Response: OK")
-                        contactList = []
-                    else:
-                        print("POST request sent. Response ERROR CODE:", r.status_code)
-                        print("ERROR: ", r.text)
-                    # end if
+                    contactList.extend(tmpContactList)
+                    print("Current packet #contacts:", len(tmpContactList), "Buffer to send #contacts:", len(contactList))
+
+                    timePost = time.time()
+                    if timePost - timePostLast > 30:
+                        print("### POST request: sending", len(contactList), "contects...",  end=" ")
+                        r = requests.post(urlDev, json=contactList, headers=headers)
+                        if r.status_code == requests.codes.ok:
+                            print("Response: OK")
+                            contactList = []
+                        else:
+                            print("Response ERROR CODE:", r.status_code)
+                            print("ERROR: ", r.text)
+                        # end if
+                        timePostLast = time.time()
 
 
                     ### cleanup
