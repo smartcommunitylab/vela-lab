@@ -29,7 +29,78 @@
 #     }
 # }
 
+# versione funzionante
+# payloadData = [{
+#     "wsnNodeId" : "Node01",
+#     "eventType" : 901,
+#     "timestamp" : 1511361257,
+#     "payload" : {
+#         "passengerId" : "a511a089-ab7a-446f-a8c2-4c208d4425c5",
+#         "latitude" : 46.0678106,
+#         "longitude" : 11.1515548,
+#         "accuracy" : 18.5380001068115
+#     }
+# }]
 
+# POST requests with data
+# case 1: header no specified content type, request with json=payloadData where payloadData is python list and dict
+# headers = {'Authorization': 'Bearer 831a2cc0-48bd-46ab-ace1-c24f767af8af'}
+# fakeDataPayload = [
+# {
+#     "wsnNodeId" : "Beaconid_01",
+#     "eventType" : EVENT_BECON_CONTACT,
+#     "timestamp" : timeStart,
+#     "payload" : {
+# 		"EndNodeID": "VelaLab_EndNode_03",
+# 		"lastRSSI": -30,
+# 		"maxRSSI": -20,
+# 		"pktCounter" : 15
+#     }
+# },
+# {
+#     "wsnNodeId" : "Beaconid_01",
+#     "eventType" : EVENT_BECON_CONTACT,
+#     "timestamp" : timeStart,
+#     "payload" : {
+# 		"EndNodeID" : "VelaLab_EndNode_04",
+# 		"lastRSSI" : -31,
+# 		"maxRSSI" : -21,
+# 		"pktCounter" : 16
+#     }
+# }
+# ]
+#
+# r = requests.post(urlDev, json=fakeDataPayload, headers=headers)
+
+# case 2: header specified content type 'application/json', encode payloadData to jsonData (from python list and dict to json), request with data=jsonData
+# headers = {'Authorization': 'Bearer 831a2cc0-48bd-46ab-ace1-c24f767af8af', 'Content-Type': 'application/json'}
+# fakeDataPayload = [
+# {
+#     "wsnNodeId" : "Beaconid_01",
+#     "eventType" : EVENT_BECON_CONTACT,
+#     "timestamp" : timeStart,
+#     "payload" : {
+# 		"EndNodeID": "VelaLab_EndNode_03",
+# 		"lastRSSI": -30,
+# 		"maxRSSI": -20,
+# 		"pktCounter" : 15
+#     }
+# },
+# {
+#     "wsnNodeId" : "Beaconid_01",
+#     "eventType" : EVENT_BECON_CONTACT,
+#     "timestamp" : timeStart,
+#     "payload" : {
+# 		"EndNodeID" : "VelaLab_EndNode_04",
+# 		"lastRSSI" : -31,
+# 		"maxRSSI" : -21,
+# 		"pktCounter" : 16
+#     }
+# }
+# ]
+#
+# jsonData = json.dumps(fakeDataPayload)
+# r = requests.post(urlDev, data=jsonData, headers=headers)
 
 import requests
 import json
@@ -54,20 +125,17 @@ lastRSSI = -30
 maxRSSI = -20
 
 
-fakeDataPayloadSingle = [
-{
-    "wsnNodeId" : "Beaconid_01",
-    "eventType" : EVENT_BECON_CONTACT,
-    "timestamp" : timeStart,
+fakeDataPayloadSingle = [{
+    "wsnNodeId" : 'Beaconid_01',
+    "eventType" : 901,
+    "timestamp" : 112345,
     "payload" : {
-		"EndNodeID": "VelaLab_EndNode_05",
+		"EndNodeID": 'VelaLab_EndNode_05',
 		"lastRSSI": -30,
 		"maxRSSI": -20,
 		"pktCounter" : 15
     }
-}
-]
-
+}]
 
 fakeDataPayload = [
 {
@@ -106,14 +174,14 @@ fakeDataPayload = [
 ]
 
 
-print("\nData:")
-print(fakeDataPayload)
+print("\nData:", fakeDataPayload)
+r = requests.post(urlDev, json=fakeDataPayload, headers=headers)
 
-jsonData = json.dumps(fakeDataPayload)
-print("\njsonData:")
-print(jsonData)
 
-r = requests.post(urlDev, json=jsonData, headers=headers)
+# jsonData = json.dumps(fakeDataPayload)
+# print("\njsonData:", jsonData)
+# r = requests.post(urlDev, data=jsonData, headers=headers)
+
 print("\nResponse:", r.text)
 
 
