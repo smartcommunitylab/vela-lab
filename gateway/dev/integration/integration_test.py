@@ -1,49 +1,93 @@
+# integration between serial and http
+# contact array as events (best option)
+# [
+# {
+#     "wsnNodeId" : <BeaconID> "string"
+#     "eventType" : 901,
+#     "timestamp" : <timestamp>,
+#     "payload" : {
+# 		"EndNodeID"   : <nodeID> "string"
+# 		"lastRSSI"   : <int>
+# 		"maxRSSI"  	 : <int>
+# 		"pktCounter" : <int>
+#     }
+# }
+
 
 import serial
 import logging
 import datetime
 import time
 import struct
+import requests
+import json
+
 
 from collections import namedtuple
 from array import array
 
-# constantd and defines
+
+### global data and defines ###
+
+timeStart = int(time.time())
+
+
+# Serial
 # start character = 42 (0x2A)
 # start sequence = 4 times start char = 42, 42, 42, 42
 START_BUF = 0x2A2A2A
 BAUD_RATE = 1000000;
-
-# print("startChar:", START_BUF, "type:", type(START_BUF))
-
-
+SERIAL_PORT = "/dev/ttyACM0"
 
 # Structure for contact data
 ContactStruct = namedtuple("ContactStruct", "nodeID lastRSSI maxRSSI pktCount")
 
-# myContact = ContactStruct(45, -20, -50, 12)
-# print("type:", type(myContact), "myContact:", myContact)
-#
-# print("type:", type(myContact.nodeID), "myContact.nodeID:", myContact.nodeID)
-#
-# contactList = []
-# for i in range(0,5):
-#     contactList.append(ContactStruct(i, -20, -50, 12+i))
-#
-# print("type:", type(contactList), "Len:", len(contactList), "contactList:", contactList)
-#
-# for i in range(0,5):
-#     print("type:", type(contactList[i].nodeID), "contactList:", contactList[i].nodeID)
-#     print("type:", type(contactList[i].pktCount), "contactList:", contactList[i].pktCount)
-#
-# while len(contactList) > 0:
-#     tmp = contactList.pop(0)
-#     print("type:", type(tmp), "tmp.nodeID:", tmp.nodeID)
-#
-#
-# print("type:", type(contactList), "Len:", len(contactList), "contactList:", contactList)
+# back-end
+EVENT_BECON_CONTACT = 901;
+urlDev_CLIMB = 'https://climbdev.smartcommunitylab.it/v2/api/event/TEST/adca3db3-68d1-4197-b834-a45d61cf1c21/vlab'
+urlDev = 'https://climbdev.smartcommunitylab.it/v2/api/event/TEST/4220a8bb-3cf5-4076-b7bd-9e7a1ff7a588/vlab'
+urlProd = ' https://climb.smartcommunitylab.it/v2/api/event/TEST/17ee8383-4cb0-4f58-9759-1d76a77f9eff/vlab'
+headers = {'Authorization': 'Bearer 831a2cc0-48bd-46ab-ace1-c24f767af8af'}
 
 
+fakeDataPayload = [
+{
+    "wsnNodeId" : "Beaconid_01",
+    "eventType" : EVENT_BECON_CONTACT,
+    "timestamp" : timeStart,
+    "payload" : {
+		"EndNodeID": "VelaLab_EndNode_05",
+		"lastRSSI": -30,
+		"maxRSSI": -20,
+		"pktCounter" : 15
+    }
+},
+{
+    "wsnNodeId" : "Beaconid_01",
+    "eventType" : EVENT_BECON_CONTACT,
+    "timestamp" : timeStart,
+    "payload" : {
+		"EndNodeID" : "VelaLab_EndNode_05",
+		"lastRSSI" : -31,
+		"maxRSSI" : -21,
+		"pktCounter" : 16
+    }
+},
+{
+    "wsnNodeId" : "Beaconid_01",
+    "eventType" : EVENT_BECON_CONTACT,
+    "timestamp" : timeStart,
+    "payload" : {
+		"EndNodeID" : "VelaLab_EndNode_03",
+		"lastRSSI" : -32,
+		"maxRSSI" : -22,
+		"pktCounter" : 17
+    }
+}
+]
+
+
+### Init ###
 
 # Log init
 LOG_LEVEL = logging.DEBUG
@@ -56,14 +100,16 @@ print("Started log file:", filenameLog)
 
 # Serial init
 ser = serial.Serial()
-ser.port = "/dev/ttyACM0"
+ser.port = SERIAL_PORT
 ser.baudrate = BAUD_RATE
-# ser.baudrate = 921600
 
 print('Opening port:', ser.port)
 ser.open()
 #ser.read(ser.inWaiting())   # read and discard input buffer
 ser.reset_input_buffer()
+
+
+### run loop ###
 
 while(1):
     if ser.isOpen():
@@ -148,20 +194,17 @@ while(1):
                         times = time.gmtime(timenow)
                         timestr = time.strftime("%Y-%m-%d--%H:%M:%S", times)
 
-                        print("\n")
-                        print(timestr, "nodeID:", nodeID, "\tlast:", pktLast, "\tcounter:", pktCount, "\tdataLen:", dataLen-1)
-                        for item in mylist:
-                            print("Contact Data: ", item.nodeID, item.lastRSSI, item.maxRSSI, item.pktCount)
-
+                        print("\n", timestr, "nodeID:", nodeID, "\tlast:", pktLast, "\tcounter:", pktCount, "\tdataLen:", dataLen-1)
+                        # print("type mylist:", type(mylist), "mylist:", mylist)
 
 
                         numBuf = list(dataBuf)
-                        # payloadStr = "hex:"
-                        # for i in range(0,dataLen-1):
-                        # 	print(' {:02X}'.format(numBuf[i]), end='')
-	                    #     payloadStr = payloadStr + ' {:02X}'.format(numBuf[i])
-                        #
-                        # print("")
+                        payloadStr = "hex:"
+                        for i in range(0,dataLen-1):
+                        	print(' {:02X}'.format(numBuf[i]), end='')
+	                        payloadStr = payloadStr + ' {:02X}'.format(numBuf[i])
+
+                        print("")
 
                         contctsStr = ""
                         for contactItem in mylist:
