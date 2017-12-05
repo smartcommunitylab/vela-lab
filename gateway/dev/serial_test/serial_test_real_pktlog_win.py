@@ -56,7 +56,7 @@ print("Started log file:", filenameLog)
 
 # Serial init
 ser = serial.Serial()
-ser.port = "/dev/ttyACM0"
+ser.port = 'COM8'
 ser.baudrate = BAUD_RATE
 # ser.baudrate = 921600
 
