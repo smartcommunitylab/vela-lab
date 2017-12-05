@@ -17,6 +17,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "sink_receiver.h"
+#include "dev/leds.h"
 
 static struct simple_udp_connection unicast_connection;
 static uint8_t from_two;
@@ -43,7 +44,8 @@ receiver(struct simple_udp_connection *c,
          const uint8_t *data,
          uint16_t datalen)
 {
-
+  leds_toggle(LEDS_GREEN);
+	
   // send a START  sequence
   printf("%c%c%c%c",42, 42, 42, 42);
 
