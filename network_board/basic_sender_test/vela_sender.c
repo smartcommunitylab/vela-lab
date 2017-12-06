@@ -65,7 +65,7 @@ set_global_address(void)
 void vela_sender_init() {
   // set some parameters locally
 
-  debug=true;
+  debug=false;
 
   if (debug) printf("vela_sender: initializing \n");
   message_number = 0;
