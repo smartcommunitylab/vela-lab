@@ -28,9 +28,9 @@ from array import array
 
 
 ### global data and defines ###
-
 timeStart = int(time.time())
 
+MAX_CONTACTS_LIST = 10
 
 # Serial
 # start character = 42 (0x2A)
@@ -38,6 +38,7 @@ timeStart = int(time.time())
 START_BUF = 0x2A2A2A
 BAUD_RATE = 1000000;
 SERIAL_PORT = "/dev/ttyACM0"
+# SERIAL_PORT = "/dev/ttyUSB0"
 
 # # Structure for contact data
 # ContactStruct = namedtuple("ContactStruct", "nodeID lastRSSI maxRSSI pktCount")
@@ -48,6 +49,8 @@ urlDev_CLIMB = 'https://climbdev.smartcommunitylab.it/v2/api/event/TEST/adca3db3
 urlDev = 'https://climbdev.smartcommunitylab.it/v2/api/event/TEST/4220a8bb-3cf5-4076-b7bd-9e7a1ff7a588/vlab'
 urlProd = ' https://climb.smartcommunitylab.it/v2/api/event/TEST/17ee8383-4cb0-4f58-9759-1d76a77f9eff/vlab'
 headers = {'Authorization': 'Bearer 831a2cc0-48bd-46ab-ace1-c24f767af8af'}
+
+MIN_POST_PERIOD_S = 2
 
 # contactSingle = [
 # {
@@ -199,19 +202,40 @@ while(1):
 
                     ### send data to server
                     contactList.extend(tmpContactList)
-                    print("Current packet #contacts:", len(tmpContactList), "Buffer to send #contacts:", len(contactList))
+                    numContacts = len(contactList)
+                    if numContacts > MAX_CONTACTS_LIST:
+                        del contactList[:(numContacts-MAX_CONTACTS_LIST)]
+                        numContacts = len(contactList)
+
+                    print("Current packet:", len(tmpContactList), "contacts. | Buffer to send", numContacts, "contacts")
 
                     timePost = time.time()
-                    if timePost - timePostLast > 30:
-                        print("### POST request: sending", len(contactList), "contects...",  end=" ")
-                        r = requests.post(urlDev, json=contactList, headers=headers)
-                        if r.status_code == requests.codes.ok:
-                            print("Response: OK")
-                            contactList = []
-                        else:
-                            print("Response ERROR CODE:", r.status_code)
-                            print("ERROR: ", r.text)
-                        # end if
+                    if timePost - timePostLast > MIN_POST_PERIOD_S:
+                        print("POST request: sending", numContacts, "contacts...")
+
+                        exc = 0
+                        # r = requests.post(urlDev, json=contactList, headers=headers)
+                        try:
+                            r = requests.post(urlDev, json=contactList, headers=headers)
+                        except requests.exceptions.RequestException as re:
+                            print("Request exception!")
+                            print(re)
+                            exc = 1
+                        except Exception as e:
+                            print("Other exception!")
+                            print(e)
+                            exc = 1
+
+                        if exc == 0:
+                            if r.status_code == requests.codes.ok:
+                                print("Response: OK")
+                                contactList = []
+                            else:
+                                print("Response ERROR CODE:", r.status_code)
+                                print("ERROR: ", r.text)
+                            # end if r.status_code
+                        # end if exc == 0
+
                         timePostLast = time.time()
 
 
