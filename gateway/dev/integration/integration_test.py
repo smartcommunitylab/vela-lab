@@ -136,6 +136,12 @@ while(1):
                     dataLen = int.from_bytes(tmpBuf, byteorder='little', signed=False)
                     # print("Data Length:", dataLen, "type:", type(dataLen))
 
+                    if (dataLen-1) % 9 != 0:
+                        print("")
+                        print("Corrupted packet header, discarding payload. NodeID:", nodeID, "dataLen:", dataLen-1)
+                        continue
+                    #end if
+
                     # read packet payload
                     dataBuf = ser.read(dataLen-1)
                     endChar = ser.read(2)
@@ -143,15 +149,14 @@ while(1):
 
                     # timestamp fpr received packet
                     timenow = time.time()
-                    timestamp = int(timenow)
-                    times = time.gmtime(timenow)
-                    timestr = time.strftime("%Y-%m-%d-%H:%M:%S", times)
+                    timestamp = int(round(timenow * 1000))
+                    timestr = time.strftime("%Y-%m-%d-%H:%M:%S", time.localtime(timenow))
 
                     # decode payload: Contact data (9Byte) = [node_id(6Byte)][last_rssi(1Byte)][max_rssi(1Byte)][rx_pkt_count(1Byte)]
                     # node_id saved as big_endiann
                     tmpContactList = []
                     i = 0;
-                    while i < dataLen-1:
+                    while i <= dataLen-10:
                         tmpContact = struct.unpack_from("6sbbB", dataBuf, i)
                         # print("type tmpContact:", type(tmpContact), "tmpContact:", tmpContact)
                         # print("type tmpContact[0]:", type(tmpContact[0]), "tmpContact[0]:", tmpContact[0])
@@ -162,7 +167,7 @@ while(1):
                             beaconIDstr = beaconIDstr + "{:02X}".format(strid)
                         # print("type nodeIDstr:", type(nodeIDstr), "nodeIDstr:", nodeIDstr)
 
-                        tmpContactList.append({"wsnNodeId":beaconIDstr, "eventType":EVENT_BECON_CONTACT, "timestamp":timestamp*1000, "payload":{"EndNodeID":str(nodeID), "lastRSSI":tmpContact[1], "maxRSSI":tmpContact[2], "pktCounter":tmpContact[3]}})
+                        tmpContactList.append({"wsnNodeId":beaconIDstr, "eventType":EVENT_BECON_CONTACT, "timestamp":timestamp, "payload":{"EndNodeID":str(nodeID), "lastRSSI":tmpContact[1], "maxRSSI":tmpContact[2], "pktCounter":tmpContact[3]}})
                         i = i + 9
                     # end while
 
