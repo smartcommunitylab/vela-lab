@@ -27,11 +27,7 @@
 #include "sys/ctimer.h"
 #include "vela_uart.h"
 
-#define NORDIC_WATCHDOG_ENABLED						0
-
-#if NORDIC_WATCHDOG_ENABLED
-#warning The nordic watchdog is not tested
-#endif
+#define NORDIC_WATCHDOG_ENABLED						1
 
 PROCESS(cc2650_uart_process, "cc2650 uart process");
 // ALM -- removed next line
@@ -73,6 +69,7 @@ data_t complete_report_data = {bt_report_buffer, 0};
 #if NORDIC_WATCHDOG_ENABLED
 static struct ctimer m_nordic_watchdog_timer;
 uint8_t nordic_watchdog_value = 0;
+uint32_t nordic_watchdog_timeout_ms = 0;
 #endif
 uint32_t report_ready(data_t *p_data);
 uint32_t report_rx_handler(uart_pkt_t* p_packet, report_type_t m_report_type );
@@ -175,7 +172,9 @@ void nordic_watchdog_handler(void *ptr){
 		while(1){ //Stay here. The reset of the mcu will be triggered by the watchdog timer initialized into contiki-main.c
 		}
 	}else{
-		ctimer_set(&m_nordic_watchdog_timer, (report_timeout_ms*CLOCK_SECOND)/1000, nordic_watchdog_handler, NULL);
+		if(nordic_watchdog_timeout_ms != 0){
+			ctimer_set(&m_nordic_watchdog_timer, (nordic_watchdog_timeout_ms*CLOCK_SECOND)/1000, nordic_watchdog_handler, NULL);
+		}
 	}
 }
 #endif
@@ -381,7 +380,8 @@ void request_periodic_report_to_nordic(uint32_t report_timeout_ms){
 
 	uart_util_send_pkt(&packet);
 #if NORDIC_WATCHDOG_ENABLED //turn this to one to enable the nordic watchdog
-	ctimer_set(&m_nordic_watchdog_timer, (report_timeout_ms*CLOCK_SECOND)/1000, nordic_watchdog_handler, NULL);
+	nordic_watchdog_timeout_ms = (report_timeout_ms+100);
+	ctimer_set(&m_nordic_watchdog_timer, (nordic_watchdog_timeout_ms*CLOCK_SECOND)/1000, nordic_watchdog_handler, NULL);
 #endif
 }
 
@@ -488,7 +488,10 @@ void uart_util_rx_handler(uart_pkt_t* p_packet) { //once it arrives here the ack
 		return;	//do not send the ack twice
 		break;
 	case uart_pong:
-		ack_value = APP_ACK_SUCCESS;
+		uart_util_send_ack(p_packet, APP_ACK_SUCCESS); //ack message for evt_ready can be avoided
+		//here we shall wait the previous message to be sent, but if the uart buffers are enough long the two messages will fit together
+		fsm_start();
+		return;  //ready message may not send ack
 		break;
 	default:
 		ack_value = APP_ERROR_NOT_FOUND;
