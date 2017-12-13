@@ -37,7 +37,7 @@ MAX_CONTACTS_LIST = 1000
 # start sequence = 4 times start char = 42, 42, 42, 42
 START_CHAR = 0x2A
 START_BUF = 0x2A2A2A
-BAUD_RATE = 921600
+BAUD_RATE = 1000000
 SERIAL_PORT = "/dev/ttyACM0"
 # SERIAL_PORT = "/dev/ttyUSB0"
 
@@ -219,12 +219,14 @@ while(1):
                     endChar = ser.read(2)
 
                     if endChar != b'\n\x00':
+                    # if endChar != b'\n':
                         numBuf = list(dataBuf)
                         payloadStr = ""
                         for i in range(0,dataLen-1):
                             payloadStr = payloadStr + ' {:02X}'.format(numBuf[i])
                         endBuf = list(endChar)
-                        payloadStr = payloadStr + ' {:02X}'.format(endBuf[0]) + ' {:02X}'.format(endBuf[1])
+                        payloadStr = payloadStr + " {:02X}".format(endBuf[0]) + " {:02X}".format(endBuf[1])
+                        # payloadStr = payloadStr + ' {:02X}'.format(endBuf[0])
 
                         print("\n#### Corrupted endChar #### NodeID:", nodeID, "\tcounter", pktCount, "\tdataLen", dataLen-1, "\tendChar", endChar)
                         appLogger.debug("PKT CorruptedEnd NodeID %s counter %d dataLen %d payloadHex:%s", nodeID, pktCount, dataLen-1, payloadStr)
@@ -269,7 +271,8 @@ while(1):
                         for i in range(0,dataLen-1):
                             payloadStr = payloadStr + ' {:02X}'.format(numBuf[i])
                         endBuf = list(endChar)
-                        payloadStr = payloadStr + ' {:02X}'.format(endBuf[0]) + ' {:02X}'.format(endBuf[1])
+                        # payloadStr = payloadStr + ' {:02X}'.format(endBuf[0]) + ' {:02X}'.format(endBuf[1])
+                        payloadStr = payloadStr + ' {:02X}'.format(endBuf[0])
 
                         print("\n#### Corrupted payload #### NodeID:", nodeID, "\tcounter", pktCount, "\tdataLen", dataLen-1, "\tendChar", endChar)
                         appLogger.debug("PKT CorruptedPayload NodeID %s counter %d dataLen %d payloadHex:%s", nodeID, pktCount, dataLen-1, payloadStr)
@@ -350,9 +353,15 @@ while(1):
                     ### cleanup
                     dataBuf = None
 
-
                 # end if startBuf == START_BUF
+            else:
+                # received random char NOT packet start
+                # startList = list(startChar)
+                payloadStr = "{:02X}".format(startChar)
+                print(payloadStr, end=" ")
+                appLogger.debug("START charHex: %s", payloadStr)
             # end if startChar == 42
+
         # end if bytesWaiting > 0
 
     else:
