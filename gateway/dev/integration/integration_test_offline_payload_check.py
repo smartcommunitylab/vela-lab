@@ -287,39 +287,39 @@ while(1):
 
 
                     ### send data to server
-                    contactList.extend(tmpContactList)
-                    numContacts = len(contactList)
-                    if numContacts > MAX_CONTACTS_LIST:
-                        del contactList[:(numContacts-MAX_CONTACTS_LIST)]
-                        numContacts = len(contactList)
-
-                    print("Current packet:", len(tmpContactList), "contacts. Buffer to send:", numContacts, "contacts")
-
-                    timePost = time.time()
-                    if timePost - timePostLast > MIN_POST_PERIOD_S:
-                        print("POST request sending", numContacts, "contacts...")
-
-                        exc = 0
-                        # r = requests.post(urlDev, json=contactList, headers=headers)
-                        try:
-                            r = requests.post(urlDev, json=contactList, headers=headers)
-                        except Exception as e:
-                            print("POST request exception:", e)
-                            appLogger.debug("POST request exception: %s", e)
-                            exc = 1
-
-                        if exc == 0:
-                            if r.status_code == requests.codes.ok:
-                                print("POST Response: OK")
-                                appLogger.debug("POST request with %d contacts. Response: OK", numContacts)
-                                contactList = []
-                            else:
-                                print("POST Response: ERROR code:", r.status_code, "error:", r.text)
-                                appLogger.debug("POST request with %d contacts. Response: ERROR! code: %d error: %s", numContacts, r.status_code, r.text)
-                            # end if r.status_code
-                        # end if exc == 0
-
-                        timePostLast = time.time()
+                    # contactList.extend(tmpContactList)
+                    # numContacts = len(contactList)
+                    # if numContacts > MAX_CONTACTS_LIST:
+                    #     del contactList[:(numContacts-MAX_CONTACTS_LIST)]
+                    #     numContacts = len(contactList)
+                    #
+                    # print("Current packet:", len(tmpContactList), "contacts. Buffer to send:", numContacts, "contacts")
+                    #
+                    # timePost = time.time()
+                    # if timePost - timePostLast > MIN_POST_PERIOD_S:
+                    #     print("POST request sending", numContacts, "contacts...")
+                    #
+                    #     exc = 0
+                    #     # r = requests.post(urlDev, json=contactList, headers=headers)
+                    #     try:
+                    #         r = requests.post(urlDev, json=contactList, headers=headers)
+                    #     except Exception as e:
+                    #         print("POST request exception:", e)
+                    #         appLogger.debug("POST request exception: %s", e)
+                    #         exc = 1
+                    #
+                    #     if exc == 0:
+                    #         if r.status_code == requests.codes.ok:
+                    #             print("POST Response: OK")
+                    #             appLogger.debug("POST request with %d contacts. Response: OK", numContacts)
+                    #             contactList = []
+                    #         else:
+                    #             print("POST Response: ERROR code:", r.status_code, "error:", r.text)
+                    #             appLogger.debug("POST request with %d contacts. Response: ERROR! code: %d error: %s", numContacts, r.status_code, r.text)
+                    #         # end if r.status_code
+                    #     # end if exc == 0
+                    #
+                    #     timePostLast = time.time()
 
                     # end if timePost - timePostLast > MIN_POST_PERIOD_S
 
