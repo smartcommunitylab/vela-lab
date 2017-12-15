@@ -18,6 +18,7 @@
 #include <string.h>
 #include "sink_receiver.h"
 #include "dev/leds.h"
+#include "dev/cc26xx-uart.h"
 
 static struct simple_udp_connection unicast_connection;
 static uint8_t from_two;
@@ -171,11 +172,21 @@ create_rpl_dag(uip_ipaddr_t *ipaddr)
   }
 }
 /*---------------------------------------------------------------------------*/
+static int
+dummy_uart_receiver(unsigned char c) //this function will be useful in the future. For now setting the input function disables the power saving of the uart peripheral.
+{
+	(void) c;
+	leds_toggle(LEDS_GREEN);
+	return 0;
+}
+/*---------------------------------------------------------------------------*/
 PROCESS_THREAD(sink_receiver_process, ev, data)
 {
   uip_ipaddr_t *ipaddr;
 
   PROCESS_BEGIN();
+
+  cc26xx_uart_set_input(dummy_uart_receiver);
 
   servreg_hack_init();
 
