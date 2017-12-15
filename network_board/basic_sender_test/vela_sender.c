@@ -124,7 +124,7 @@ PROCESS_THREAD(vela_sender_process, ev, data) {
   static data_t* eventData;
   static int offset = 0;
   static int sizeToSend=0;
-  etimer_set(&pause_timer, CLOCK_SECOND*10); // time between sends
+  etimer_set(&pause_timer, TIME_BETWEEN_SENDS);
 
   event_buffer_empty = process_alloc_event();
 

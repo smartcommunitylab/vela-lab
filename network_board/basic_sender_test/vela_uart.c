@@ -10,7 +10,7 @@
 #include "contiki.h"
 #include "sys/etimer.h"
 #include "vela_uart.h"
-#include "vela_shared.h"
+#include "constraints.h"
 #include <stdio.h>
 #include "vela_sender.h"
 

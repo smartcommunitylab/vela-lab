@@ -113,8 +113,6 @@
 #define NRF_ERROR_BUSY                        (NRF_ERROR_BASE_NUM + 17) ///< Busy
 #endif
 
-#define SINGLE_NODE_REPORT_SIZE 				9
-
 #define APP_ACK_SUCCESS							NRF_SUCCESS
 #define APP_ERROR_GENERIC						NRF_ERROR_INTERNAL
 #define APP_ERROR_NO_MEM						NRF_ERROR_NO_MEM

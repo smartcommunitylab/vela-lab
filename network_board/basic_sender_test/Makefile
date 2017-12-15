@@ -1,6 +1,3 @@
-CONTIKI=${CONTIKI_ROOT}
-CONTIKI =/Users/murphy/Projects/VelaLab/contiki
-
 DEFINES+=PROJECT_CONF_H=\"project-conf.h\"
 
 all: vela_node vela_sink
