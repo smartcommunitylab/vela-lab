@@ -27,7 +27,7 @@
 #include "boards.h"
 #endif
 
-#define SERIAL_FIFOS_SIZE 256                         /**< UART TX buffer (FIFO) size. */
+#define SERIAL_FIFOS_SIZE 128                         /**< UART TX buffer (FIFO) size. */
 
 #ifndef CONTIKI
 	#define SERIAL_FIFO_TX_SIZE SERIAL_FIFOS_SIZE
@@ -42,7 +42,7 @@
 		#define UART_CTS_PIN_NUMBER 			CTS_PIN_NUMBER
 		#define UART_FLOW_CONTROL 				NRF_UART_HWFC_ENABLED//APP_UART_FLOW_CONTROL_DISABLED
 		#define UART_PARITY_ENABLED 			NRF_UART_PARITY_EXCLUDED
-		#define UART_BAUDRATE 					UART_BAUDRATE_BAUDRATE_Baud115200
+		#define UART_BAUDRATE 					UART_BAUDRATE_BAUDRATE_Baud1M
 	#else
 		#define UART_RX_PIN_NUMBER 				NRF_GPIO_PIN_MAP(0,24)//TX_PIN_NUMBER//NRF_GPIO_PIN_MAP(0,24)
 		#ifdef DEBUG
@@ -54,7 +54,7 @@
 		#define UART_CTS_PIN_NUMBER 			NRF_GPIO_PIN_MAP(0,22)
 		#define UART_FLOW_CONTROL 				NRF_UART_HWFC_ENABLED//NRF_UART_HWFC_ENABLED
 		#define UART_PARITY_ENABLED 			NRF_UART_PARITY_EXCLUDED
-		#define UART_BAUDRATE 					UART_BAUDRATE_BAUDRATE_Baud115200 //NB: check the baudrate, some settings are nonstandard. See UART_BAUDRATE_BAUDRATE_Baud921600 in nrf52_bitfields.h
+		#define UART_BAUDRATE 					UART_BAUDRATE_BAUDRATE_Baud1M //NB: check the baudrate, some settings are nonstandard. See UART_BAUDRATE_BAUDRATE_Baud921600 in nrf52_bitfields.h
 	#endif
 #else	//CONTIKI
 	#include <stddef.h>
@@ -112,8 +112,6 @@
 #define NRF_ERROR_INVALID_ADDR                (NRF_ERROR_BASE_NUM + 16) ///< Bad Memory Address
 #define NRF_ERROR_BUSY                        (NRF_ERROR_BASE_NUM + 17) ///< Busy
 #endif
-
-#define SINGLE_NODE_REPORT_SIZE 				9
 
 #define APP_ACK_SUCCESS							NRF_SUCCESS
 #define APP_ERROR_GENERIC						NRF_ERROR_INTERNAL

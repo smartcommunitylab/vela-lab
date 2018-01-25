@@ -517,7 +517,7 @@ void uart_util_rx_handler(uart_pkt_t* p_packet) { //once it arrives here the ack
 
 	uart_pkt_type_t type = p_packet->type;
 	uint8_t *p_payload_data = p_packet->payload.p_data;
-	uint32_t ack_value;
+	uint32_t ack_value = APP_ERROR_NOT_FOUND;
 
 	if (report_procedure_running == 1 && type != uart_app_level_ack) { //during report procedures accept only ack packet
 		ack_value = APP_ERROR_INVALID_STATE;
@@ -529,6 +529,7 @@ void uart_util_rx_handler(uart_pkt_t* p_packet) { //once it arrives here the ack
 	case uart_app_level_ack:
 		if (p_packet->payload.data_len == 5) {
 			if (p_payload_data[0] == APP_ACK_SUCCESS) { //if the app ack is positive go on with the report
+				m_tx_error = false;
 				if (report_procedure_running == 1) { //if it was ongoing
 					send_neighbors_report();
 				}
@@ -547,6 +548,7 @@ void uart_util_rx_handler(uart_pkt_t* p_packet) { //once it arrives here the ack
 		break;
 	case uart_req_reset:
 		sd_nvic_SystemReset();
+		return;
 		break;
 	case uart_req_bt_state:
 		ack_value = APP_ERROR_NOT_IMPLEMENTED;

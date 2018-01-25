@@ -11,26 +11,22 @@ import time
 START_BUF = 0x2A2A2A
 # print("startChar:", START_BUF, "type:", type(START_BUF))
 
-LOG_LEVEL = logging.DEBUG
 
-
-timestr = time.strftime("%Y%m%d-%H%M%S")
-# print(timestr)
-
-filenameLog = timestr + "-application.log"
-print(filenameLog)
 
 # Log init
-logging.basicConfig(filename=filenameLog,level=LOG_LEVEL,format='%(message)s')
-# logging.debug("[" + time.strftime("%H%M%S") + ']' + ' This message should go to the log file')
-logging.debug('# Time \tNodeID \tLast \tCounter \tDataLen')
+LOG_LEVEL = logging.DEBUG
+# timestr = time.strftime("%Y%m%d-%H%M%S")
+# filenameLog = timestr + "-application.log"
+# print(filenameLog)
+# logging.basicConfig(filename=filenameLog,level=LOG_LEVEL,format='%(message)s')
+# logging.debug('# Time \tNodeID \tLast \tCounter \tDataLen')
 
 
 # Serial init
 ser = serial.Serial()
 ser.port = "/dev/ttyACM0"
-#ser.baudrate = 1000000
-ser.baudrate = 115200
+ser.baudrate = 1000000
+# ser.baudrate = 921600
 
 print('Opening port:', ser.port)
 ser.open()
@@ -43,19 +39,20 @@ while(1):
         bytesWaiting = ser.inWaiting()
         if bytesWaiting > 0:
 
-            # print("Serial Waiting:", bytesWaiting)
+            # to print raw data in hex decomment here
+            # print("\nSerial Waiting:", bytesWaiting)
             # bufferSerial = ser.read(bytesWaiting)
-            # print(bufferSerial)
+            # bufferSerialNum = list(bufferSerial)
+            # for i in range(0,bytesWaiting):
+            #     print("", format(bufferSerialNum[i], "02X"), end='', flush=True)
             # startChar = 1;
 
+            # to start decoding packets decmment here
             startChar = int.from_bytes(ser.read(1), byteorder='big', signed=False)
-            # print("startChar:", startChar, "type:", type(startChar))
 
             if startChar == 42:
 
-                # print("received 1 Start char. inWaiting:", bytesWaiting)
                 startBuf = int.from_bytes(ser.read(3), byteorder='little', signed=False)
-                # print("startBuf:", startBuf, "type:", type(startBuf))
 
                 if startBuf == START_BUF:
 
@@ -76,22 +73,26 @@ while(1):
 
                     if dataLen < 500:
 
-                        dataBuf = ser.read(dataLen)
+                        dataBuf = ser.read(dataLen+1)
 
                         # print("PKT read! node:", nodeID, " last:", pktLast, " counter:", pktCount, "dataLen:", dataLen, "last bytes:", dataBuf[dataLen-8], dataBuf[dataLen-7], dataBuf[dataLen-6], dataBuf[dataLen-5], dataBuf[dataLen-4], dataBuf[dataLen-3], dataBuf[dataLen-2], dataBuf[dataLen-1])
-                        print("PKT read! node:", nodeID, "\tlast:", pktLast, "\tcounter:", pktCount, "\tdataLen:", dataLen, "\tlast bytes:", dataBuf[dataLen-16:])
-                        # logging.debug("%s; %s; %s; %s; %s;", time.strftime("%H%M%S"), nodeID, pktLast, pktCount, dataLen)
-                        logging.debug("%s\t%s\t%s\t%s\t%s", time.strftime("%H%M%S"), nodeID, pktLast, pktCount, dataLen)
+                        # print("PKT read! node:", nodeID, "\tlast:", pktLast, "\tcounter:", pktCount, "\tdataLen:", dataLen, "\tlast bytes:", dataBuf[dataLen-34:])
 
-                        lastChar = dataBuf[dataLen-1]
-                        if lastChar != 10:
-                            ser.reset_input_buffer()
+                        print("\nPKT read! node:", nodeID, "\tlast:", pktLast, "\tcounter:", pktCount, "\tdataLen:", dataLen)
 
 
-                        # print("\n")
-                        # print("Data type:", type(dataBuf))
-                        # print(dataBuf)
-                        # print("\n")
+                        numBuf = list(dataBuf)
+                        # print("PKT type num:", type(numBuf), "PKT: %x", numBuf)
+
+                        for i in range(0,dataLen):
+                            print("", format(numBuf[i], "02X"), end='', flush=True)
+
+
+                        # logging.debug("%s\t%s\t%s\t%s\t%s", time.strftime("%H%M%S"), nodeID, pktLast, pktCount, dataLen)
+
+
+                        dataBuf = None
+
 
                     else:
                         bufferSerial = ser.read(ser.inWaiting())

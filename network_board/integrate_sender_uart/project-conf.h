@@ -18,13 +18,13 @@
 /* ContikiMAC channel check rate given in Hz, specifying the number of channel checks per second*/
 /* NETSTACK_RDC_CONF_CHANNEL_CHECK_RATE must be a power of two (i.e. 1, 2, 4, 8, 16, 32, 64, ...)*/
 #undef  NETSTACK_CONF_RDC_CHANNEL_CHECK_RATE
-#define NETSTACK_CONF_RDC_CHANNEL_CHECK_RATE 8
+#define NETSTACK_CONF_RDC_CHANNEL_CHECK_RATE 1
 /*---------------------------------------------------------------------------*/
 #undef  UDP_PORT
 #define UDP_PORT 							1234
 #define SERVICE_ID 							190
 
-#define SEND_INTERVAL	  					(15 * CLOCK_SECOND)
+//#define SEND_INTERVAL	  					(15 * CLOCK_SECOND)
 
 
 #endif /* __PROJECT_CONF_H__ */

@@ -23,12 +23,10 @@
 #include "dev/leds.h"
 #include "sys/ctimer.h"
 #include "ti-lib.h"
-#define UART_ACK_TIMEOUT 						CLOCK_SECOND/2			//for small reasonable values (from 1 to 10) it doesn't work, the timeout handler triggered on the first transfer. May it be that contiki takes a long time to reschedule the process??
+#define UART_ACK_TIMEOUT 						CLOCK_SECOND/2
 #else
 #define UART_ACK_TIMEOUT						APP_TIMER_TICKS(500)
 #endif
-
-//TODO: Maybe it is better to use the serial library and implement the same using the DMA
 
 typedef enum{
 	waiting_start_seq,
@@ -181,7 +179,7 @@ void process_uart_rx_data(uint8_t *serial_data){
 			break;
 		}
 		if(ret != NRF_SUCCESS && ret != NRF_ERROR_TIMEOUT){
-			new_status = error; //this shoud go to error...but maybe it is better to stay here
+			new_status = error;
 		}
 		if( is_start_sequence(&uart_frame[idx]) ){
 			idx += written_size;
@@ -210,14 +208,11 @@ void process_uart_rx_data(uint8_t *serial_data){
 
 		if( idx >= UART_FRAME_START_SEQ_LEN_BYTE + HEX_FRAME_LEN_LEN_BYTE ){	//we have just received the length field
 			ret = hex_array_to_uint8(&uart_frame[UART_FRAME_START_SEQ_LEN_BYTE], HEX_FRAME_LEN_LEN_BYTE, temp_array);
-			if( ret == HEX_FRAME_LEN_LEN_SYMB ){
-				expected_lenght = 2 * ( (temp_array[0] << 8) + temp_array[1] ); //todo: check if expected_lenght_byte is a reasonable value
-				if(expected_lenght == 0){
-					new_status = waiting_end_seq;
-				}
-				new_status = receiving_packet;
-			}else{
+			expected_lenght = 2 * ( (temp_array[0] << 8) + temp_array[1] );	//convert the length from hex string length to byte len
+			if(expected_lenght == 0 || expected_lenght > UART_PKT_HEX_FRAME_MAX_LEN_BYTE){
 				new_status = error;
+			}else{
+				new_status = receiving_packet;
 			}
 		}else{
 			new_status = status; //remain here till the whole LEN field is received
@@ -244,24 +239,26 @@ void process_uart_rx_data(uint8_t *serial_data){
 		if (idx >= UART_FRAME_START_SEQ_LEN_BYTE + HEX_FRAME_LEN_LEN_BYTE + expected_lenght) {	//we have just received the length field
 			new_status = waiting_end_seq;
 		}else{
-			new_status = status; //remain here till the whole LEN field is received
+			new_status = status; //remain here till the whole hex frame field is received
 		}
 		break;
 
 	case waiting_end_seq:
+		if(idx == UART_FRAME_START_SEQ_LEN_BYTE + HEX_FRAME_LEN_LEN_BYTE + expected_lenght){
 #ifndef CONTIKI
-		ret = nrf_serial_read(&serial_uart, &uart_frame[idx], UART_FRAME_MAX_LEN_BYTE - idx, &written_size, 0);
+			ret = nrf_serial_read(&serial_uart, &uart_frame[idx], UART_FRAME_MAX_LEN_BYTE - idx, &written_size, 0);
 #else
-		ret = contiki_serial_read(&serial_data[idx], &uart_frame[idx], UART_FRAME_MAX_LEN_BYTE - idx, &written_size);
+			ret = contiki_serial_read(&serial_data[idx], &uart_frame[idx], UART_FRAME_MAX_LEN_BYTE - idx, &written_size); //todo: in place of idx use the calculated position for the end of tx character
 #endif
-		if(written_size == 0){
-			new_status = status;
-			break;
+			if(written_size == 0){
+				new_status = status;
+				break;
+			}
+			if(ret != NRF_SUCCESS && ret != NRF_ERROR_TIMEOUT){
+				new_status = error;
+			}
+			idx += written_size;
 		}
-		if(ret != NRF_SUCCESS && ret != NRF_ERROR_TIMEOUT){
-			new_status = error; //this shoud go to error...but maybe it is better to stay here
-		}
-		idx += written_size;
 		if( is_end_sequence( &uart_frame[ UART_FRAME_START_SEQ_LEN_BYTE + HEX_FRAME_LEN_LEN_BYTE + expected_lenght ]) ){
 			idx++;
 
@@ -411,7 +408,7 @@ unsigned int uart1_send_bytes(const unsigned char *s, unsigned int len)
     if(i >= len) {
       break;
     }
-    cc26xx_uart_write_byte(*s++);
+    cc26xx_uart_write_byte(*s++);	//NB: this can block the execution because it calls the blocking UARTCharPut, but there is also the non blocking version ti_lib_uart_char_put_non_blocking
     i++;
   }
 
