@@ -11,7 +11,7 @@
 # 		"maxRSSI"  	 : <int>
 # 		"pktCounter" : <int>
 #     }
-# }
+# ]
 
 
 import serial
@@ -31,30 +31,38 @@ import sys
 ### global data and defines ###
 timeStart = int(time.time())
 
-MAX_CONTACTS_LIST = 1000
+MAX_CONTACTS_LIST = 1000	#MAX number of contacts locally buffered
 
 # Serial
-# start character = 42 (0x2A)
+# start character = 42 (0x2A) ('*')
 # start sequence = 4 times start char = 42, 42, 42, 42
 START_CHAR = 0x2A
-START_BUF = 0x2A2A2A
+START_BUF = 0x2A2A2A	#this is not really a buffer
 BAUD_RATE = 1000000
 # SERIAL_PORT = "/dev/ttyACM0"
-SERIAL_PORT = "/dev/ttyUSB0"
-
-# # Structure for contact data
-# ContactStruct = namedtuple("ContactStruct", "nodeID lastRSSI maxRSSI pktCount")
+SERIAL_PORT = "/dev/ttyUSB0"	#serial name, something like "/dev/ttyUSB0" on linux, something like "COM0" on windows
 
 # back-end
-EVENT_BECON_CONTACT = 901
-urlDev_CLIMB = 'https://climbdev.smartcommunitylab.it/v2/api/event/TEST/adca3db3-68d1-4197-b834-a45d61cf1c21/vlab'
-urlDev = 'https://climbdev.smartcommunitylab.it/v2/api/event/TEST/4220a8bb-3cf5-4076-b7bd-9e7a1ff7a588/vlab'
-urlProd = ' https://climb.smartcommunitylab.it/v2/api/event/TEST/17ee8383-4cb0-4f58-9759-1d76a77f9eff/vlab'
-headers = {'Authorization': 'Bearer 831a2cc0-48bd-46ab-ace1-c24f767af8af'}
+EVENT_BECON_CONTACT = 901	#defined on the server, do not change!
+urlDev_CLIMB = 'https://climbdev.smartcommunitylab.it/v2/api/event/TEST/adca3db3-68d1-4197-b834-a45d61cf1c21/vlab'  #TODO: REMOVE THIS FROM THE PUBLIC REPOSITORY
+urlDev = 'https://climbdev.smartcommunitylab.it/v2/api/event/TEST/4220a8bb-3cf5-4076-b7bd-9e7a1ff7a588/vlab' 		#TODO: REMOVE THIS FROM THE PUBLIC REPOSITORY
+urlProd = ' https://climb.smartcommunitylab.it/v2/api/event/TEST/17ee8383-4cb0-4f58-9759-1d76a77f9eff/vlab' 		#TODO: REMOVE THIS FROM THE PUBLIC REPOSITORY
+headers = {'Authorization': 'Bearer 831a2cc0-48bd-46ab-ace1-c24f767af8af'} 											#TODO: REMOVE THIS FROM THE PUBLIC REPOSITORY
 
-MIN_POST_PERIOD_S = 60
+MIN_POST_PERIOD_S = 60		#time between buffer send. (every MIN_POST_PERIOD_S the buffer is sent to the server)
 
-# contactSingle = [
+# contactArray = [
+# {
+#     "wsnNodeId" : "Beaconid_01",			#<string>
+#     "eventType" : EVENT_BECON_CONTACT,	#<int>
+#     "timestamp" : timeStart,				#<timestamp>
+#     "payload" : {
+# 		"EndNodeID": "VelaLab_EndNode_05", 	#<string>
+# 		"lastRSSI": -30,					#<int>
+# 		"maxRSSI": -20,						#<int>
+# 		"pktCounter" : 15					#<int>
+#     }
+# }
 # {
 #     "wsnNodeId" : "Beaconid_01",
 #     "eventType" : EVENT_BECON_CONTACT,
@@ -74,9 +82,11 @@ MIN_POST_PERIOD_S = 60
 ### Init ###
 
 # Log init
+# TODO: files are never closed, with long experiments it may create huge files! Handle the problem somehow
+# Application log and data log are handled in the same way, but with different endpoints (different files)
+
 LOG_LEVEL = logging.DEBUG
 timestr = time.strftime("%Y%m%d_%H%M%S")
-
 
 # Data logger
 nameDataLog = "dataLogger"
@@ -157,7 +167,7 @@ try:
             if bytesWaiting > 0:
 
 
-                # to print raw data in hex decomment here
+                # to print raw data in hex decomment here and comment the rest of the while(1)
                 # print("\nSerial Waiting:", bytesWaiting)
                 # bufferSerial = ser.read(bytesWaiting)
                 # bufferSerialNum = list(bufferSerial)
@@ -166,7 +176,7 @@ try:
                 # startChar = 1;
 
                 # to start decoding packets decmment here
-                startChar = int.from_bytes(ser.read(1), byteorder='big', signed=False)
+                startChar = int.from_bytes(ser.read(1), byteorder='little', signed=False)
 
                 if startChar == START_CHAR:
 
@@ -186,18 +196,17 @@ try:
                         dataLen = int.from_bytes(tmpBuf, byteorder='little', signed=False)
                         # print("Data Length:", dataLen, "type:", type(dataLen))
 
-                        if (dataLen-1) % 9 != 0:
+                        if (dataLen-1) % 9 != 0: #TODO: 9 is the single node report size. Parametrize it!
                             # print("\n#### Corrupted packetLength #### NodeID:", nodeID, "\tcounter", pktCount, "\tdataLen", dataLen-1, "\tendChar", endChar)
                             appLogger.debug("PKT CorruptedLen NodeID %s counter %d dataLen %d", nodeID, pktCount, dataLen-1)
                             continue
                         #end if
 
                         # read packet payload
-                        dataBuf = ser.read(dataLen-1)
+                        dataBuf = ser.read(dataLen-1) # NB: ser.read is blocking! TODO: maybe use the non blocking version with a timeout of 100ms
                         endChar = ser.read(1)
 
-                        # if endChar != b'\n\x00':
-                        if endChar != b'\n':
+                        if endChar != b'\n':	#TODO: parametrize endchar '\n'
                             numBuf = list(dataBuf)
                             payloadStr = ""
                             for i in range(0,dataLen-1):
@@ -223,7 +232,7 @@ try:
                         tmpContactList = []
                         corrupted = False
                         i = 0;
-                        while i <= dataLen-10:
+                        while i <= dataLen-10: #TODO: 10 is the single node report size - 1. Parametrize it
                             tmpContact = struct.unpack_from("6sbbB", dataBuf, i)
                             # print("type tmpContact:", type(tmpContact), "tmpContact:", tmpContact)
                             # print("type tmpContact[0]:", type(tmpContact[0]), "tmpContact[0]:", tmpContact[0])
@@ -231,6 +240,7 @@ try:
                             beaconIDstr = ""
                             tmplist = list(tmpContact[0])
 
+							# next three lines are used to check if the first 5 bytes are zero, not to be used in the general case
                             # if (tmplist[0] != 0) or (tmplist[1] != 0) or (tmplist[2] != 0) or (tmplist[3] != 0) or (tmplist[4] != 0):
                             #     corrupted = True
                             #     break
@@ -240,7 +250,7 @@ try:
                             # print("type nodeIDstr:", type(nodeIDstr), "nodeIDstr:", nodeIDstr)
 
                             tmpContactList.append({"wsnNodeId":beaconIDstr, "eventType":EVENT_BECON_CONTACT, "timestamp":timestamp, "payload":{"EndNodeID":str(nodeID), "lastRSSI":tmpContact[1], "maxRSSI":tmpContact[2], "pktCounter":tmpContact[3]}})
-                            i = i + 9
+                            i = i + 9	# TODO: ingle node report size. Parametrize it
                         # end while
 
                         if corrupted:
@@ -262,16 +272,18 @@ try:
                         print("")
                         # print(timestr, "nodeID:", nodeID, "\tlast:", pktLast, "\tcounter:", pktCount, "\tdataLen:", dataLen-1, "\tendChar:", endChar)
 
-                        # demo print
+                        # demo print, remaps nodesIDs for the terminal plot
                         # print(hourstr, "\tNodeID:", nodeID, "\tPKT counter:", pktCount, "\t# beacons:", int((dataLen-1)/9) )
-                        if nodeID == 4:
-                            nodeIDprint = 1
-                        elif  nodeID == 132:
-                            nodeIDprint = 2
-                        elif  nodeID == 135:
-                            nodeIDprint = 3
-                        else:
-                            nodeIDprint = 0
+                        #if nodeID == 4:
+                        #    nodeIDprint = 1
+                        #elif  nodeID == 132:
+                        #    nodeIDprint = 2
+                        #elif  nodeID == 135:
+                        #    nodeIDprint = 3
+                        #else:
+                        #    nodeIDprint = 0
+
+						nodeIDprint = nodeID
 
                         print(hourstr, "NodeID:", nodeIDprint)
 
@@ -310,9 +322,9 @@ try:
 
 
                         ### send data to server
-                        contactList.extend(tmpContactList)
+                        contactList.extend(tmpContactList) #TODO: check the number of contacts in the buffer before adding the new contacts
                         numContacts = len(contactList)
-                        if numContacts > MAX_CONTACTS_LIST:
+                        if numContacts > MAX_CONTACTS_LIST: #TODO: add an error print somewhere if the buffer size is exceeded
                             del contactList[:(numContacts-MAX_CONTACTS_LIST)]
                             numContacts = len(contactList)
 
@@ -323,9 +335,8 @@ try:
                             print("POST request: sending", numContacts, "contacts...")
 
                             exc = 0
-                            # r = requests.post(urlDev, json=contactList, headers=headers)
                             try:
-                                r = requests.post(urlDev, json=contactList, headers=headers)
+                                r = requests.post(urlDev, json=contactList, headers=headers) #blocking call, may take some time to execute
                             except Exception as e:
                                 print("POST request exception:", e)
                                 appLogger.debug("POST request exception: %s", e)
@@ -361,7 +372,7 @@ try:
 
             # end if bytesWaiting > 0
 
-        else:
+        else: # !ser.is_open (serial port is not open)
 
             print('Serial Port closed! Trying to open port:', ser.port)
 
