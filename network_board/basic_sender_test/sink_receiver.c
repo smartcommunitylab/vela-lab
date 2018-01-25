@@ -58,7 +58,7 @@ receiver(struct simple_udp_connection *c,
   printf("%c",(uint8_t)(datalen>>8));
     
 
-  // send the actual data.  datalen is actually the real data lenght + 1, where the 1 is the packet number. We still send this because of the \n
+  // send the actual data.  datalen is actually the real data lenght + 1, where the 1 is the packet number. We still send this because of thbring e \n
   int i;
   for (i=1;i<datalen;i++) 
     printf("%c",(uint8_t)data[i]);
