@@ -1,0 +1,24 @@
+To correct:
+- increase the width of trace N$2 (from usb to L1)
+- move L1 and C14 closer to the usb port
+- move C9 below Q1 (also C8 can be moved down a bit, anyway C8 is not critical)
+- increase the width of the trace between D5 and MAX17710
+- move diode BOOST (and LX if possible) down close to the MAX17710
+- move D2 and R9 below D5
+- allign USB and CHG (and if possible all the others) testpoints to 0.1" grid
+- change the name to USB testpoint to VDD_CHG
+- V_SOLAR trace can be reduced if needed
+- increase the width of trace between MAX17710 to LX
+- add vias to GND planes
+
+Doubts (check on datasheets):
+- are both R7 and R8 needed?
+- is D2 placement suggested in the datasheet? I would rather connect it at the LX input
+- is that correct that SEL1 is floating?
+- are you sure you have to connect C23 even if we do not use the internal regulator?
+
+To be defined:
+- R9 value (I thing it can be a short, but maybe on the datasheet they suggest something else)
+- values of RTPS1, RTPS2 and RTPS3 to have VDD=3.3V. If you need it the minimum accptable value is around 2V
+
+
