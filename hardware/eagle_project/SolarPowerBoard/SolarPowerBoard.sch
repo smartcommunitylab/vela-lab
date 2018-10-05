@@ -15256,8 +15256,6 @@ Source: &lt;a href="https://componentsearchengine.com/Datasheets/1/G6E-134P-US D
 <part name="GND22" library="supply1" library_urn="urn:adsk.eagle:library:371" deviceset="GND" device=""/>
 <part name="GND32" library="supply1" library_urn="urn:adsk.eagle:library:371" deviceset="GND" device=""/>
 <part name="GND36" library="supply1" library_urn="urn:adsk.eagle:library:371" deviceset="GND" device=""/>
-<part name="GND23" library="supply1" library_urn="urn:adsk.eagle:library:371" deviceset="GND" device=""/>
-<part name="GND26" library="supply1" library_urn="urn:adsk.eagle:library:371" deviceset="GND" device=""/>
 <part name="J4" library="SolarComponents" deviceset="JST_2MM_MALE" device=""/>
 <part name="J3" library="SparkFun-Connectors" deviceset="CONN_01" device=""/>
 <part name="GND10" library="supply1" library_urn="urn:adsk.eagle:library:371" deviceset="GND" device=""/>
@@ -15802,12 +15800,6 @@ Source: &lt;a href="https://componentsearchengine.com/Datasheets/1/G6E-134P-US D
 <instance part="GND36" gate="1" x="30.48" y="-27.94" rot="R90">
 <attribute name="VALUE" x="33.02" y="-30.48" size="1.778" layer="96" rot="R90"/>
 </instance>
-<instance part="GND23" gate="1" x="414.02" y="-20.32">
-<attribute name="VALUE" x="411.48" y="-22.86" size="1.778" layer="96"/>
-</instance>
-<instance part="GND26" gate="1" x="487.68" y="-20.32">
-<attribute name="VALUE" x="485.14" y="-22.86" size="1.778" layer="96"/>
-</instance>
 <instance part="J4" gate="G$1" x="479.806" y="46.99" rot="R90">
 <attribute name="NAME" x="473.964" y="44.45" size="1.778" layer="95" rot="R90"/>
 </instance>
@@ -16103,16 +16095,6 @@ Source: &lt;a href="https://componentsearchengine.com/Datasheets/1/G6E-134P-US D
 <pinref part="GND36" gate="1" pin="GND"/>
 </segment>
 <segment>
-<pinref part="CHG2" gate="G$1" pin="EP"/>
-<wire x1="414.02" y1="-12.7" x2="414.02" y2="-17.78" width="0.1524" layer="91"/>
-<pinref part="GND23" gate="1" pin="GND"/>
-</segment>
-<segment>
-<pinref part="DCH2" gate="G$1" pin="EP"/>
-<wire x1="487.68" y1="-12.7" x2="487.68" y2="-17.78" width="0.1524" layer="91"/>
-<pinref part="GND26" gate="1" pin="GND"/>
-</segment>
-<segment>
 <pinref part="IC3" gate="G$1" pin="GND"/>
 <wire x1="-25.4" y1="-27.94" x2="-48.26" y2="-27.94" width="0.1524" layer="91"/>
 <pinref part="GND10" gate="1" pin="GND"/>
@@ -16388,20 +16370,22 @@ Source: &lt;a href="https://componentsearchengine.com/Datasheets/1/G6E-134P-US D
 <pinref part="R14" gate="G$1" pin="2"/>
 </segment>
 </net>
-<net name="N$31" class="0">
+<net name="USBDR_N" class="0">
 <segment>
 <pinref part="R23" gate="G$1" pin="1"/>
 <pinref part="FT230XQ-R" gate="G$1" pin="USBDM"/>
 <wire x1="60.96" y1="152.4" x2="66.04" y2="152.4" width="0.1524" layer="91"/>
 <wire x1="66.04" y1="152.4" x2="66.04" y2="151.13" width="0.1524" layer="91"/>
+<label x="60.96" y="152.4" size="1.778" layer="95"/>
 </segment>
 </net>
-<net name="N$32" class="0">
+<net name="USBDR_P" class="0">
 <segment>
 <pinref part="FT230XQ-R" gate="G$1" pin="USBDP"/>
 <pinref part="R29" gate="G$1" pin="2"/>
 <wire x1="66.04" y1="148.59" x2="66.04" y2="147.32" width="0.1524" layer="91"/>
 <wire x1="66.04" y1="147.32" x2="60.96" y2="147.32" width="0.1524" layer="91"/>
+<label x="58.42" y="144.78" size="1.778" layer="95"/>
 </segment>
 </net>
 <net name="N$34" class="0">
@@ -16761,6 +16745,14 @@ Source: &lt;a href="https://componentsearchengine.com/Datasheets/1/G6E-134P-US D
 <pinref part="DCH2" gate="G$1" pin="D_1"/>
 <wire x1="457.2" y1="10.16" x2="454.66" y2="10.16" width="0.1524" layer="91"/>
 <junction x="454.66" y="10.16"/>
+<pinref part="CHG2" gate="G$1" pin="EP"/>
+<wire x1="414.02" y1="-12.7" x2="447.04" y2="-12.7" width="0.1524" layer="91"/>
+<wire x1="447.04" y1="-12.7" x2="447.04" y2="-5.08" width="0.1524" layer="91"/>
+<junction x="447.04" y="-5.08"/>
+<pinref part="DCH2" gate="G$1" pin="EP"/>
+<wire x1="487.68" y1="-12.7" x2="454.66" y2="-12.7" width="0.1524" layer="91"/>
+<wire x1="454.66" y1="-12.7" x2="454.66" y2="-5.08" width="0.1524" layer="91"/>
+<junction x="454.66" y="-5.08"/>
 </segment>
 </net>
 <net name="N$19" class="0">
