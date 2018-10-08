@@ -162,26 +162,6 @@
 <description>Generated from &lt;b&gt;SolarPowerBoard.brd&lt;/b&gt;&lt;p&gt;
 by exp-lbrs.ulp</description>
 <packages>
-<package name="SOLARPOWERBOARD_IND_BOURNS_SRR1280">
-<wire x1="-6.5278" y1="-6.5278" x2="6.5278" y2="-6.5278" width="0.1524" layer="21"/>
-<wire x1="6.5278" y1="-6.5278" x2="6.5278" y2="-2.9464" width="0.1524" layer="21"/>
-<wire x1="6.5278" y1="6.5278" x2="-6.5278" y2="6.5278" width="0.1524" layer="21"/>
-<wire x1="-6.5278" y1="6.5278" x2="-6.5278" y2="2.9464" width="0.1524" layer="21"/>
-<wire x1="-6.5278" y1="-2.9464" x2="-6.5278" y2="-6.5278" width="0.1524" layer="21"/>
-<wire x1="6.5278" y1="2.9464" x2="6.5278" y2="6.5278" width="0.1524" layer="21"/>
-<wire x1="-6.985" y1="0" x2="-7.1374" y2="0" width="0.1524" layer="21" curve="-180"/>
-<wire x1="-7.1374" y1="0" x2="-6.985" y2="0" width="0.1524" layer="21" curve="-180"/>
-<wire x1="-6.4008" y1="-6.4008" x2="6.4008" y2="-6.4008" width="0.1524" layer="51"/>
-<wire x1="6.4008" y1="-6.4008" x2="6.4008" y2="6.4008" width="0.1524" layer="51"/>
-<wire x1="6.4008" y1="6.4008" x2="-6.4008" y2="6.4008" width="0.1524" layer="51"/>
-<wire x1="-6.4008" y1="6.4008" x2="-6.4008" y2="0" width="0.1524" layer="51"/>
-<wire x1="-6.4008" y1="0" x2="-6.4008" y2="-6.4008" width="0.1524" layer="51"/>
-<wire x1="-6.2484" y1="0" x2="-6.4008" y2="0" width="0" layer="51" curve="-180"/>
-<wire x1="-6.4008" y1="0" x2="-6.2484" y2="0" width="0" layer="51" curve="-180"/>
-<smd name="1" x="-4.8514" y="0" dx="2.8956" dy="5.4102" layer="1"/>
-<smd name="2" x="4.8514" y="0" dx="2.8956" dy="5.4102" layer="1"/>
-<text x="-3.2766" y="-0.635" size="1.27" layer="25" ratio="6" rot="SR0">&gt;Name</text>
-</package>
 <package name="74XX-LITTLE-DE_SC70-5">
 <description>&lt;b&gt;SMT SC70-5&lt;/b&gt;&lt;p&gt;
 SOT353 - Philips Semiconductors&lt;br&gt;
@@ -6555,21 +6535,6 @@ Source: http://www.analog.com/static/imported-files/data_sheets/AD8541_8542_8544
 </package>
 </packages>
 <symbols>
-<symbol name="SOLARPOWERBOARD_IND">
-<wire x1="5.08" y1="0" x2="5.08" y2="1.27" width="0.2032" layer="94"/>
-<wire x1="7.62" y1="0" x2="7.62" y2="1.27" width="0.2032" layer="94"/>
-<wire x1="12.7" y1="0" x2="12.7" y2="1.27" width="0.2032" layer="94"/>
-<wire x1="2.54" y1="0" x2="2.54" y2="1.27" width="0.2032" layer="94"/>
-<wire x1="10.16" y1="0" x2="10.16" y2="1.27" width="0.2032" layer="94"/>
-<wire x1="5.08" y1="1.27" x2="7.62" y2="1.27" width="0.1524" layer="94" curve="-180"/>
-<wire x1="2.54" y1="1.27" x2="5.08" y2="1.27" width="0.1524" layer="94" curve="-180"/>
-<wire x1="7.62" y1="1.27" x2="10.16" y2="1.27" width="0.1524" layer="94" curve="-180"/>
-<wire x1="10.16" y1="1.27" x2="12.7" y2="1.27" width="0.1524" layer="94" curve="-180"/>
-<pin name="1" x="15.24" y="0" visible="off" length="short" direction="pas" rot="R180"/>
-<pin name="2" x="0" y="0" visible="off" length="short" direction="pas" swaplevel="1"/>
-<text x="-1.9812" y="-4.2672" size="3.4798" layer="96" ratio="10" rot="SR0">&gt;Value</text>
-<text x="-0.9144" y="3.3528" size="3.4798" layer="95" ratio="10" rot="SR0">&gt;Name</text>
-</symbol>
 <symbol name="74XX-LITTLE-DE_7408">
 <wire x1="-2.54" y1="5.08" x2="-2.54" y2="-5.08" width="0.4064" layer="94"/>
 <wire x1="-2.54" y1="5.08" x2="-2.54" y2="-5.08" width="0.4064" layer="94" curve="-180"/>
@@ -7198,25 +7163,6 @@ Source: http://www.analog.com/static/imported-files/data_sheets/AD8541_8542_8544
 </symbol>
 </symbols>
 <devicesets>
-<deviceset name="SOLARPOWERBOARD_SRR1280-270M" prefix="L">
-<gates>
-<gate name="A" symbol="SOLARPOWERBOARD_IND" x="0" y="0" swaplevel="1"/>
-</gates>
-<devices>
-<device name="" package="SOLARPOWERBOARD_IND_BOURNS_SRR1280">
-<connects>
-<connect gate="A" pin="1" pad="1"/>
-<connect gate="A" pin="2" pad="2"/>
-</connects>
-<technologies>
-<technology name="">
-<attribute name="MANUFACTURER_PART_NUMBER" value="SRR1280270M" constant="no"/>
-<attribute name="VENDOR" value="Bourns Electronics" constant="no"/>
-</technology>
-</technologies>
-</device>
-</devices>
-</deviceset>
 <deviceset name="74XX-LITTLE-DE_74*1G08" prefix="IC">
 <description>2-input &lt;b&gt;AND&lt;/b&gt; gate</description>
 <gates>
@@ -11480,6 +11426,76 @@ LED</description>
 </deviceset>
 </devicesets>
 </library>
+<library name="inductors" urn="urn:adsk.eagle:library:243">
+<description>&lt;b&gt;Inductors and Filters&lt;/b&gt;&lt;p&gt;
+Based on the previous library ind-a.lbr&lt;p&gt;
+&lt;author&gt;Created by librarian@cadsoft.de&lt;/author&gt;</description>
+<packages>
+<package name="EMC9714" urn="urn:adsk.eagle:footprint:14967/1" library_version="2">
+<description>&lt;B&gt;INDUCTOR&lt;/B&gt;</description>
+<wire x1="3.937" y1="2.54" x2="3.937" y2="-2.54" width="0.1524" layer="21" curve="-180"/>
+<wire x1="-3.937" y1="-2.54" x2="-3.937" y2="2.54" width="0.1524" layer="21" curve="-180"/>
+<wire x1="3.937" y1="-2.54" x2="-3.937" y2="-2.54" width="0.1524" layer="21"/>
+<wire x1="-3.937" y1="2.54" x2="3.937" y2="2.54" width="0.1524" layer="21"/>
+<wire x1="8.255" y1="0" x2="6.985" y2="0" width="0.6096" layer="51"/>
+<wire x1="-8.255" y1="0" x2="-6.985" y2="0" width="0.6096" layer="51"/>
+<pad name="1" x="-8.255" y="0" drill="0.9144" shape="long"/>
+<pad name="2" x="8.255" y="0" drill="0.9144" shape="long"/>
+<text x="-4.445" y="3.175" size="1.27" layer="25" ratio="10">&gt;NAME</text>
+<text x="-5.08" y="-0.635" size="1.27" layer="27" ratio="10">&gt;VALUE</text>
+<rectangle x1="6.4516" y1="-0.3048" x2="7.0866" y2="0.3048" layer="21"/>
+<rectangle x1="-7.0866" y1="-0.3048" x2="-6.4516" y2="0.3048" layer="21"/>
+</package>
+</packages>
+<packages3d>
+<package3d name="EMC9714" urn="urn:adsk.eagle:package:15060/1" type="box" library_version="2">
+<description>INDUCTOR</description>
+<packageinstances>
+<packageinstance name="EMC9714"/>
+</packageinstances>
+</package3d>
+</packages3d>
+<symbols>
+<symbol name="DRK" urn="urn:adsk.eagle:symbol:14966/1" library_version="2">
+<wire x1="-3.81" y1="1.651" x2="3.81" y2="1.651" width="0.254" layer="94"/>
+<text x="-3.81" y="2.286" size="1.778" layer="95">&gt;NAME</text>
+<text x="-3.937" y="-3.048" size="1.778" layer="96">&gt;VALUE</text>
+<rectangle x1="-3.81" y1="-0.889" x2="3.81" y2="0.889" layer="94"/>
+<pin name="2" x="7.62" y="0" visible="pad" length="middle" direction="pas" swaplevel="1" rot="R180"/>
+<pin name="1" x="-7.62" y="0" visible="pad" length="middle" direction="pas" swaplevel="1"/>
+</symbol>
+</symbols>
+<devicesets>
+<deviceset name="EMC9714" urn="urn:adsk.eagle:component:15135/2" prefix="L" library_version="2">
+<description>&lt;B&gt;INDUCTOR&lt;/B&gt;</description>
+<gates>
+<gate name="1" symbol="DRK" x="0" y="0"/>
+</gates>
+<devices>
+<device name="" package="EMC9714">
+<connects>
+<connect gate="1" pin="1" pad="1"/>
+<connect gate="1" pin="2" pad="2"/>
+</connects>
+<package3dinstances>
+<package3dinstance package3d_urn="urn:adsk.eagle:package:15060/1"/>
+</package3dinstances>
+<technologies>
+<technology name="">
+<attribute name="SPICEPREFIX" value="L" constant="no"/>
+</technology>
+</technologies>
+</device>
+</devices>
+<spice>
+<pinmapping spiceprefix="L">
+<pinmap gate="1" pin="1" pinorder="1"/>
+<pinmap gate="1" pin="2" pinorder="2"/>
+</pinmapping>
+</spice>
+</deviceset>
+</devicesets>
+</library>
 </libraries>
 <attributes>
 </attributes>
@@ -11832,7 +11848,6 @@ LED</description>
 <part name="RLED1" library="SolarPowerBoard" deviceset="SPARKFUN-PASSIVES_RESISTOR" device="0603-RES" value="680"/>
 <part name="GND1" library="SolarPowerBoard" deviceset="SUPPLY1_GND*?:2" device=""/>
 <part name="RS1" library="SolarPowerBoard" deviceset="RL1220T-R010-J_RL1220T-R010-J" device=""/>
-<part name="L1" library="SolarPowerBoard" deviceset="SOLARPOWERBOARD_SRR1280-270M" device=""/>
 <part name="J5" library="SolarPowerBoard" deviceset="XG8S-0331_XG8S-0331" device=""/>
 <part name="K1" library="SolarPowerBoard" deviceset="G6E-134P-US_DC5_G6E-134P-US_DC5" device=""/>
 <part name="GND37" library="SolarPowerBoard" deviceset="SPARKFUN-AESTHETICS_GND*?" device=""/>
@@ -11856,6 +11871,7 @@ LED</description>
 <attribute name="MPN" value="RLP73N2AR30JTD"/>
 <attribute name="OC_NEWARK" value="43AC3996"/>
 </part>
+<part name="L1" library="inductors" library_urn="urn:adsk.eagle:library:243" deviceset="EMC9714" device="" package3d_urn="urn:adsk.eagle:package:15060/1"/>
 </parts>
 <sheets>
 <sheet>
@@ -11877,9 +11893,7 @@ LED</description>
 <attribute name="MPN" x="10.16" y="-30.48" size="1.778" layer="96" display="off"/>
 </instance>
 <instance part="GND3" gate="1" x="35.56" y="111.76" rot="R180"/>
-<instance part="GND4" gate="1" x="35.56" y="78.74" rot="R270">
-<attribute name="VALUE" x="33.02" y="81.28" size="1.778" layer="96" rot="R270"/>
-</instance>
+<instance part="GND4" gate="1" x="35.56" y="78.74" rot="R270"/>
 <instance part="GND5" gate="1" x="106.68" y="83.82" rot="R180">
 <attribute name="VALUE" x="109.22" y="86.36" size="1.778" layer="96" rot="R180"/>
 </instance>
@@ -12351,9 +12365,6 @@ LED</description>
 <instance part="RS1" gate="A" x="81.28" y="53.34">
 <attribute name="NAME" x="79.0956" y="55.4228" size="3.4798" layer="95" ratio="10" rot="SR0"/>
 </instance>
-<instance part="L1" gate="A" x="20.32" y="73.66">
-<attribute name="NAME" x="25.5016" y="76.7588" size="3.4798" layer="95" ratio="10" rot="SR0"/>
-</instance>
 <instance part="J5" gate="G$1" x="-5.08" y="76.2">
 <attribute name="NAME" x="11.43" y="83.82" size="1.778" layer="95" align="center-left"/>
 </instance>
@@ -12406,6 +12417,10 @@ LED</description>
 <attribute name="MPN" x="-391.16" y="17.78" size="1.778" layer="96" rot="R270" display="off"/>
 <attribute name="NAME" x="-392.684" y="17.78" size="1.778" layer="95" font="vector" rot="R90" align="bottom-center"/>
 <attribute name="VALUE" x="-389.636" y="17.78" size="1.778" layer="96" font="vector" rot="R90" align="top-center"/>
+</instance>
+<instance part="L1" gate="1" x="27.94" y="73.66">
+<attribute name="NAME" x="24.13" y="75.946" size="1.778" layer="95"/>
+<attribute name="VALUE" x="24.003" y="70.612" size="1.778" layer="96"/>
 </instance>
 </instances>
 <busses>
@@ -12668,12 +12683,12 @@ LED</description>
 <junction x="11.684" y="58.42"/>
 <junction x="6.35" y="58.42"/>
 <pinref part="R3" gate="G$1" pin="1"/>
-<pinref part="L1" gate="A" pin="2"/>
 <wire x1="12.7" y1="73.66" x2="20.32" y2="73.66" width="0.1524" layer="91"/>
 <junction x="12.7" y="73.66"/>
 <pinref part="J5" gate="G$1" pin="3"/>
 <wire x1="-5.08" y1="71.12" x2="-5.08" y2="58.42" width="0.1524" layer="91"/>
 <wire x1="-5.08" y1="58.42" x2="6.35" y2="58.42" width="0.1524" layer="91"/>
+<pinref part="L1" gate="1" pin="1"/>
 </segment>
 </net>
 <net name="N$3" class="0">
@@ -13495,9 +13510,9 @@ LED</description>
 </net>
 <net name="N$18" class="0">
 <segment>
-<pinref part="L1" gate="A" pin="1"/>
 <pinref part="U$1" gate="G$1" pin="LX"/>
 <wire x1="35.56" y1="73.66" x2="40.64" y2="73.66" width="0.1524" layer="91"/>
+<pinref part="L1" gate="1" pin="2"/>
 </segment>
 </net>
 <net name="N$16" class="0">
@@ -13663,6 +13678,12 @@ will not be understood (or retained) with this version.
 Since Version 8.3, EAGLE supports the association of 3D packages
 with devices in libraries, schematics, and board files. Those 3D
 packages will not be understood (or retained) with this version.
+</note>
+<note version="8.4" severity="warning">
+Since Version 8.4, EAGLE supports properties for SPICE simulation. 
+Probes in schematics and SPICE mapping objects found in parts and library devices
+will not be understood with this version. Update EAGLE to the latest version
+for full support of SPICE simulation. 
 </note>
 </compatibility>
 </eagle>
