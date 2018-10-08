@@ -10947,6 +10947,39 @@ Source: &lt;a href="https://www.arrow.com/en/products/xg8s-0331/omron"&gt; Datas
 </device>
 </devices>
 </deviceset>
+<deviceset name="CSD17575Q3" prefix="Q">
+<description>&lt;b&gt;30-V, N-Channel NexFET&amp;#153; Power MOSFET  &lt;/b&gt;&lt;p&gt;
+Source: &lt;a href="http://www.ti.com/lit/gpn/csd17575q3"&gt; Datasheet &lt;/a&gt;</description>
+<gates>
+<gate name="G$1" symbol="CSD17575Q3" x="0" y="0"/>
+</gates>
+<devices>
+<device name="" package="CSD16327">
+<connects>
+<connect gate="G$1" pin="D_1" pad="5"/>
+<connect gate="G$1" pin="D_2" pad="6"/>
+<connect gate="G$1" pin="D_3" pad="7"/>
+<connect gate="G$1" pin="D_4" pad="8"/>
+<connect gate="G$1" pin="G" pad="4"/>
+<connect gate="G$1" pin="S_1" pad="1"/>
+<connect gate="G$1" pin="S_2" pad="2"/>
+<connect gate="G$1" pin="S_3" pad="3"/>
+</connects>
+<technologies>
+<technology name="">
+<attribute name="ARROW_PART_NUMBER" value="CSD17575Q3" constant="no"/>
+<attribute name="ARROW_PRICE-STOCK" value="https://www.arrow.com/en/products/csd17575q3/texas-instruments" constant="no"/>
+<attribute name="DESCRIPTION" value="30-V, N-Channel NexFET&amp;#153; Power MOSFET  " constant="no"/>
+<attribute name="HEIGHT" value="mm" constant="no"/>
+<attribute name="MANUFACTURER_NAME" value="Texas Instruments" constant="no"/>
+<attribute name="MANUFACTURER_PART_NUMBER" value="CSD17575Q3" constant="no"/>
+<attribute name="RS_PART_NUMBER" value="" constant="no"/>
+<attribute name="RS_PRICE-STOCK" value="" constant="no"/>
+</technology>
+</technologies>
+</device>
+</devices>
+</deviceset>
 </devicesets>
 </library>
 </drawing>

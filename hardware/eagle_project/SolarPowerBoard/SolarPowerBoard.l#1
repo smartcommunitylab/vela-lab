@@ -7579,7 +7579,7 @@ Source: &lt;a href="https://componentsearchengine.com/Datasheets/1/G6E-134P-US D
 </device>
 </devices>
 </deviceset>
-<deviceset name="SOLARCOMPONENTS_CSD16406Q3">
+<deviceset name="CSD16406Q3">
 <gates>
 <gate name="G$1" symbol="SOLARCOMPONENTS_CSD16406Q3" x="-114.3" y="2.54"/>
 </gates>
@@ -7602,7 +7602,7 @@ Source: &lt;a href="https://componentsearchengine.com/Datasheets/1/G6E-134P-US D
 </device>
 </devices>
 </deviceset>
-<deviceset name="SOLARCOMPONENTS_JST_2MM_MALE" prefix="J" uservalue="yes">
+<deviceset name="JST_2MM_MALE" prefix="J" uservalue="yes">
 <description>&lt;h3&gt;JST 2MM MALE RA CONNECTOR&lt;/h3&gt;
 Two pin, compact surface mount connector. Commonly used as a battery input connection point. We really like the solid locking feeling and high current rating on these small connectors. We use these all the time as battery connectors. Mates to single-cell LiPo batteries.
 
@@ -7640,7 +7640,7 @@ Two pin, compact surface mount connector. Commonly used as a battery input conne
 </device>
 </devices>
 </deviceset>
-<deviceset name="SOLARCOMPONENTS_MAX17260">
+<deviceset name="MAX17260">
 <gates>
 <gate name="G$1" symbol="SOLARCOMPONENTS_MAX1726" x="0" y="7.62"/>
 </gates>
@@ -7669,7 +7669,7 @@ Two pin, compact surface mount connector. Commonly used as a battery input conne
 </device>
 </devices>
 </deviceset>
-<deviceset name="SOLARCOMPONENTS_SVP1040">
+<deviceset name="SVP1040">
 <gates>
 <gate name="G$1" symbol="SOLARCOMPONENTS_SVP1040" x="-12.7" y="7.62"/>
 </gates>
