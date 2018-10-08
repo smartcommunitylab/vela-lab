@@ -6,7 +6,7 @@
 <setting alwaysvectorfont="no"/>
 <setting verticaltext="up"/>
 </settings>
-<grid distance="50" unitdist="mil" unit="mil" style="lines" multiple="1" display="no" altdistance="5" altunitdist="mil" altunit="mil"/>
+<grid distance="0.1" unitdist="inch" unit="inch" style="lines" multiple="1" display="no" altdistance="0.01" altunitdist="inch" altunit="inch"/>
 <layers>
 <layer number="1" name="Top" color="4" fill="1" visible="yes" active="yes"/>
 <layer number="2" name="Route2" color="16" fill="1" visible="no" active="yes"/>
@@ -6665,6 +6665,22 @@ Source: VISHAY wscwsn.pdf</description>
 <vertex x="1.05" y="0"/>
 </polygon>
 </package>
+<package name="RESC1216X70N">
+<description>&lt;b&gt;KRL2012 (0805)&lt;/b&gt;&lt;br&gt;
+</description>
+<smd name="1" x="-0.6" y="0" dx="1.8" dy="0.95" layer="1" rot="R90"/>
+<smd name="2" x="0.6" y="0" dx="1.8" dy="0.95" layer="1" rot="R90"/>
+<text x="0" y="0" size="1.27" layer="25" align="center">&gt;NAME</text>
+<text x="0" y="0" size="1.27" layer="27" align="center">&gt;VALUE</text>
+<wire x1="-1.325" y1="1.15" x2="1.325" y2="1.15" width="0.05" layer="51"/>
+<wire x1="1.325" y1="1.15" x2="1.325" y2="-1.15" width="0.05" layer="51"/>
+<wire x1="1.325" y1="-1.15" x2="-1.325" y2="-1.15" width="0.05" layer="51"/>
+<wire x1="-1.325" y1="-1.15" x2="-1.325" y2="1.15" width="0.05" layer="51"/>
+<wire x1="-0.625" y1="0.8" x2="0.625" y2="0.8" width="0.1" layer="51"/>
+<wire x1="0.625" y1="0.8" x2="0.625" y2="-0.8" width="0.1" layer="51"/>
+<wire x1="0.625" y1="-0.8" x2="-0.625" y2="-0.8" width="0.1" layer="51"/>
+<wire x1="-0.625" y1="-0.8" x2="-0.625" y2="0.8" width="0.1" layer="51"/>
+</package>
 </packages>
 <symbols>
 <symbol name="74XX-LITTLE-DE_7408">
@@ -7323,6 +7339,16 @@ Source: VISHAY wscwsn.pdf</description>
 <pin name="D_2" x="25.4" y="-2.54" length="middle" rot="R180"/>
 <pin name="D_3" x="25.4" y="-5.08" length="middle" rot="R180"/>
 <pin name="D_4" x="25.4" y="-7.62" length="middle" rot="R180"/>
+</symbol>
+<symbol name="KRL2012E-C-R020-F">
+<wire x1="5.08" y1="1.27" x2="12.7" y2="1.27" width="0.254" layer="94"/>
+<wire x1="12.7" y1="-1.27" x2="12.7" y2="1.27" width="0.254" layer="94"/>
+<wire x1="12.7" y1="-1.27" x2="5.08" y2="-1.27" width="0.254" layer="94"/>
+<wire x1="5.08" y1="1.27" x2="5.08" y2="-1.27" width="0.254" layer="94"/>
+<text x="13.97" y="6.35" size="1.778" layer="95" align="center-left">&gt;NAME</text>
+<text x="13.97" y="3.81" size="1.778" layer="96" align="center-left">&gt;VALUE</text>
+<pin name="1" x="0" y="0" visible="pad" length="middle"/>
+<pin name="2" x="17.78" y="0" visible="pad" length="middle" rot="R180"/>
 </symbol>
 </symbols>
 <devicesets>
@@ -10943,6 +10969,33 @@ Source: &lt;a href="https://www.arrow.com/en/products/xg8s-0331/omron"&gt; Datas
 <device name="">
 <technologies>
 <technology name=""/>
+</technologies>
+</device>
+</devices>
+</deviceset>
+<deviceset name="KRL2012E-C-R020-F" prefix="R">
+<description>&lt;b&gt;Susumu Co KRL Series Metal Foil Surface Mount Fixed Resistor 2012 Case 20m 1% 1W 50ppm/C&lt;/b&gt;&lt;p&gt;
+Source: &lt;a href="https://www.susumu.co.jp/common/pdf/n_catalog_partition19_en.pdf"&gt; Datasheet &lt;/a&gt;</description>
+<gates>
+<gate name="G$1" symbol="KRL2012E-C-R020-F" x="0" y="0"/>
+</gates>
+<devices>
+<device name="" package="RESC1216X70N">
+<connects>
+<connect gate="G$1" pin="1" pad="1"/>
+<connect gate="G$1" pin="2" pad="2"/>
+</connects>
+<technologies>
+<technology name="">
+<attribute name="ARROW_PART_NUMBER" value="KRL2012E-C-R020-F" constant="no"/>
+<attribute name="ARROW_PRICE-STOCK" value="http://uk.rs-online.com/web/p/products/1346103" constant="no"/>
+<attribute name="DESCRIPTION" value="Susumu Co KRL Series Metal Foil Surface Mount Fixed Resistor 2012 Case 20m 1% 1W 50ppm/C" constant="no"/>
+<attribute name="HEIGHT" value="0.7mm" constant="no"/>
+<attribute name="MANUFACTURER_NAME" value="Susumu" constant="no"/>
+<attribute name="MANUFACTURER_PART_NUMBER" value="KRL2012E-C-R020-F" constant="no"/>
+<attribute name="RS_PART_NUMBER" value="1346103" constant="no"/>
+<attribute name="RS_PRICE-STOCK" value="http://uk.rs-online.com/web/p/products/1346103" constant="no"/>
+</technology>
 </technologies>
 </device>
 </devices>

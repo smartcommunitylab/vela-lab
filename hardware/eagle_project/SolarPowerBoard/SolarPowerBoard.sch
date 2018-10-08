@@ -6533,6 +6533,22 @@ Source: http://www.analog.com/static/imported-files/data_sheets/AD8541_8542_8544
 <smd name="5" x="1.2954" y="0.9398" dx="1.27" dy="0.5588" layer="1"/>
 <text x="-4.7498" y="1.8796" size="2.0828" layer="25" ratio="10" rot="SR0">&gt;NAME</text>
 </package>
+<package name="RESC1216X70N">
+<description>&lt;b&gt;KRL2012 (0805)&lt;/b&gt;&lt;br&gt;
+</description>
+<smd name="1" x="-0.6" y="0" dx="1.8" dy="0.95" layer="1" rot="R90"/>
+<smd name="2" x="0.6" y="0" dx="1.8" dy="0.95" layer="1" rot="R90"/>
+<text x="0" y="0" size="1.27" layer="25" align="center">&gt;NAME</text>
+<text x="0" y="0" size="1.27" layer="27" align="center">&gt;VALUE</text>
+<wire x1="-1.325" y1="1.15" x2="1.325" y2="1.15" width="0.05" layer="51"/>
+<wire x1="1.325" y1="1.15" x2="1.325" y2="-1.15" width="0.05" layer="51"/>
+<wire x1="1.325" y1="-1.15" x2="-1.325" y2="-1.15" width="0.05" layer="51"/>
+<wire x1="-1.325" y1="-1.15" x2="-1.325" y2="1.15" width="0.05" layer="51"/>
+<wire x1="-0.625" y1="0.8" x2="0.625" y2="0.8" width="0.1" layer="51"/>
+<wire x1="0.625" y1="0.8" x2="0.625" y2="-0.8" width="0.1" layer="51"/>
+<wire x1="0.625" y1="-0.8" x2="-0.625" y2="-0.8" width="0.1" layer="51"/>
+<wire x1="-0.625" y1="-0.8" x2="-0.625" y2="0.8" width="0.1" layer="51"/>
+</package>
 </packages>
 <symbols>
 <symbol name="74XX-LITTLE-DE_7408">
@@ -7160,6 +7176,16 @@ Source: http://www.analog.com/static/imported-files/data_sheets/AD8541_8542_8544
 <pin name="VSS" x="-17.78" y="-7.62" length="middle" direction="pwr"/>
 <text x="-4.1148" y="10.0584" size="2.0828" layer="95" ratio="10" rot="SR0">&gt;NAME</text>
 <text x="-5.9436" y="-17.1704" size="2.0828" layer="96" ratio="10" rot="SR0">&gt;VALUE</text>
+</symbol>
+<symbol name="KRL2012E-C-R020-F">
+<wire x1="5.08" y1="1.27" x2="12.7" y2="1.27" width="0.254" layer="94"/>
+<wire x1="12.7" y1="-1.27" x2="12.7" y2="1.27" width="0.254" layer="94"/>
+<wire x1="12.7" y1="-1.27" x2="5.08" y2="-1.27" width="0.254" layer="94"/>
+<wire x1="5.08" y1="1.27" x2="5.08" y2="-1.27" width="0.254" layer="94"/>
+<text x="13.97" y="6.35" size="1.778" layer="95" align="center-left">&gt;NAME</text>
+<text x="13.97" y="3.81" size="1.778" layer="96" align="center-left">&gt;VALUE</text>
+<pin name="1" x="0" y="0" visible="pad" length="middle"/>
+<pin name="2" x="17.78" y="0" visible="pad" length="middle" rot="R180"/>
 </symbol>
 </symbols>
 <devicesets>
@@ -10765,6 +10791,33 @@ Basic schematic elements and footprints for 0603, 1206, and PTH resistors.</desc
 </device>
 </devices>
 </deviceset>
+<deviceset name="KRL2012E-C-R020-F" prefix="R">
+<description>&lt;b&gt;Susumu Co KRL Series Metal Foil Surface Mount Fixed Resistor 2012 Case 20m 1% 1W 50ppm/C&lt;/b&gt;&lt;p&gt;
+Source: &lt;a href="https://www.susumu.co.jp/common/pdf/n_catalog_partition19_en.pdf"&gt; Datasheet &lt;/a&gt;</description>
+<gates>
+<gate name="G$1" symbol="KRL2012E-C-R020-F" x="0" y="0"/>
+</gates>
+<devices>
+<device name="" package="RESC1216X70N">
+<connects>
+<connect gate="G$1" pin="1" pad="1"/>
+<connect gate="G$1" pin="2" pad="2"/>
+</connects>
+<technologies>
+<technology name="">
+<attribute name="ARROW_PART_NUMBER" value="KRL2012E-C-R020-F" constant="no"/>
+<attribute name="ARROW_PRICE-STOCK" value="http://uk.rs-online.com/web/p/products/1346103" constant="no"/>
+<attribute name="DESCRIPTION" value="Susumu Co KRL Series Metal Foil Surface Mount Fixed Resistor 2012 Case 20m 1% 1W 50ppm/C" constant="no"/>
+<attribute name="HEIGHT" value="0.7mm" constant="no"/>
+<attribute name="MANUFACTURER_NAME" value="Susumu" constant="no"/>
+<attribute name="MANUFACTURER_PART_NUMBER" value="KRL2012E-C-R020-F" constant="no"/>
+<attribute name="RS_PART_NUMBER" value="1346103" constant="no"/>
+<attribute name="RS_PRICE-STOCK" value="http://uk.rs-online.com/web/p/products/1346103" constant="no"/>
+</technology>
+</technologies>
+</device>
+</devices>
+</deviceset>
 </devicesets>
 </library>
 <library name="SparkFun-Resistors" urn="urn:adsk.eagle:library:532">
@@ -11666,12 +11719,12 @@ Based on the previous library ind-a.lbr&lt;p&gt;
 <attribute name="MPN" value="BQ29700DSET"/>
 <attribute name="OC_NEWARK" value="78X4150"/>
 </part>
-<part name="R9" library="SolarPowerBoard" deviceset="SPARKFUN-RESISTORS_RESISTOR*?:1" device="0805" value=" ">
+<part name="R9" library="SolarPowerBoard" deviceset="SPARKFUN-RESISTORS_RESISTOR*?:1" device="0805" value="2.2k">
 <attribute name="MF" value=""/>
 <attribute name="MPN" value="CR0805-FX-2201ELF"/>
 <attribute name="OC_NEWARK" value="06X5164"/>
 </part>
-<part name="R10" library="SolarPowerBoard" deviceset="SPARKFUN-RESISTORS_RESISTOR*?:1" device="0805" value=" ">
+<part name="R10" library="SolarPowerBoard" deviceset="SPARKFUN-RESISTORS_RESISTOR*?:1" device="0805" value="330">
 <attribute name="MF" value=""/>
 <attribute name="MPN" value="ERJ-6GEYJ331V"/>
 <attribute name="OC_NEWARK" value="65T8817"/>
@@ -11682,11 +11735,6 @@ Based on the previous library ind-a.lbr&lt;p&gt;
 <attribute name="OC_NEWARK" value="06R4923"/>
 </part>
 <part name="GND21" library="SolarPowerBoard" deviceset="SUPPLY1_GND*?:2" device=""/>
-<part name="RCG3" library="SolarPowerBoard" deviceset="SPARKFUN-RESISTORS_RESISTOR*?:1" device="0805" value=" ">
-<attribute name="MF" value=""/>
-<attribute name="MPN" value=""/>
-<attribute name="OC_NEWARK" value="unknown"/>
-</part>
 <part name="U$3" library="SolarPowerBoard" deviceset="SOLARCOMPONENTS_MAX17260" device="">
 <attribute name="MF" value=""/>
 <attribute name="MPN" value="MAX17260SEWL+"/>
@@ -11872,6 +11920,7 @@ Based on the previous library ind-a.lbr&lt;p&gt;
 <attribute name="OC_NEWARK" value="43AC3996"/>
 </part>
 <part name="L1" library="inductors" library_urn="urn:adsk.eagle:library:243" deviceset="EMC9714" device="" package3d_urn="urn:adsk.eagle:package:15060/1"/>
+<part name="RCG3" library="SolarPowerBoard" deviceset="KRL2012E-C-R020-F" device=""/>
 </parts>
 <sheets>
 <sheet>
@@ -12119,13 +12168,6 @@ Based on the previous library ind-a.lbr&lt;p&gt;
 <attribute name="MPN" x="469.9" y="38.1" size="1.778" layer="96" display="off"/>
 </instance>
 <instance part="GND21" gate="1" x="360.68" y="33.02" rot="R270"/>
-<instance part="RCG3" gate="G$1" x="302.26" y="60.96">
-<attribute name="NAME" x="302.26" y="62.484" size="1.778" layer="95" font="vector" align="bottom-center"/>
-<attribute name="VALUE" x="302.26" y="59.436" size="1.778" layer="96" font="vector" align="top-center"/>
-<attribute name="OC_NEWARK" x="302.26" y="60.96" size="1.778" layer="96" display="off"/>
-<attribute name="MF" x="302.26" y="60.96" size="1.778" layer="96" display="off"/>
-<attribute name="MPN" x="302.26" y="60.96" size="1.778" layer="96" display="off"/>
-</instance>
 <instance part="U$3" gate="G$1" x="294.64" y="5.08">
 <attribute name="NAME" x="291.084" y="16.256" size="1.778" layer="94"/>
 <attribute name="OC_NEWARK" x="294.64" y="5.08" size="1.778" layer="96" display="off"/>
@@ -12421,6 +12463,10 @@ Based on the previous library ind-a.lbr&lt;p&gt;
 <instance part="L1" gate="1" x="27.94" y="73.66">
 <attribute name="NAME" x="24.13" y="75.946" size="1.778" layer="95"/>
 <attribute name="VALUE" x="24.003" y="70.612" size="1.778" layer="96"/>
+</instance>
+<instance part="RCG3" gate="G$1" x="297.18" y="60.96">
+<attribute name="NAME" x="311.15" y="67.31" size="1.778" layer="95" align="center-left"/>
+<attribute name="VALUE" x="311.15" y="64.77" size="1.778" layer="96" align="center-left"/>
 </instance>
 </instances>
 <busses>
@@ -13424,7 +13470,7 @@ Based on the previous library ind-a.lbr&lt;p&gt;
 </segment>
 <segment>
 <pinref part="U$3" gate="G$1" pin="CSN"/>
-<wire x1="307.34" y1="27.94" x2="259.08" y2="27.94" width="0.1524" layer="91"/>
+<wire x1="314.96" y1="27.94" x2="259.08" y2="27.94" width="0.1524" layer="91"/>
 <wire x1="259.08" y1="27.94" x2="259.08" y2="-17.78" width="0.1524" layer="91"/>
 <wire x1="259.08" y1="-17.78" x2="271.78" y2="-17.78" width="0.1524" layer="91"/>
 <pinref part="U$3" gate="G$1" pin="BATT"/>
@@ -13432,15 +13478,13 @@ Based on the previous library ind-a.lbr&lt;p&gt;
 <wire x1="266.7" y1="-12.7" x2="266.7" y2="20.32" width="0.1524" layer="91"/>
 <wire x1="266.7" y1="20.32" x2="266.7" y2="43.18" width="0.1524" layer="91"/>
 <wire x1="266.7" y1="43.18" x2="276.86" y2="43.18" width="0.1524" layer="91"/>
-<pinref part="RCG3" gate="G$1" pin="2"/>
 <wire x1="276.86" y1="43.18" x2="332.74" y2="43.18" width="0.1524" layer="91"/>
-<wire x1="332.74" y1="60.96" x2="307.34" y2="60.96" width="0.1524" layer="91"/>
+<wire x1="332.74" y1="60.96" x2="314.96" y2="60.96" width="0.1524" layer="91"/>
 <wire x1="332.74" y1="43.18" x2="332.74" y2="60.96" width="0.1524" layer="91"/>
 <wire x1="276.86" y1="43.18" x2="276.86" y2="45.72" width="0.1524" layer="91"/>
 <junction x="276.86" y="43.18"/>
 <pinref part="C7" gate="G$1" pin="2"/>
-<wire x1="307.34" y1="27.94" x2="307.34" y2="60.96" width="0.1524" layer="91"/>
-<junction x="307.34" y="60.96"/>
+<wire x1="314.96" y1="27.94" x2="314.96" y2="60.96" width="0.1524" layer="91"/>
 <pinref part="JP1" gate="G$1" pin="3"/>
 <wire x1="267.208" y1="21.082" x2="267.208" y2="20.32" width="0.1524" layer="91"/>
 <wire x1="267.208" y1="20.32" x2="266.7" y2="20.32" width="0.1524" layer="91"/>
@@ -13448,6 +13492,8 @@ Based on the previous library ind-a.lbr&lt;p&gt;
 <wire x1="332.74" y1="60.96" x2="347.98" y2="60.96" width="0.1524" layer="91"/>
 <junction x="332.74" y="60.96"/>
 <label x="342.138" y="61.722" size="1.778" layer="95"/>
+<pinref part="RCG3" gate="G$1" pin="2"/>
+<junction x="314.96" y="60.96"/>
 </segment>
 </net>
 <net name="N$2" class="0">
@@ -13555,11 +13601,11 @@ Based on the previous library ind-a.lbr&lt;p&gt;
 <wire x1="325.12" y1="-7.62" x2="325.12" y2="25.4" width="0.1524" layer="91"/>
 <pinref part="U$3" gate="G$1" pin="CSPH"/>
 <wire x1="317.5" y1="-7.62" x2="325.12" y2="-7.62" width="0.1524" layer="91"/>
-<pinref part="RCG3" gate="G$1" pin="1"/>
 <wire x1="297.18" y1="25.4" x2="297.18" y2="60.96" width="0.1524" layer="91"/>
 <wire x1="251.46" y1="60.96" x2="297.18" y2="60.96" width="0.1524" layer="91"/>
-<junction x="297.18" y="60.96"/>
 <label x="247.904" y="61.976" size="1.778" layer="95"/>
+<pinref part="RCG3" gate="G$1" pin="1"/>
+<junction x="297.18" y="60.96"/>
 </segment>
 <segment>
 <pinref part="C2" gate="G$1" pin="1"/>
