@@ -3096,8 +3096,8 @@ Equivalent to size #1/0 snap.
 <smd name="2" x="1" y="-3.7" dx="1" dy="4.6" layer="1"/>
 <smd name="NC1" x="-3.4" y="1.5" dx="3.4" dy="1.6" layer="1" rot="R90"/>
 <smd name="NC2" x="3.4" y="1.5" dx="3.4" dy="1.6" layer="1" rot="R90"/>
-<pad name="P$1" x="-1.27" y="-5.08" drill="0.6"/>
-<pad name="P$2" x="1.27" y="-5.08" drill="0.6"/>
+<pad name="P$1" x="-1.27" y="-5.08" drill="1"/>
+<pad name="P$2" x="1.27" y="-5.08" drill="1"/>
 <text x="-1.397" y="1.778" size="0.6096" layer="25" font="vector" ratio="20">&gt;NAME</text>
 <text x="-1.651" y="0.635" size="0.6096" layer="27" font="vector" ratio="20">&gt;VALUE</text>
 </package>
@@ -11619,7 +11619,7 @@ LED</description>
 <attribute name="MPN" value="LAUNCHXL-CC2650"/>
 <attribute name="OC_NEWARK" value="82Y0957"/>
 </part>
-<part name="R15" library="SolarPowerBoard" deviceset="SPARKFUN-RESISTORS_0.3OHM" device="-0805-1/8W-1%" value="0.3">
+<part name="R15" library="SolarPowerBoard" deviceset="SPARKFUN-RESISTORS_0.3OHM" device="-0805-1/8W-1%" value="0">
 <attribute name="MF" value=""/>
 <attribute name="MPN" value="RLP73N2AR30JTD"/>
 <attribute name="OC_NEWARK" value="43AC3996"/>
@@ -11851,6 +11851,11 @@ LED</description>
 </part>
 <part name="R27" library="SparkFun-Resistors" library_urn="urn:adsk.eagle:library:532" deviceset="0.3OHM" device="-0805-1/8W-1%" package3d_urn="urn:adsk.eagle:package:39651/1" value="470"/>
 <part name="R28" library="SparkFun-Resistors" library_urn="urn:adsk.eagle:library:532" deviceset="0.3OHM" device="-0805-1/8W-1%" package3d_urn="urn:adsk.eagle:package:39651/1" value="470"/>
+<part name="R4" library="SolarPowerBoard" deviceset="SPARKFUN-RESISTORS_0.3OHM" device="-0805-1/8W-1%" value="100k">
+<attribute name="MF" value=""/>
+<attribute name="MPN" value="RLP73N2AR30JTD"/>
+<attribute name="OC_NEWARK" value="43AC3996"/>
+</part>
 </parts>
 <sheets>
 <sheet>
@@ -12394,6 +12399,13 @@ LED</description>
 <instance part="R28" gate="G$1" x="146.558" y="147.32" rot="R90">
 <attribute name="NAME" x="145.034" y="147.32" size="1.778" layer="95" font="vector" rot="R90" align="bottom-center"/>
 <attribute name="VALUE" x="148.082" y="147.32" size="1.778" layer="96" font="vector" rot="R90" align="top-center"/>
+</instance>
+<instance part="R4" gate="G$1" x="-391.16" y="17.78" rot="R90">
+<attribute name="OC_NEWARK" x="-391.16" y="17.78" size="1.778" layer="96" rot="R270" display="off"/>
+<attribute name="MF" x="-391.16" y="17.78" size="1.778" layer="96" rot="R270" display="off"/>
+<attribute name="MPN" x="-391.16" y="17.78" size="1.778" layer="96" rot="R270" display="off"/>
+<attribute name="NAME" x="-392.684" y="17.78" size="1.778" layer="95" font="vector" rot="R90" align="bottom-center"/>
+<attribute name="VALUE" x="-389.636" y="17.78" size="1.778" layer="96" font="vector" rot="R90" align="top-center"/>
 </instance>
 </instances>
 <busses>
@@ -13021,12 +13033,21 @@ LED</description>
 <pinref part="C4" gate="G$1" pin="1"/>
 <junction x="-48.26" y="-35.56"/>
 </segment>
+<segment>
+<pinref part="R4" gate="G$1" pin="1"/>
+<wire x1="-391.16" y1="12.7" x2="-391.16" y2="5.08" width="0.1524" layer="91"/>
+<label x="-391.922" y="4.318" size="1.778" layer="95" rot="R90"/>
+</segment>
 </net>
 <net name="PO.25(RX)-DIO3(TX)" class="0">
 <segment>
-<wire x1="-462.28" y1="35.56" x2="-403.86" y2="35.56" width="0.1524" layer="91"/>
+<wire x1="-462.28" y1="35.56" x2="-393.7" y2="35.56" width="0.1524" layer="91"/>
 <label x="-429.26" y="35.56" size="1.778" layer="95"/>
 <pinref part="U$2" gate="G$1" pin="PO.25(RX)-DIO3(TX)"/>
+<wire x1="-391.16" y1="35.56" x2="-388.62" y2="35.56" width="0.1524" layer="91"/>
+<wire x1="-393.7" y1="35.56" x2="-391.16" y2="35.56" width="0.1524" layer="91"/>
+<wire x1="-391.16" y1="35.56" x2="-391.16" y2="22.86" width="0.1524" layer="91"/>
+<pinref part="R4" gate="G$1" pin="2"/>
 </segment>
 <segment>
 <wire x1="-243.84" y1="45.72" x2="-292.1" y2="45.72" width="0.1524" layer="91"/>

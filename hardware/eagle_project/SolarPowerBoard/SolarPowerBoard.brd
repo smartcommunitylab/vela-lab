@@ -736,8 +736,8 @@ body 4x4mm, pitch 0.65mm</description>
 <smd name="2" x="1" y="-3.7" dx="1" dy="4.6" layer="1"/>
 <smd name="NC1" x="-3.4" y="1.5" dx="3.4" dy="1.6" layer="1" rot="R90"/>
 <smd name="NC2" x="3.4" y="1.5" dx="3.4" dy="1.6" layer="1" rot="R90"/>
-<pad name="P$1" x="-1.27" y="-5.08" drill="0.6"/>
-<pad name="P$2" x="1.27" y="-5.08" drill="0.6"/>
+<pad name="P$1" x="-1.27" y="-5.08" drill="1"/>
+<pad name="P$2" x="1.27" y="-5.08" drill="1"/>
 <text x="-1.397" y="1.778" size="0.6096" layer="25" font="vector" ratio="20">&gt;NAME</text>
 <text x="-1.651" y="0.635" size="0.6096" layer="27" font="vector" ratio="20">&gt;VALUE</text>
 </package>
@@ -1851,7 +1851,7 @@ Your Eurocircuits Team
 <attribute name="OC_NEWARK" value="43AC3996" x="133.964" y="-43.254" size="1.778" layer="27" display="off"/>
 <attribute name="PROD_ID" value="RES-11622" x="133.964" y="-43.254" size="1.778" layer="27" display="off"/>
 </element>
-<element name="R15" library="SolarPowerBoard" package="SPARKFUN-RESISTORS_0805:1" value="0.3" x="2.07" y="41.14" rot="R90">
+<element name="R15" library="SolarPowerBoard" package="SPARKFUN-RESISTORS_0805:1" value="0" x="2.07" y="41.14" rot="R90">
 <attribute name="MF" value="" x="89.7" y="113.53" size="1.778" layer="27" rot="R90" display="off"/>
 <attribute name="MPN" value="RLP73N2AR30JTD" x="89.7" y="113.53" size="1.778" layer="27" rot="R90" display="off"/>
 <attribute name="NAME" x="1.054" y="41.394" size="0.6096" layer="25" font="vector" ratio="20" rot="R90" align="bottom-center"/>
@@ -2098,6 +2098,14 @@ Your Eurocircuits Team
 <attribute name="NAME" x="58.42" y="43.307" size="0.6096" layer="25" font="vector" ratio="20" rot="R180" align="bottom-center"/>
 <attribute name="PROD_ID" value="RES-11622" x="70.612" y="42.418" size="1.778" layer="27" rot="R90" display="off"/>
 </element>
+<element name="R4" library="SolarPowerBoard" package="SPARKFUN-RESISTORS_0805:1" value="100k" x="29.972" y="47.117" rot="R90">
+<attribute name="MF" value="" x="29.972" y="47.117" size="1.778" layer="27" rot="R90" display="off"/>
+<attribute name="MPN" value="RLP73N2AR30JTD" x="29.972" y="47.117" size="1.778" layer="27" rot="R90" display="off"/>
+<attribute name="NAME" x="29.083" y="47.117" size="0.6096" layer="25" font="vector" ratio="20" rot="R90" align="bottom-center"/>
+<attribute name="OC_NEWARK" value="43AC3996" x="29.972" y="47.117" size="1.778" layer="27" rot="R90" display="off"/>
+<attribute name="PROD_ID" value="RES-11622" x="29.972" y="47.117" size="1.778" layer="27" rot="R90" display="off"/>
+<attribute name="VALUE" x="32.131" y="47.117" size="0.6096" layer="27" font="vector" ratio="20" rot="R90" align="top-center"/>
+</element>
 </elements>
 <signals>
 <signal name="GND">
@@ -2194,7 +2202,7 @@ Your Eurocircuits Team
 <wire x1="62.8286" y1="41.0564" x2="61.893" y2="41.0564" width="0.1524" layer="1"/>
 <wire x1="61.893" y1="41.0564" x2="61.214" y2="41.7354" width="0.1524" layer="1"/>
 <wire x1="61.214" y1="41.7354" x2="61.214" y2="42.672" width="0.1524" layer="1"/>
-<wire x1="28.648" y1="14.531" x2="27.485" y2="14.531" width="0.1524" layer="1"/>
+<wire x1="28.648" y1="14.531" x2="27.485" y2="14.531" width="0.381" layer="1"/>
 <wire x1="27.485" y1="14.531" x2="27.432" y2="14.478" width="0.1524" layer="1"/>
 <wire x1="32.793" y1="16.981" x2="32.756" y2="17.018" width="0.1524" layer="1"/>
 <via x="31.242" y="17.018" extent="1-16" drill="0.35"/>
@@ -2269,7 +2277,7 @@ Your Eurocircuits Team
 <via x="41.91" y="11.43" extent="1-16" drill="0.35"/>
 <via x="39.37" y="11.43" extent="1-16" drill="0.35"/>
 <via x="23.876" y="43.561" extent="1-16" drill="0.35"/>
-<via x="29.972" y="45.72" extent="1-16" drill="0.35"/>
+<via x="29.972" y="44.958" extent="1-16" drill="0.35"/>
 <via x="29.972" y="43.942" extent="1-16" drill="0.35"/>
 <via x="31.242" y="44.958" extent="1-16" drill="0.35"/>
 <via x="25.019" y="13.843" extent="1-16" drill="0.35"/>
@@ -2868,6 +2876,9 @@ Your Eurocircuits Team
 <wire x1="28.53506875" y1="37.41" x2="28.45" y2="37.41" width="0.381" layer="1"/>
 <wire x1="28.91796875" y1="37.7929" x2="28.53506875" y2="37.41" width="0.381" layer="1"/>
 <wire x1="28.45" y1="38.93" x2="28.45" y2="37.5199" width="0.635" layer="1"/>
+<contactref element="R4" pad="1"/>
+<wire x1="29.972" y1="46.217" x2="28.44" y2="46.217" width="0.1524" layer="1"/>
+<wire x1="28.44" y1="46.217" x2="28.44" y2="44.42" width="0.1524" layer="1"/>
 <wire x1="28.45" y1="37.5199" x2="28.46" y2="37.4" width="0" layer="19" extent="1-1"/>
 </signal>
 <signal name="PO.25(RX)-DIO3(TX)">
@@ -2893,6 +2904,9 @@ Your Eurocircuits Team
 <wire x1="19.304" y1="51.816" x2="18.288" y2="50.8" width="0.1524" layer="1"/>
 <wire x1="18.288" y1="49.492" x2="19.8788" y2="47.9012" width="0.1524" layer="1"/>
 <wire x1="18.288" y1="50.8" x2="18.288" y2="49.492" width="0.1524" layer="1"/>
+<contactref element="R4" pad="2"/>
+<wire x1="30.0388" y1="50.4412" x2="30.0388" y2="48.0838" width="0.1524" layer="1"/>
+<wire x1="30.0388" y1="48.0838" x2="29.972" y2="48.017" width="0.1524" layer="1"/>
 </signal>
 <signal name="PO.24(TX)-DIO2(RX)">
 <contactref element="U$2" pad="PO.24(TX)-DIO2(RX)"/>
