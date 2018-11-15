@@ -459,7 +459,7 @@ void cancel_ongoing_report(void) {
 static void send_pong(uart_pkt_t* p_packet) {
 	if (p_packet->payload.data_len) {
 		uint8_t pong_payload[p_packet->payload.data_len];
-		memcpy(p_packet->payload.p_data, pong_payload, p_packet->payload.data_len);
+		memcpy(pong_payload, p_packet->payload.p_data, p_packet->payload.data_len);
 
 		uart_pkt_t pong_packet;
 		pong_packet.payload.p_data = pong_payload;
