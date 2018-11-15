@@ -28,30 +28,28 @@ clc;
 % % acquisizione 8 - 180451- davide sotto 135 con 3 nodi, accende i nodi, aspetta e popi fa il percorso sbagliato
 % name = '20171214-180451-data';
 
-name = '20171215_144106_data';
+%name = 'VELA_19_12_17\20171219_124954_data';
+name = '20171220_123729_data';
 
 inputfile = [name '.mat'];
 load(inputfile);
 
 % beacon to plot maxRSSI
-% myBeaconID{1} = '0000000000F0';
-% myBeaconID{2} = '0000000000F1';
-% myBeaconID{3} = '0000000000F3';
-
 myBeaconID{1} = '000000000040';
-myBeaconID{2} = '000000000041';
-myBeaconID{3} = '000000000043';
-
-
-
-
-
-
+myBeaconID{2} = '000000000044';
+myBeaconID{3} = '00000000004E';
+myBeaconID{4} = '000000000050';
+myBeaconID{5} = '00000000005D';
+myBeaconID{6} = '00000000005E';
+myBeaconID{7} = '00000000006C';
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 COUNTERIDX = 3;
 COUNTER_OVERFLOW = 127;
+DATE_FORMAT = 'HH:MM:SS';
+MAX_RSSI_SCALE = -20;
+MIN_RSSI_SCALE = -100;
 
 for nodeIDX = 1:size(nodeData,2)
     
@@ -96,15 +94,19 @@ end
 % beacon index in the data for each node
 beaconIDX = zeros(size(myBeaconID,2),size(nodeData,2));
 startTimeAll = zeros(1,size(nodeData,2));
+endTimeAll = zeros(1,size(nodeData,2));
+availableBeaconID = [];
+availableNodeID = [];
 
 for nodeIDX = 1:size(nodeData,2)
 
     for bIDX = 1:size(myBeaconID,2)
 
         for i = 1:size(nodeData{nodeIDX}.contactData,2)
+            availableBeaconID = [availableBeaconID; nodeData{nodeIDX}.contactData{1,i}.beaconID];
             if strcmp(nodeData{nodeIDX}.contactData{1,i}.beaconID, myBeaconID{bIDX}) == 1
                 beaconIDX(bIDX,nodeIDX) = i;
-            end      
+            end
         end
 
         if beaconIDX(bIDX,nodeIDX) ~= 0
@@ -117,12 +119,14 @@ for nodeIDX = 1:size(nodeData,2)
         end
     end
     
-    startTimeAll(1,nodeIDX) = nodeData{1}.startTime;
-
+    startTimeAll(1,nodeIDX) = nodeData{nodeIDX}.startTime;
+    endTimeAll(1,nodeIDX) = nodeData{nodeIDX}.endTime;
+    availableNodeID = [availableNodeID sscanf(nodeData{nodeIDX}.nodeID, '%d')];
 end
 
 startTime = min(startTimeAll);
-
+endTime = max(endTimeAll);
+availableBeaconID = unique(availableBeaconID,'rows');
 
 for nodeIDX = 1:size(nodeData,2)
 
@@ -139,80 +143,58 @@ for nodeIDX = 1:size(nodeData,2)
     end    
 end
 
-figure;
-hold on;
-plot(myBeaconData{1,1}.timeRel/1000, myBeaconData{1,1}.maxRSSI, '--o', 'MarkerEdgeColor','b', 'MarkerFaceColor','b', 'MarkerSize',8);
-plot(myBeaconData{1,2}.timeRel/1000, myBeaconData{1,2}.maxRSSI, '--o', 'MarkerEdgeColor','g', 'MarkerFaceColor','g', 'MarkerSize',8);
-plot(myBeaconData{1,3}.timeRel/1000, myBeaconData{1,3}.maxRSSI, '--o', 'MarkerEdgeColor','r', 'MarkerFaceColor','r', 'MarkerSize',8);
-plot(myBeaconData{1,4}.timeRel/1000, myBeaconData{1,4}.maxRSSI, '--o', 'MarkerEdgeColor','m', 'MarkerFaceColor','m', 'MarkerSize',8);
-title(['BeaconID: ' myBeaconID{1}]);
-xlabel('Time (s)');
-ylabel('RSSI (dB)');
-legend(nodeData{1}.nodeID, nodeData{2}.nodeID, nodeData{3}.nodeID, nodeData{4}.nodeID)
+% figure;
+% hold on;
+% plot(myBeaconData{1,1}.timeRel/1000, myBeaconData{1,1}.maxRSSI, '--o', 'MarkerEdgeColor','b', 'MarkerFaceColor','b', 'MarkerSize',8);
+% plot(myBeaconData{1,2}.timeRel/1000, myBeaconData{1,2}.maxRSSI, '--o', 'MarkerEdgeColor','g', 'MarkerFaceColor','g', 'MarkerSize',8);
+% plot(myBeaconData{1,3}.timeRel/1000, myBeaconData{1,3}.maxRSSI, '--o', 'MarkerEdgeColor','r', 'MarkerFaceColor','r', 'MarkerSize',8);
+% plot(myBeaconData{1,4}.timeRel/1000, myBeaconData{1,4}.maxRSSI, '--o', 'MarkerEdgeColor','m', 'MarkerFaceColor','m', 'MarkerSize',8);
+% title(['BeaconID: ' myBeaconID{1}]);
+% xlabel('Time (s)');
+% ylabel('RSSI (dB)');
+% legend(nodeData{1}.nodeID, nodeData{2}.nodeID, nodeData{3}.nodeID, nodeData{4}.nodeID)
 
-
-figure;
-ax(1) = subplot(4,1,1);
-plot(myBeaconData{1,1}.timeRel/1000, myBeaconData{1,1}.maxRSSI, 'o', 'MarkerEdgeColor','b', 'MarkerFaceColor','b', 'MarkerSize',8);
-ylim([-100,-10]);
-title(['BeaconID: ' myBeaconID{1}]);
-ylabel(['NodeID: ' nodeData{1}.nodeID]);
-ax(2) = subplot(4,1,2);
-plot(myBeaconData{1,2}.timeRel/1000, myBeaconData{1,2}.maxRSSI, 'o', 'MarkerEdgeColor','g', 'MarkerFaceColor','g', 'MarkerSize',8);
-ylim([-100,-10]);
-ylabel(['NodeID: ' nodeData{2}.nodeID]);
-ax(3) = subplot(4,1,3);
-plot(myBeaconData{1,3}.timeRel/1000, myBeaconData{1,3}.maxRSSI, 'o', 'MarkerEdgeColor','r', 'MarkerFaceColor','r', 'MarkerSize',8);
-ylim([-100,-10]);
-ylabel(['NodeID: ' nodeData{3}.nodeID]);
-ax(4) = subplot(4,1,4);
-plot(myBeaconData{1,4}.timeRel/1000, myBeaconData{1,4}.maxRSSI, 'o', 'MarkerEdgeColor','m', 'MarkerFaceColor','m', 'MarkerSize',8);
-ylim([-100,-10]);
-xlabel('Time (s)');
-ylabel(['NodeID: ' nodeData{4}.nodeID]);
-% linkaxes(ax, 'x');
-
-
-figure;
-ax2(1) = subplot(4,1,1);
-hold on;
-plot(myBeaconData{1,1}.timeRel/1000, myBeaconData{1,1}.maxRSSI, 'o', 'MarkerEdgeColor','b', 'MarkerFaceColor','b', 'MarkerSize',8);
-plot(myBeaconData{2,1}.timeRel/1000, myBeaconData{2,1}.maxRSSI, 'o', 'MarkerEdgeColor','g', 'MarkerFaceColor','g', 'MarkerSize',8);
-plot(myBeaconData{3,1}.timeRel/1000, myBeaconData{3,1}.maxRSSI, 'o', 'MarkerEdgeColor','r', 'MarkerFaceColor','r', 'MarkerSize',8);
-hold off;
-ylim([-100,-10]);
-% xlim([90,350]);
-grid on;
-ylabel(['NodeID: ' nodeData{1}.nodeID]);
-legend(myBeaconID{1}, myBeaconID{2}, myBeaconID{3});
-ax2(2) = subplot(4,1,2);
-hold on;
-plot(myBeaconData{1,2}.timeRel/1000, myBeaconData{1,2}.maxRSSI, 'o', 'MarkerEdgeColor','b', 'MarkerFaceColor','b', 'MarkerSize',8);
-plot(myBeaconData{2,2}.timeRel/1000, myBeaconData{2,2}.maxRSSI, 'o', 'MarkerEdgeColor','g', 'MarkerFaceColor','g', 'MarkerSize',8);
-plot(myBeaconData{3,2}.timeRel/1000, myBeaconData{3,2}.maxRSSI, 'o', 'MarkerEdgeColor','r', 'MarkerFaceColor','r', 'MarkerSize',8);
-hold off;
-ylim([-100,-10]);
-grid on;
-ylabel(['NodeID: ' nodeData{2}.nodeID]);
-ax2(3) = subplot(4,1,3);
-hold on;
-plot(myBeaconData{1,3}.timeRel/1000, myBeaconData{1,3}.maxRSSI, 'o', 'MarkerEdgeColor','b', 'MarkerFaceColor','b', 'MarkerSize',8);
-plot(myBeaconData{2,3}.timeRel/1000, myBeaconData{2,3}.maxRSSI, 'o', 'MarkerEdgeColor','g', 'MarkerFaceColor','g', 'MarkerSize',8);
-plot(myBeaconData{3,3}.timeRel/1000, myBeaconData{3,3}.maxRSSI, 'o', 'MarkerEdgeColor','r', 'MarkerFaceColor','r', 'MarkerSize',8);
-hold off;
-ylim([-100,-10]);
-grid on;
-ylabel(['NodeID: ' nodeData{3}.nodeID]);
-ax2(4) = subplot(4,1,4);
-hold on;
-plot(myBeaconData{1,4}.timeRel/1000, myBeaconData{1,4}.maxRSSI, 'o', 'MarkerEdgeColor','b', 'MarkerFaceColor','b', 'MarkerSize',8);
-plot(myBeaconData{2,4}.timeRel/1000, myBeaconData{2,4}.maxRSSI, 'o', 'MarkerEdgeColor','g', 'MarkerFaceColor','g', 'MarkerSize',8);
-plot(myBeaconData{3,4}.timeRel/1000, myBeaconData{3,4}.maxRSSI, 'o', 'MarkerEdgeColor','r', 'MarkerFaceColor','r', 'MarkerSize',8);
-hold off;
-ylim([-100,-10]);
-grid on;
-xlabel('Time (s)');
-ylabel(['NodeID: ' nodeData{4}.nodeID]);
-linkaxes(ax2, 'x');
-
-
+EXPECTED_REPORT_INTERVAL_S = 5;
+myNodeID = availableNodeID;%[4 132]; %this changes the order of nodes in the plot. Set this to availableNodeID for the default order
+warnRep = false;
+for nodeID = myNodeID
+    legendStr = [];
+    nodeIDX = find(nodeID==availableNodeID);
+    if ~isempty(nodeIDX)
+        ax2(nodeIDX) = subplot(size(myNodeID,2),1, find(nodeID==myNodeID));
+        hold on;
+        for beaconNo = 1:size(myBeaconData,1)
+            if(min(diff(myBeaconData{beaconNo,nodeIDX}.timeData)) < seconds(EXPECTED_REPORT_INTERVAL_S*0.8))
+                if warnRep == false
+                    warning(['The EXPECTED_REPORT_INTERVAL_S is set to: ' sprintf('%d S',EXPECTED_REPORT_INTERVAL_S) ' but at least one packet arrived with ' datestr(min(diff(myBeaconData{beaconNo,nodeIDX}.timeData)), 'MM:SS') ' interval from the previous one.']);
+                    warnRep = true;
+                end
+            end
+            NaNtimeData = myBeaconData{beaconNo,nodeIDX}.timeData(diff(myBeaconData{beaconNo,nodeIDX}.timeData) > seconds(3.1*EXPECTED_REPORT_INTERVAL_S)) + seconds(EXPECTED_REPORT_INTERVAL_S/10);
+            data_plot = [myBeaconData{beaconNo,nodeIDX}.maxRSSI ; NaN*ones(size(NaNtimeData))];
+            time_plot = [myBeaconData{beaconNo,nodeIDX}.timeData; NaNtimeData];
+            [time_plot, o] = sort(time_plot);
+            data_plot = data_plot(o);
+            p = plot(time_plot, data_plot, '-o', 'MarkerSize',8, 'LineWidth',2);
+            p.MarkerFaceColor = p.Color;
+            legendStr = [legendStr; 'Beacon: 0x' myBeaconID{beaconNo}(end-1:end)];
+        end
+        if(find(nodeIDX == availableNodeID) == 1)
+            l = legend(legendStr);
+            l.FontSize = 12;
+            l.FontWeight = 'bold';
+        end
+        ax2(nodeIDX).FontSize=12;
+        ax2(nodeIDX).FontWeight='bold';
+        ax2(nodeIDX).YTick=MIN_RSSI_SCALE:10:MAX_RSSI_SCALE;
+        %ax2(nodeID).XTick=datenum(2017,12,19,11,50,30):datenum(seconds(15)):datenum(2017,12,19,11,55,00);
+        hold off;
+        ylim([MIN_RSSI_SCALE,MAX_RSSI_SCALE]);
+        grid on;
+        l = ylabel(['NodeID: ' nodeData{nodeIDX}.nodeID sprintf('\n') 'RSSI [dBm]']);
+        
+        l.FontSize = 12;
+        l.FontWeight = 'bold';
+    end
+end
+linkaxes(ax2, 'xy');

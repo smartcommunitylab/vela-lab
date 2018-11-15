@@ -16,7 +16,8 @@ dataLenIDX = 11;
 payloadStartIDX = 14;
 
 
-name = '20171215_144106_data';
+%name = 'VELA_19_12_17\20171219_124954_data';
+name = '20171220_123729_data';
 
 inputfile = [name '.log'];
 outputfile = [name '.mat'];
@@ -66,6 +67,7 @@ for i = 1:size(nodeIDS,1)
         end
     end
     nodeData{i}.startTime = nodeData{i}.pktHeaders(1,1);
+    nodeData{i}.endTime = nodeData{i}.pktHeaders(end,1);
 end
 
 for i = 1:size(nodeData,2)
