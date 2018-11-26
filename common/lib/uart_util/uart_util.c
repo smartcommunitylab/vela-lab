@@ -529,7 +529,11 @@ void enable_uart_flow_control(void){
     ti_lib_int_enable(INT_UART0_COMB);
 
     /* enable the UART */
-    ti_lib_uart_enable(UART0_BASE);
+	ti_lib_uart_enable(UART0_BASE);
+}
+
+void update_isr_priority() {
+	IntPrioritySet(INT_UART0_COMB, INT_PRI_LEVEL7);
 }
 #endif
 //initialize uart based on defines in uart_util.h
@@ -545,7 +549,10 @@ void uart_util_initialize(void){
     APP_ERROR_CHECK(ret);
 #else
 #if BOARD_IOID_UART_CTS != IOID_UNUSED && BOARD_IOID_UART_RTS != IOID_UNUSED
+#if UART_FLOW_CONTROL==0
     enable_uart_flow_control();
+    update_isr_priority();
+#endif
 #endif
 #endif
 }
