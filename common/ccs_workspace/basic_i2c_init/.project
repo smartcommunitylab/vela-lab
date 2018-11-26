@@ -24,23 +24,6 @@
 		<nature>org.eclipse.cdt.managedbuilder.core.managedBuildNature</nature>
 		<nature>org.eclipse.cdt.managedbuilder.core.ScannerConfigNature</nature>
 	</natures>
-	<linkedResources>
-		<link>
-			<name>basic_i2c_init</name>
-			<type>2</type>
-			<locationURI>PARENT-1-PROJECT_SOURCES/basic_i2c_init</locationURI>
-		</link>
-		<link>
-			<name>contiki</name>
-			<type>2</type>
-			<location>/home/giova/workspaces/GIT/contiki</location>
-		</link>
-		<link>
-			<name>lib</name>
-			<type>2</type>
-			<location>/home/giova/workspaces/GIT/vela-lab/common/lib/uart_util</location>
-		</link>
-	</linkedResources>
 	<variableList>
 		<variable>
 			<name>CONTIKI_ROOT</name>

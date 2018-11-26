@@ -43,8 +43,6 @@
 					<fileInfo id="cdt.managedbuild.toolchain.gnu.cross.base.2021895692.1272172968" name="build_script.sh" rcbsApplicability="disable" resourcePath="build_script.sh" toolsToInvoke=""/>
 					<sourceEntries>
 						<entry excluding="contiki|lib" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
-						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="contiki"/>
-						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="lib"/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>
