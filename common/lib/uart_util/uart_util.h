@@ -29,6 +29,8 @@
 
 #define SERIAL_FIFOS_SIZE 128                         /**< UART TX buffer (FIFO) size. */
 
+#define FIRST_PCB_WORKAROUND
+
 #ifndef CONTIKI
 	#define SERIAL_FIFO_TX_SIZE SERIAL_FIFOS_SIZE
 	#define SERIAL_FIFO_RX_SIZE SERIAL_FIFOS_SIZE         /**< UART RX buffer (FIFO) size. */
@@ -44,12 +46,13 @@
 		#define UART_PARITY_ENABLED 			NRF_UART_PARITY_EXCLUDED
 		#define UART_BAUDRATE 					UART_BAUDRATE_BAUDRATE_Baud1M
 	#else
-		#define UART_RX_PIN_NUMBER 				NRF_GPIO_PIN_MAP(0,24)//TX_PIN_NUMBER//NRF_GPIO_PIN_MAP(0,24)
-		#ifdef DEBUG
-			#define UART_TX_PIN_NUMBER 				NRF_GPIO_PIN_MAP(0,25) //TX_PIN_NUMBER //this permits to use the uart-to-usb converteor on the board to sniff the communication from the pc
-		#else
-			#define UART_TX_PIN_NUMBER 				NRF_GPIO_PIN_MAP(0,25)
-		#endif
+#ifdef FIRST_PCB_WORKAROUND
+		#define UART_RX_PIN_NUMBER 				NRF_GPIO_PIN_MAP(0,25)
+		#define UART_TX_PIN_NUMBER 				NRF_GPIO_PIN_MAP(0,24)
+#else
+        #define UART_RX_PIN_NUMBER              NRF_GPIO_PIN_MAP(0,24)//TX_PIN_NUMBER//NRF_GPIO_PIN_MAP(0,24)
+        #define UART_TX_PIN_NUMBER              NRF_GPIO_PIN_MAP(0,25)
+#endif
 		#define UART_RTS_PIN_NUMBER 			NRF_GPIO_PIN_MAP(0,23)
 		#define UART_CTS_PIN_NUMBER 			NRF_GPIO_PIN_MAP(0,22)
 		#define UART_FLOW_CONTROL 				NRF_UART_HWFC_ENABLED//NRF_UART_HWFC_ENABLED
