@@ -533,7 +533,24 @@ void enable_uart_flow_control(void){
 }
 
 void update_isr_priority() {
-	IntPrioritySet(INT_UART0_COMB, INT_PRI_LEVEL7);
+    /* disable the UART */
+    ti_lib_uart_disable(UART0_BASE);
+
+    /* Disable all UART interrupts and clear all flags */
+    /* Acknowledge UART interrupts */
+    ti_lib_int_disable(INT_UART0_COMB);
+
+     /* Clear all UART interrupts */
+    ti_lib_uart_int_clear(UART0_BASE, UART_INT_OE | UART_INT_BE | UART_INT_PE | UART_INT_FE | UART_INT_RT | UART_INT_TX | UART_INT_RX | UART_INT_CTS);
+
+    //change interrupt priority
+    IntPrioritySet(INT_UART0_COMB, INT_PRI_LEVEL7);
+
+    /* Acknowledge UART interrupts */
+    ti_lib_int_enable(INT_UART0_COMB);
+
+    /* enable the UART */
+    ti_lib_uart_enable(UART0_BASE);
 }
 #endif
 //initialize uart based on defines in uart_util.h
