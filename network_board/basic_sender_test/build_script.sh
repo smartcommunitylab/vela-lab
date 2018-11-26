@@ -17,4 +17,4 @@ VERSION_BUILD=$((${VERSION_BUILD}+1))
 export VERSION_STRING=$((VERSION_MAJOR)).$((VERSION_MINOR)).$((VERSION_BUILD))
 echo $VERSION_STRING > version
 
-make "$@" V=1 PORT=/dev/ttyACM0
+make "$@" V=1 PORT=/dev/ttyUSB1
