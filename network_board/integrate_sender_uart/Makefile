@@ -1,5 +1,5 @@
 CONTIKI=${CONTIKI_ROOT}
-CONTIKI =/Users/murphy/Projects/VelaLab/contiki
+CONTIKI =/home/bram/Documents/ContikiTest/contiki
 
 DEFINES+=PROJECT_CONF_H=\"project-conf.h\"
 
@@ -27,10 +27,11 @@ PROJECT_SOURCEFILES += sink_receiver.c
 
 
 TARGET ?= srf06-cc26xx
-#BOARD=launchpad/cc2650	//use this one for the nodes that DO NOT HAVE the new interface board with the solar panel
+#BOARD=launchpad/cc2650        //use this one for the nodes that DO NOT HAVE the new interface board with the solar panel
 BOARD=launchpad_vela/cc2650
+#BOARD=srf06/cc26xx
 BSL_FLAGS += -b 115200
 
 CONTIKI_WITH_RPL=1
 CONTIKI_WITH_IPV6 = 1
-include $(CONTIKI)/Makefile.include
+include ../../../contiki/Makefile.include

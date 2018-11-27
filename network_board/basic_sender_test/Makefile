@@ -3,7 +3,8 @@ DEFINES+=PROJECT_CONF_H=\"project-conf.h\"
 all: vela_node vela_sink
 APPS=servreg-hack
 
-CONTIKI=${CONTIKI_ROOT}
+CONTIKI=/home/bram/Documents/ContikiTest/contiki
+#
 COMMON_DIR=../../common
 
 #CONTIKI_WITH_RIME = 1
@@ -25,10 +26,11 @@ PROJECT_SOURCEFILES += sink_receiver.c
 
 
 TARGET ?= srf06-cc26xx
-BOARD=launchpad/cc2650
+#BOARD=launchpad/cc2650
+BOARD=launchpad_vela/cc2650
 #BOARD=srf06/cc26xx
 #BSL_FLAGS += -b 115200
 
 CONTIKI_WITH_RPL=1
 CONTIKI_WITH_IPV6 = 1
-include $(CONTIKI)/Makefile.include
+include ../../../contiki/Makefile.include

@@ -39,7 +39,7 @@ START_CHAR = 0x2A
 START_BUF = 0x2A2A2A
 BAUD_RATE = 1000000
 # SERIAL_PORT = "/dev/ttyACM0"
-SERIAL_PORT = "COM27"
+SERIAL_PORT = "/dev/ttyUSB0"
 
 # # Structure for contact data
 # ContactStruct = namedtuple("ContactStruct", "nodeID lastRSSI maxRSSI pktCount")

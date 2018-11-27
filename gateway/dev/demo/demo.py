@@ -128,9 +128,7 @@ urllib3_log.setLevel(logging.CRITICAL)
 
 
 # Serial init
-ser = serial.Serial()
-ser.port = SERIAL_PORT
-ser.baudrate = BAUD_RATE
+ser = serial.Serial(SERIAL_PORT, BAUD_RATE)
 
 if ser.is_open:
     print("Serial Port already open!", ser.port, "open before initialization... closing first")

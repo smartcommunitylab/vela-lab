@@ -5,8 +5,8 @@
    3. start trickle sender
 
 channel check interval
-*
-**/
+ *
+ **/
 
 #include "contiki.h"
 #include "sys/etimer.h"
@@ -16,25 +16,19 @@ channel check interval
 
 
 PROCESS(sink_process, "sink starter process");
-
-
+//PROCESS(trickle_command_process, "trickle keepalive process");
 AUTOSTART_PROCESSES (&sink_process);
-
-
 
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(sink_process, ev, data)
 {
-  PROCESS_BEGIN();
-  printf("sink: started\n");
+    PROCESS_BEGIN();
+    printf("sink: started\n");
 
-  // initialize and start the other threads
-  sink_receiver_init();
+    // initialize and start the other threads
+    sink_receiver_init();
 
-  // do something, probably related to the watchdog
-  
-  PROCESS_END();
+    // do something, probably related to the watchdog
+
+    PROCESS_END();
 }
-/*---------------------------------------------------------------------------*/
-
-
