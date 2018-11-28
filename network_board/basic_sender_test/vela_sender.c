@@ -141,7 +141,7 @@ tcpip_handler(void)
                 case network_request_ping: {
                     ;
                     printf("Ping request\n");
-                    process_post(&cc2650_uart_process, event_ping_requested, incoming->payload.p_data[0]);
+                    process_post(&cc2650_uart_process, event_ping_requested, &incoming->payload.p_data[0]);
                     break;
                 }
                 default:
