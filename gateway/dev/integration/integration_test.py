@@ -36,7 +36,7 @@ MAX_CONTACTS_LIST = 1000
 # start character = 42 (0x2A)
 # start sequence = 4 times start char = 42, 42, 42, 42
 START_CHAR = 0x2A
-START_BUF = 0x2A2A2A
+START_BUF = 0x2A2A
 BAUD_RATE = 921600
 SERIAL_PORT = "/dev/ttyACM0"
 # SERIAL_PORT = "/dev/ttyUSB0"

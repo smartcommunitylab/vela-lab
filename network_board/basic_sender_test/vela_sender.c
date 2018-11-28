@@ -6,26 +6,40 @@
  **/
 #include "contiki.h"
 #include "sys/etimer.h"
+#include "sys/ctimer.h"
 #include "net/ip/uip.h"
 #include "net/ipv6/uip-ds6.h"
 #include "net/ip/uip-debug.h"
+#include "net/rpl/rpl.h"
 #include "sys/node-id.h"
 #include "simple-udp.h"
 #include "servreg-hack.h"
 #include "vela_uart.h"
 #include "vela_sender.h"
+#include "lib/trickle-timer.h"
 #include "constraints.h"
 #include "dev/leds.h"
 #include <stdio.h>
+#include "network_messages.h"
+#include "lib/random.h"
 
+static struct etimer periodic_timer;
 
 static struct simple_udp_connection unicast_connection;
-static uint8_t message_number;
+static uint8_t message_number = 1;
+static uint8_t buf[MAX_REPORT_DATA_SIZE + 2];
+static uip_ipaddr_t *addr;
 
-static bool debug;
+static bool debug = false;
 
-
+static struct trickle_timer tt;
+static struct uip_udp_conn *trickle_conn;
+static uip_ipaddr_t t_ipaddr;     /* destination: link-local all-nodes multicast */
+static struct etimer trickle_et;
+struct network_message_t trickle_msg;
 PROCESS(vela_sender_process, "vela sender process");
+PROCESS(trickle_protocol_process, "Trickle Protocol process");
+
 /*---------------------------------------------------------------------------*/
 static void
 receiver(struct simple_udp_connection *c,
@@ -36,157 +50,220 @@ receiver(struct simple_udp_connection *c,
          const uint8_t *data,
          uint16_t datalen)
 {
-  if (debug) printf("Data received on port %d from port %d with length %d\n",
-                    receiver_port, sender_port, datalen);
+    printf("Data received on port %d from port %d with length %d at %lu\n",
+           receiver_port, sender_port, datalen, clock_time());
 }
 /*---------------------------------------------------------------------------*/
 static void
 set_global_address(void)
 {
-  uip_ipaddr_t ipaddr;
-  int i;
-  uint8_t state;
+    uip_ipaddr_t ipaddr;
+    int i;
+    uint8_t state;
 
-  uip_ip6addr(&ipaddr, UIP_DS6_DEFAULT_PREFIX, 0, 0, 0, 0, 0, 0, 0);
-  uip_ds6_set_addr_iid(&ipaddr, &uip_lladdr);
-  uip_ds6_addr_add(&ipaddr, 0, ADDR_AUTOCONF);
+    uip_ip6addr(&ipaddr, UIP_DS6_DEFAULT_PREFIX, 0, 0, 0, 0, 0, 0, 0);
+    uip_ds6_set_addr_iid(&ipaddr, &uip_lladdr);
+    uip_ds6_addr_add(&ipaddr, 0, ADDR_AUTOCONF);
 
-  if (debug) printf("IPv6 addresses: ");
-  for(i = 0; i < UIP_DS6_ADDR_NB; i++) {
-    state = uip_ds6_if.addr_list[i].state;
-    if(uip_ds6_if.addr_list[i].isused &&
-       (state == ADDR_TENTATIVE || state == ADDR_PREFERRED)) {
-      uip_debug_ipaddr_print(&uip_ds6_if.addr_list[i].ipaddr);
-      if (debug) printf("\n");
+    if (debug) printf("IPv6 addresses: ");
+    for(i = 0; i < UIP_DS6_ADDR_NB; i++) {
+        state = uip_ds6_if.addr_list[i].state;
+        if(uip_ds6_if.addr_list[i].isused &&
+                (state == ADDR_TENTATIVE || state == ADDR_PREFERRED)) {
+            uip_debug_ipaddr_print(&uip_ds6_if.addr_list[i].ipaddr);
+            if (debug) printf("\n");
+        }
     }
-  }
 }
 /*---------------------------------------------------------------------------*/
 void vela_sender_init() {
-  // set some parameters locally
+    random_init(0);
 
-  debug=false;
+    printf("vela_sender: initializing \n");
+    message_number = 0;
 
-  if (debug) printf("vela_sender: initializing \n");
-  message_number = 0;
+    servreg_hack_init();
 
-  servreg_hack_init();
+    set_global_address();
 
-  set_global_address();
+    simple_udp_register(&unicast_connection, UDP_PORT, NULL, UDP_PORT, receiver);
 
-  simple_udp_register(&unicast_connection, UDP_PORT, NULL, UDP_PORT, receiver);
-
-  // start this process
-  process_start(&vela_sender_process, "vela sender process");
-  return;
-
+    process_start(&vela_sender_process, "vela sender process");
+    process_start(&trickle_protocol_process, "trickle protocol process");
+    return;
 }
 
 /*---------------------------------------------------------------------------*/
-static void send_to_sink(uint8_t *buffer, int offset, int size, bool last) {
-  uip_ipaddr_t *addr = servreg_hack_lookup(SERVICE_ID);
-  if (++message_number == 128)  message_number = 1; // message counter goes from 0 to 127, then wraps
-
-  static char buf[MAX_RPL_SEND_SIZE+1]; // add one byte for the  message counter
-
-  // prepend the message counter
-  buf[0] = message_number;
-
-  uint8_t mask = 128;
-  if (last) buf[0]=buf[0]^mask; // if this is the last of a packet sequence, flip most significant bit
-
-  // copy the data to send
-  int i;
-  for (i=1;i<=size;i++) {
-    buf[i] = buffer[offset+i-1];
-  }
-
-  simple_udp_sendto(&unicast_connection, buf, size+1, addr);
-  if (debug) printf("size=%d msgNum=%u\n",size+1,message_number);
-  for (i=1;i<=size;i++)
-    if (debug) printf("[%d]=%u ",i,buf[i]);
-  if (debug) printf("\n");
-
-
-
-}
-/*---------------------------------------------------------------------------*/
-/*---------------------------------------------------------------------------*/
-/*---------------------------------------------------------------------------*/
-/*---------------------------------------------------------------------------*/
-/*---------------------------------------------------------------------------*/
-/*---------------------------------------------------------------------------*/
-PROCESS_THREAD(vela_sender_process, ev, data) { 
-
-  PROCESS_BEGIN();
-
-  static struct etimer pause_timer;
-  static data_t* eventData;
-  static int offset = 0;
-  static int sizeToSend=0;
-  etimer_set(&pause_timer, TIME_BETWEEN_SENDS);
-
-  event_buffer_empty = process_alloc_event();
-
-  uip_ipaddr_t *addr;
-
-  if (debug) printf("unicast: started\n");
-  while (1)
-    {
-      // wait until we get a data_ready event
-      PROCESS_WAIT_EVENT_UNTIL(ev == event_data_ready);
-      leds_toggle(LEDS_GREEN);
-      eventData = (data_t*) data;
-      if (debug) printf("vela_sender: received an event, size=%d\n",eventData->data_len);
-
-
-
-     addr = servreg_hack_lookup(SERVICE_ID);
-
-     if(addr != NULL && eventData->data_len > 0)  {
-       
-       offset=0; // offset from the begging of the buffer to send next
-       sizeToSend = eventData->data_len; // amount of data in the buffer not yet sent
-       while ( sizeToSend > 0 ) {
-
-         if (sizeToSend > MAX_RPL_SEND_SIZE) {
-           // I have more data to send that will fit in one packet
-           send_to_sink(eventData->p_data, offset, MAX_RPL_SEND_SIZE, false);
-           sizeToSend -= MAX_RPL_SEND_SIZE; 
-           offset += MAX_RPL_SEND_SIZE;
-           if (sizeToSend>0){ // if there is more data to send, wait a bit before sending
-             etimer_restart(&pause_timer); 
-             PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&pause_timer));
-           }
-         } else {
-           // this is my last packet
-           send_to_sink(eventData->p_data, offset, sizeToSend, true);
-           sizeToSend = 0;
-           offset += sizeToSend;
-         }
-         
-        
-       } 
-
-     } else {
-       if (debug) printf("Service %d not found\n", SERVICE_ID);
-     }
-     
+static uint8_t send_to_sink(struct network_message_t n_msg) {
+    addr = servreg_hack_lookup(SERVICE_ID);
+    leds_toggle(LEDS_GREEN);
+    if(addr!=NULL){
+        printf("sendingsink...\n");
+        if (++message_number == 254)  message_number = 1; //message_number is between 1 and 253
+        n_msg.pktnum = message_number;
+        buf[0] = n_msg.pkttype >> 8;
+        buf[1] = n_msg.pkttype;
+        buf[2] = message_number;
+        memcpy(&buf[3], n_msg.payload.p_data, n_msg.payload.data_len);
+        printf("Sending size: %u, msgNum: %u ,first 2 byte: 0x%02x 0x%02x\n",n_msg.payload.data_len,message_number, buf[0], buf[1]);
+        simple_udp_sendto(&unicast_connection, buf, n_msg.payload.data_len+3, addr);
+        leds_on(LEDS_RED);
+        return 0;
+    } else {
+        leds_off(LEDS_RED);
+        printf("ERROR: No sink available!\n");
+        return -1;
     }
-
-  PROCESS_END();
-  
 }
 
-/*---------------------------------------------------------------------------*/
-/*---------------------------------------------------------------------------*/
-/*---------------------------------------------------------------------------*/
-/*---------------------------------------------------------------------------*/
-/*---------------------------------------------------------------------------*/
-/*---------------------------------------------------------------------------*/
-/*---------------------------------------------------------------------------*/
+static void
+trickle_tx(void *ptr, uint8_t suppress)
+{
+    if(suppress == TRICKLE_TIMER_TX_SUPPRESS) {
+        return;
+    }
+    uip_ipaddr_copy(&trickle_conn->ripaddr, &t_ipaddr);
+    uip_create_unspecified(&trickle_conn->ripaddr);
+}
 
+static void
+tcpip_handler(void)
+{
+    if(uip_newdata()) {
+        struct network_message_t *incoming = (struct network_message_t *) uip_appdata;
+        if(trickle_msg.pktnum == incoming->pktnum) {
+            trickle_timer_consistency(&tt);
+        }
+        else {
+            if(incoming->pktnum > trickle_msg.pktnum){
+                trickle_msg = *incoming;
+                switch(trickle_msg.pkttype) {
+                case network_request_ping: {
+                    ;
+                    printf("Ping request\n");
+                    process_post(&cc2650_uart_process, event_ping_requested, incoming->payload.p_data[0]);
+                    break;
+                }
+                default:
+                    break;
+                }
+            }
+            trickle_timer_inconsistency(&tt);
+        }
+    }
+    return;
+}
 
+PROCESS_THREAD(vela_sender_process, ev, data) { 
+    static struct network_message_t response;
+    static struct etimer pause_timer;
+    static data_t* eventData;
+    static int offset = 0;
+    static int sizeToSend = 0;
+    PROCESS_BEGIN();
+    etimer_set(&pause_timer, TIME_BETWEEN_SENDS);
 
+    event_buffer_empty = process_alloc_event();
+    event_bat_data_ready = process_alloc_event();
 
+    if (debug) printf("unicast: started\n");
+    while (1)
+    {
+        PROCESS_WAIT_EVENT();
+        if(ev == event_data_ready) {
+            eventData = (data_t*)data;
+            offset=0; // offset from the begging of the buffer to send next
+            sizeToSend = (int)eventData->data_len; // amount of data in the buffer not yet sent
+            struct network_message_t chunk;
+            while ( sizeToSend > 0 ) {
+                if (sizeToSend > MAX_REPORT_DATA_SIZE) {
+                    if(offset==0) {
+                        memcpy(buf, eventData->p_data, MAX_REPORT_DATA_SIZE + 2);
+                        chunk.pkttype = network_new_sequence;
+                        chunk.payload.data_len = MAX_REPORT_DATA_SIZE + 2;
+                        memcpy(chunk.payload.p_data, buf, chunk.payload.data_len);
+                        uint8_t ret = send_to_sink(chunk);
+                        if(ret==0){
+                            sizeToSend -= MAX_REPORT_DATA_SIZE + 2;
+                            offset += MAX_REPORT_DATA_SIZE + 2;
+                        }
+                    }
+                    else {
+                        memcpy(&buf, &eventData->p_data[offset], MAX_REPORT_DATA_SIZE);
+                        chunk.pkttype = network_active_sequence;
+                        chunk.payload.data_len = MAX_REPORT_DATA_SIZE;
+                        memcpy(chunk.payload.p_data, buf, chunk.payload.data_len);
+                        uint8_t ret = send_to_sink(chunk);
+                        if(ret==0){
+                            sizeToSend -= MAX_REPORT_DATA_SIZE;
+                            offset += MAX_REPORT_DATA_SIZE;
+                        }
+                    }
+                    etimer_set(&periodic_timer, TIME_BETWEEN_SENDS);
+                    PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
+                }
+                else {
+                    // this is my last packet
+                    memcpy(&buf, &eventData->p_data[offset], sizeToSend);
+                    chunk.pkttype = network_last_sequence;
+                    chunk.payload.data_len = sizeToSend;
+                    memcpy(chunk.payload.p_data, buf, sizeToSend);
+                    send_to_sink(chunk);
+                    sizeToSend = 0;
+                }
+            }
+        }
+        if(ev == event_pong_received){
+            printf("Sending pong\n");
+            uint8_t* temp = (uint8_t*)data;
+            response.pkttype = network_respond_ping;
+            response.payload.data_len = 1;
+            response.payload.p_data[0] = temp[0];
+            send_to_sink(response);
+        }
+        if(ev == event_bat_data_ready) {
+            printf("Received bat data\n");
+            struct network_message_t message;
+            message.pkttype = network_bat_data;
+            memcpy(message.payload.p_data, data, 10);
+            message.payload.data_len = 10;
+            send_to_sink(message);
+        }
+    }
+    PROCESS_END();
+}
 
+PROCESS_THREAD(trickle_protocol_process, ev, data)
+{
+    PROCESS_BEGIN();
+    printf("Trickle protocol started\n");
+    //initialize trickle_msg struct
+    trickle_msg.pkttype = 0;
+    trickle_msg.pktnum = 0;
+    uint8_t temp[1] = {0};
+    trickle_msg.payload.p_data[0] = temp[0];
+    trickle_msg.payload.data_len = 1;
+
+    uip_create_linklocal_allnodes_mcast(&t_ipaddr); /* Store for later */
+    trickle_conn = udp_new(NULL, UIP_HTONS(TRICKLE_PROTO_PORT), NULL);
+    udp_bind(trickle_conn, UIP_HTONS(TRICKLE_PROTO_PORT));
+    printf("Connection: local/remote port %u/%u\n",
+           UIP_HTONS(trickle_conn->lport), UIP_HTONS(trickle_conn->rport));
+
+    trickle_timer_config(&tt, IMIN, IMAX, REDUNDANCY_CONST);
+    trickle_timer_set(&tt, trickle_tx, &tt);
+
+    /* At this point trickle is started and is running the first interval.*/
+    etimer_set(&trickle_et, CLOCK_SECOND * 15);
+
+    while(1) {
+        PROCESS_YIELD();
+        if(ev == tcpip_event) {
+            tcpip_handler();
+        } else if(etimer_expired(&trickle_et)) {
+            trickle_timer_reset_event(&tt);
+            etimer_restart(&trickle_et);
+        }
+    }
+    PROCESS_END();
+}

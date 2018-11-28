@@ -26,6 +26,7 @@
 #include "constraints.h"
 #include "sys/ctimer.h"
 #include "vela_uart.h"
+#include "network_messages.h"
 
 #define NORDIC_WATCHDOG_ENABLED						1
 
@@ -51,7 +52,7 @@ typedef enum{
 
 #define MAX_MESH_PAYLOAD_SIZE	MAX_NUMBER_OF_BT_BEACONS*SINGLE_NODE_REPORT_SIZE
 
-#define PING_PACKET_SIZE		50
+#define PING_PACKET_SIZE		5
 #define BT_REPORT_BUFFER_SIZE 	MAX_MESH_PAYLOAD_SIZE
 #define REPORT_TIMEOUT_MS		5000
 #define PING_TIMEOUT 			CLOCK_SECOND*5
@@ -164,6 +165,7 @@ void ping_timeout_handler(void *ptr){
 
 	send_ping();
 }
+
 #if NORDIC_WATCHDOG_ENABLED
 void nordic_watchdog_handler(void *ptr){
 	nordic_watchdog_value++;
@@ -211,10 +213,10 @@ void fsm_state_update(void) {
 }
 
 void fsm_state_process(void) {
-	leds_off(LEDS_RED);
+	//leds_off(LEDS_RED);
 	switch (m_app_state) {
 	case wait:
-		ctimer_set(&m_ping_timer, PING_TIMEOUT, ping_timeout_handler, NULL);
+		//ctimer_set(&m_ping_timer, PING_TIMEOUT, ping_timeout_handler, NULL);
 		break;
 	case initializing1:
 		ctimer_stop(&m_ping_timer); //stop pinging
@@ -230,7 +232,7 @@ void fsm_state_process(void) {
 		request_periodic_report_to_nordic(REPORT_TIMEOUT_MS);
 		break;
 	case run:
-		leds_on(LEDS_GREEN);
+//		leds_on(LEDS_GREEN);
 		//nothing to do
 		break;
 	case resetting:
@@ -288,10 +290,21 @@ void send_ping(void) {
 	uart_util_send_pkt(&packet);
 }
 
+void send_ping_payload(uint8_t payload) {
+    uart_pkt_t packet;
+    uint8_t buf[1];
+    buf[0] = payload;
+    packet.payload.p_data = buf;
+    packet.payload.data_len = 1;
+    packet.type = uart_ping;
+    uart_util_send_pkt(&packet);
+
+}
+
 static void send_pong(uart_pkt_t* p_packet) {
 	if(p_packet->payload.data_len){
 		uint8_t pong_payload[p_packet->payload.data_len];
-		memcpy(p_packet->payload.p_data, pong_payload, p_packet->payload.data_len);
+		memcpy(pong_payload, p_packet->payload.p_data, p_packet->payload.data_len);
 
 		uart_pkt_t pong_packet;
 		pong_packet.payload.p_data = pong_payload;
@@ -387,7 +400,8 @@ void request_periodic_report_to_nordic(uint32_t report_timeout_ms){
 
 #define MAX_ATTEMPTS 3
 void uart_util_ack_error(ack_wait_t* ack_wait_data) {
-	leds_on(LEDS_RED);
+    printf("Uart ack error for packet: 0x%04X\n", (uint16_t)ack_wait_data->waiting_ack_for_pkt_type);
+//	leds_on(LEDS_RED);
 	if(m_app_state == wait){
 		return;
 	}
@@ -414,10 +428,10 @@ void uart_util_rx_handler(uart_pkt_t* p_packet) { //once it arrives here the ack
 	case uart_app_level_ack:
 		if (p_packet->payload.data_len == 5) {
 			if (p_payload_data[0] == APP_ACK_SUCCESS) {//if the app ack is positive go on with fsm
-				leds_off(LEDS_RED);
+				//leds_off(LEDS_RED);
 				no_of_attempts = 1;
-				fsm_state_update();
-				fsm_state_process();
+//				fsm_state_update();
+//				fsm_state_process();
 			} else {	//otherwise call the ack error handler
 				uart_util_ack_error(NULL); //attention, this function can be called also from uart_util when the timeout for ack expires
 			}
@@ -425,14 +439,13 @@ void uart_util_rx_handler(uart_pkt_t* p_packet) { //once it arrives here the ack
 		return; //this avoids sending ack for ack messages
 		break;
 	case uart_evt_ready:
-//		uart_util_send_ack(p_packet, APP_ACK_SUCCESS); //ack message for evt_ready can be avoided
-		//here we shall wait the previous message to be sent, but if the uart buffers are enough long the two messages will fit together
-		fsm_start();
+		uart_util_send_ack(p_packet, APP_ACK_SUCCESS); //ack message for evt_ready can be avoided
+//		fsm_start();
 		return;  //ready message may not send ack
 		break;
 	case uart_req_reset:
 		ack_value = APP_ERROR_NOT_IMPLEMENTED;
-//		sd_nvic_SystemReset();
+//		sd_nvic_SystemReset(fsm_stop);
 		break;
 	case uart_req_bt_state:
 	case uart_req_bt_scan_state:
@@ -488,10 +501,25 @@ void uart_util_rx_handler(uart_pkt_t* p_packet) { //once it arrives here the ack
 		return;	//do not send the ack twice
 		break;
 	case uart_pong:
-		uart_util_send_ack(p_packet, APP_ACK_SUCCESS); //ack message for evt_ready can be avoided
-		//here we shall wait the previous message to be sent, but if the uart buffers are enough long the two messages will fit together
-		fsm_start();
-		return;  //ready message may not send ack
+	    uart_util_send_ack(p_packet, APP_ACK_SUCCESS); //ack message for evt_ready can be avoided
+	    //      //here we shall wait the previous message to be sent, but if the uart buffers are enough long the two messages will fit together
+	    if(p_packet->payload.data_len == 1) {
+	    printf("Received pong\n");
+
+
+		printf("Pong payload:\n");
+		int i;
+		for(i=0;i<p_packet->payload.data_len;i++){
+		    printf("[%u] %u\n",i,p_packet->payload.p_data[i]);
+
+		}
+		uint8_t data[1];
+		data[0] = p_packet->payload.p_data[0];
+		process_post(&vela_sender_process, event_pong_received, data);
+
+		//		fsm_start();
+	    }
+		return;
 		break;
 	default:
 		ack_value = APP_ERROR_NOT_FOUND;
@@ -512,28 +540,40 @@ PROCESS_THREAD(cc2650_uart_process, ev, data) {
 	PROCESS_BEGIN()
 		;
 
+
+	    event_data_ready = process_alloc_event();
+        event_ping_requested = process_alloc_event();
+        event_pong_received = process_alloc_event();
+        event_nordic_message_received = process_alloc_event();
+
+
 		cc26xx_uart_set_input(serial_line_input_byte);
 
 		clock_wait(CLOCK_SECOND/4); //wait to send all the contiki text before enabling the uart flow control
+
 
 		initialize_reset_pin();
 
 		uart_util_initialize();
 
-		leds_off(LEDS_CONF_ALL);
+		//leds_off(LEDS_CONF_ALL);
+
 
 		fsm_stop();
 
 		reset_nodric();
 
 		while (1) {
-
+		    //send_ping();
 			PROCESS_WAIT_EVENT()
 			;
 
 			if (ev == serial_line_event_message) { //NB: *data contains a string, the '\n' character IS NOT included, the '\0' character IS included
-
 				process_uart_rx_data((uint8_t*) data);
+			}
+			if (ev == event_ping_requested) {
+			    uint8_t payload = (uint8_t)data;
+			    send_ping_payload(payload);
 			}
 		}
 

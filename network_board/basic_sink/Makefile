@@ -1,12 +1,12 @@
 CONTIKI=${CONTIKI_ROOT}
-CONTIKI =/Users/murphy/Projects/VelaLab/contiki
-
+#CONTIKI =/Users/murphy/Projects/VelaLab/contiki
+CONTIKI =/home/bram/contiki
 DEFINES+=PROJECT_CONF_H=\"project-conf.h\"
 
 all: vela_sink
 APPS=servreg-hack
 
-CONTIKI =/Users/murphy/Projects/VelaLab/contiki
+CONTIKI =../../../contiki
 COMMON_DIR=../../common
 
 #CONTIKI_WITH_RIME = 1
