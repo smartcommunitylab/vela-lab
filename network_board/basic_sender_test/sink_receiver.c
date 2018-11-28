@@ -3,7 +3,7 @@
  * All rights reserved.
  * This file is part of the Contiki operating system.
  */
-
+#include <stdio.h>
 #include "contiki.h"
 #include "lib/random.h"
 #include "sys/ctimer.h"
@@ -14,7 +14,6 @@
 #include "simple-udp.h"
 #include "servreg-hack.h"
 #include "net/rpl/rpl.h"
-#include <stdio.h>
 #include <string.h>
 #include "sink_receiver.h"
 #include "dev/leds.h"
@@ -85,11 +84,11 @@ receiver(struct simple_udp_connection *c,
 
     int i;
     for (i=0;i<4;i++){
-        putchar(42);
+        cc26xx_uart_write_byte(42);
     }
-    putchar(sender_addr->u8[15]);
+    cc26xx_uart_write_byte(sender_addr->u8[15]);
     for (i=0;i<datalen;i++){
-        putchar(data[i]);
+        cc26xx_uart_write_byte(data[i]);
     }
 }
 /*---------------------------------------------------------------------------*/
