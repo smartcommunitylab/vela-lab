@@ -1,9 +1,7 @@
-CONTIKI=${CONTIKI_ROOT}
-CONTIKI =/home/bram/Documents/ContikiTest/contiki
-
 DEFINES+=PROJECT_CONF_H=\"project-conf.h\"
+CONTIKI_PROJECT = vela_node vela_sink
 
-all: vela_node vela_sink
+all: $(CONTIKI_PROJECT)
 APPS=servreg-hack
 
 CONTIKI =${CONTIKI_ROOT}
@@ -25,13 +23,13 @@ PROJECT_SOURCEFILES += vela_uart.c
 PROJECT_SOURCEFILES += vela_sender.c
 PROJECT_SOURCEFILES += sink_receiver.c
 
-
 TARGET ?= srf06-cc26xx
 #BOARD=launchpad/cc2650        //use this one for the nodes that DO NOT HAVE the new interface board with the solar panel
 BOARD=launchpad_vela/cc2650
-#BOARD=srf06/cc26xx
+
 BSL_FLAGS += -b 115200
 
 CONTIKI_WITH_RPL=1
 CONTIKI_WITH_IPV6 = 1
-include ../../../contiki/Makefile.include
+
+include $(CONTIKI)/Makefile.include
