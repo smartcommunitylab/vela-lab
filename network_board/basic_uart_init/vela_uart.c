@@ -572,8 +572,8 @@ PROCESS_THREAD(cc2650_uart_process, ev, data) {
 				process_uart_rx_data((uint8_t*) data);
 			}
 			if (ev == event_ping_requested) {
-			    uint8_t payload = (uint8_t)data;
-			    send_ping_payload(payload);
+			    uint8_t* payload = (uint8_t*)data;
+			    send_ping_payload(*payload);
 			}
 		}
 

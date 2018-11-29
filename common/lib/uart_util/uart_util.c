@@ -150,7 +150,7 @@ static void process_uart_rx_data() {
 void process_uart_rx_data(uint8_t *serial_data){
 #endif
 	static uint8_t uart_frame[UART_FRAME_MAX_LEN_BYTE];
-	static uint8_t idx = 0;
+	static uint16_t idx = 0;
 	static uint16_t expected_lenght = 0;
 	static uart_rx_status_t status = waiting_start_seq;
 	uart_rx_status_t new_status = waiting_start_seq;
@@ -166,6 +166,10 @@ void process_uart_rx_data(uint8_t *serial_data){
 
 	switch(status){
 	case error:	//every time an error occur just restart form waiting_start_seq state
+#ifdef CONTIKI
+	    done = 1;
+        break;
+#endif
 	case waiting_start_seq:
 		idx = 0;	//force the packet to be reset when in this state
 		expected_lenght = 0;
