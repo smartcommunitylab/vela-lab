@@ -4,7 +4,7 @@
 #include "constraints.h"
 
 PROCESS_NAME (vela_sender_process);
-PROCESS_NAME (cc2650_uart_process);
+//PROCESS_NAME (cc2650_uart_process);
 
 #define MAX_RPL_SEND_SIZE 			5 * SINGLE_NODE_REPORT_SIZE  // needs to be a multiple of SINGLE_NODE_REPORT_SIZE
 #define TIME_BETWEEN_SENDS			5 * CLOCK_SECOND
@@ -16,9 +16,7 @@ PROCESS_NAME (cc2650_uart_process);
 process_event_t event_buffer_empty;
 //event to send keep alive packet
 process_event_t keep_alive_;
-
 process_event_t event_bat_data_ready;
-
 process_event_t event_new_keep_alive_time;
 
 // to initialize the fake_uart

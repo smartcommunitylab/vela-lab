@@ -1,7 +1,7 @@
 #ifndef VELA_UART_H
 #define VELA_UART_H
 
-PROCESS_NAME (vela_sender_process);
+//PROCESS_NAME (vela_sender_process);
 PROCESS_NAME (cc2650_uart_process);
 
 

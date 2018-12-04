@@ -24,9 +24,9 @@
 /* ContikiMAC channel check rate given in Hz, specifying the number of channel checks per second*/
 /* NETSTACK_RDC_CONF_CHANNEL_CHECK_RATE must be a power of two (i.e. 1, 2, 4, 8, 16, 32, 64, ...)*/
 #define NETSTACK_CONF_RDC     contikimac_driver
-#undef  NETSTACK_CONF_RDC_CHANNEL_CHECK_RATE
+/*#undef  NETSTACK_CONF_RDC_CHANNEL_CHECK_RATE
 #define NETSTACK_CONF_RDC_CHANNEL_CHECK_RATE 2
-
+*/
 #undef SICSLOWPAN_CONF_FRAG
 #define SICSLOWPAN_CONF_FRAG 1
 /*---------------------------------------------------------------------------*/

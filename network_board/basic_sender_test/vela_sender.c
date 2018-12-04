@@ -164,7 +164,7 @@ PROCESS_THREAD(vela_sender_process, ev, data) {
     etimer_set(&pause_timer, TIME_BETWEEN_SENDS);
 
     event_buffer_empty = process_alloc_event();
-    event_bat_data_ready = process_alloc_event();
+    //event_bat_data_ready = process_alloc_event();
 
     if (debug) printf("unicast: started\n");
     while (1)

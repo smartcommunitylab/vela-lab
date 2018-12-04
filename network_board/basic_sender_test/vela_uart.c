@@ -76,7 +76,7 @@ PROCESS_THREAD(cc2650_uart_process, ev, data) {
         buffer.data_len = packetSize+2;
         printf("uart: posting event_data_ready\n");
         printf("p1 %ux p2 %ux\n", buffer.p_data[0],  buffer.p_data[1]);
-//        process_post(&vela_sender_process, event_data_ready, &buffer);
+        process_post(&vela_sender_process, event_data_ready, &buffer);
         etimer_set(&uart_new_data, 60*CLOCK_SECOND);
         PROCESS_WAIT_UNTIL(etimer_expired(&uart_new_data));
     }
