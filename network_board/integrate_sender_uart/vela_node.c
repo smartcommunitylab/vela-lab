@@ -27,7 +27,7 @@ PROCESS(vela_node_process, "main starter process for non-sink");
 AUTOSTART_PROCESSES (&vela_node_process);
 
 static struct ctimer polling_timer;
-uint8_t bat_data[10] = {0};
+uint8_t bat_data[12] = {0};
 
 static void poll_fuel_gauge(void *not_used) {
 #ifdef BOARD_LAUNCHPAD_VELA
@@ -35,7 +35,7 @@ static void poll_fuel_gauge(void *not_used) {
     ctimer_set(&polling_timer, FUEL_GAUGE_POLLING_INTERVAL, poll_fuel_gauge, NULL);
 
     uint16_t REP_CAP_mAh, REP_SOC_permillis, TTE_minutes, AVG_voltage_mV;
-    int16_t AVG_current_10uA;
+    int16_t AVG_current_10uA, AVG_temp_10mDEG;
     REP_CAP_mAh = max_17260_sensor.value(MAX_17260_SENSOR_TYPE_REP_CAP);
     REP_SOC_permillis = max_17260_sensor.value(
     MAX_17260_SENSOR_TYPE_REP_SOC);
@@ -43,6 +43,7 @@ static void poll_fuel_gauge(void *not_used) {
     AVG_current_10uA = max_17260_sensor.value(MAX_17260_SENSOR_TYPE_AVG_I);
     AVG_voltage_mV = max_17260_sensor.value(
     MAX_17260_SENSOR_TYPE_AVG_V);
+    AVG_temp_10mDEG = max_17260_sensor.value(MAX_17260_SENSOR_TYPE_AVG_TEMP);
 
     printf("POLLING: ");
     printf("Remaining battery capacity = %d mAh ", REP_CAP_mAh);
@@ -54,6 +55,16 @@ static void poll_fuel_gauge(void *not_used) {
         printf("Avg current -%d.%d mA ", -AVG_current_10uA / 100, -AVG_current_10uA % 100);
     }
     printf("Avg voltage = %d mV ", AVG_voltage_mV);
+    if (AVG_temp_10mDEG > 0)
+    {
+        printf("Avg temp %d.%d °C ", AVG_temp_10mDEG / 100,
+               AVG_temp_10mDEG % 100);
+    }
+    else
+    {
+        printf("Avg temp %d.%d °C ", -AVG_temp_10mDEG / 100,
+               -AVG_temp_10mDEG % 100);
+    }
     printf("\n");
 
     bat_data[0] = (uint8_t)(REP_CAP_mAh >> 8);
@@ -66,6 +77,8 @@ static void poll_fuel_gauge(void *not_used) {
     bat_data[7] = (uint8_t)AVG_current_10uA;
     bat_data[8] = (uint8_t)(AVG_voltage_mV >> 8);
     bat_data[9] = (uint8_t)AVG_voltage_mV;
+    bat_data[10] = (uint8_t)(AVG_temp_10mDEG >> 8);
+    bat_data[11] = (uint8_t)AVG_temp_10mDEG;
 
     process_post(&vela_sender_process, event_bat_data_ready, bat_data);
 #endif
@@ -79,8 +92,8 @@ PROCESS_THREAD(vela_node_process, ev, data)
 {
   PROCESS_BEGIN();
   printf("main: started\n");
-  etimer_set(&et, 0.2 * CLOCK_SECOND);
-  PROCESS_WAIT_UNTIL(etimer_expired(&et));
+  //etimer_set(&et, 1 * CLOCK_SECOND);
+  //PROCESS_WAIT_UNTIL(etimer_expired(&et));
   // initialize and start the other threads
   vela_uart_init();
 

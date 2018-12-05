@@ -40,7 +40,7 @@ static uint8_t ii = 1;
 PROCESS_THREAD(cc2650_i2c_process, ev, data)
 {
     static uint16_t REP_CAP_mAh, REP_SOC_permillis, TTE_minutes, AVG_voltage_mV;
-    static int16_t AVG_current_10uA;
+    static int16_t AVG_current_10uA, AVG_temp_10mDEG;
     PROCESS_BEGIN()
     ;
 
@@ -51,6 +51,7 @@ PROCESS_THREAD(cc2650_i2c_process, ev, data)
     AVG_current_10uA = max_17260_sensor.value(MAX_17260_SENSOR_TYPE_AVG_I);
     AVG_voltage_mV = max_17260_sensor.value(
     MAX_17260_SENSOR_TYPE_AVG_V);
+    AVG_temp_10mDEG = max_17260_sensor.value(MAX_17260_SENSOR_TYPE_AVG_TEMP);
 
     printf("POLLING: ");
     printf("Remaining battery capacity = %d mAh ", REP_CAP_mAh);
@@ -69,6 +70,16 @@ PROCESS_THREAD(cc2650_i2c_process, ev, data)
                -AVG_current_10uA % 100);
     }
     printf("Avg voltage = %d mV ", AVG_voltage_mV);
+    if (AVG_temp_10mDEG > 0)
+    {
+        printf("Avg temp %d.%d °C ", AVG_temp_10mDEG / 100,
+               AVG_temp_10mDEG % 100);
+    }
+    else
+    {
+        printf("Avg temp %d.%d °C ", -AVG_temp_10mDEG / 100,
+               -AVG_temp_10mDEG % 100);
+    }
     printf("\n");
 
     while (1)
@@ -95,6 +106,7 @@ PROCESS_THREAD(cc2650_i2c_process, ev, data)
                     MAX_17260_SENSOR_TYPE_AVG_I);
                     AVG_voltage_mV = max_17260_sensor.value(
                     MAX_17260_SENSOR_TYPE_AVG_V);
+                    AVG_temp_10mDEG = max_17260_sensor.value(MAX_17260_SENSOR_TYPE_AVG_TEMP);
                     printf("EVENT_BASED: ");
                     printf("Remaining battery capacity = %d mAh ", REP_CAP_mAh);
                     printf("or %d.%d %%. ", (uint16_t) (REP_SOC_permillis / 10),
@@ -113,6 +125,16 @@ PROCESS_THREAD(cc2650_i2c_process, ev, data)
                                -AVG_current_10uA % 100);
                     }
                     printf("Avg voltage = %d mV ", AVG_voltage_mV);
+                    if (AVG_temp_10mDEG > 0)
+                    {
+                        printf("Avg temp %d.%d °C ", AVG_temp_10mDEG / 100,
+                               AVG_temp_10mDEG % 100);
+                    }
+                    else
+                    {
+                        printf("Avg temp %d.%d °C ", -AVG_temp_10mDEG / 100,
+                               -AVG_temp_10mDEG % 100);
+                    }
                     printf("\n");
                     //ii--;
                 }
@@ -129,6 +151,7 @@ PROCESS_THREAD(cc2650_i2c_process, ev, data)
         AVG_current_10uA = max_17260_sensor.value(MAX_17260_SENSOR_TYPE_AVG_I);
         AVG_voltage_mV = max_17260_sensor.value(
         MAX_17260_SENSOR_TYPE_AVG_V);
+        AVG_temp_10mDEG = max_17260_sensor.value(MAX_17260_SENSOR_TYPE_AVG_TEMP);
 
         printf("POLLING: ");
         printf("Remaining battery capacity = %d mAh ", REP_CAP_mAh);
@@ -147,6 +170,16 @@ PROCESS_THREAD(cc2650_i2c_process, ev, data)
                    -AVG_current_10uA % 100);
         }
         printf("Avg voltage = %d mV ", AVG_voltage_mV);
+        if (AVG_temp_10mDEG > 0)
+        {
+            printf("Avg temp %d.%d °C ", AVG_temp_10mDEG / 100,
+                   AVG_temp_10mDEG % 100);
+        }
+        else
+        {
+            printf("Avg temp %d.%d °C ", -AVG_temp_10mDEG / 100,
+                   -AVG_temp_10mDEG % 100);
+        }
         printf("\n");
     }
 PROCESS_END();
