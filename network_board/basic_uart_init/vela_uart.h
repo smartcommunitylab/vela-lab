@@ -13,6 +13,7 @@ process_event_t event_pong_received;
 process_event_t event_nordic_message_received;
 process_event_t turn_bt_on;
 process_event_t turn_bt_off;
+process_event_t turn_bt_on_w_params;
 
 // to initialize the fake_uart
 void vela_uart_init();
