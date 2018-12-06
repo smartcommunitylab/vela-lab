@@ -3,8 +3,6 @@
 
 //#undef  UIP_CONF_BUFFER_SIZE
 //#define UIP_CONF_BUFFER_SIZE				512
-#define UART1_CONF_RX_WITH_DMA 1
-
 /*---------------------------------------------------------------------------*/
 /* Launchpad/sensortag settings */
 /* Enable the ROM bootloader */
@@ -19,8 +17,8 @@
 /* ContikiMAC channel check rate given in Hz, specifying the number of channel checks per second*/
 /* NETSTACK_RDC_CONF_CHANNEL_CHECK_RATE must be a power of two (i.e. 1, 2, 4, 8, 16, 32, 64, ...)*/
 #define NETSTACK_CONF_RDC     contikimac_driver
-#undef  NETSTACK_CONF_RDC_CHANNEL_CHECK_RATE
-#define NETSTACK_CONF_RDC_CHANNEL_CHECK_RATE 2
+//#undef  NETSTACK_CONF_RDC_CHANNEL_CHECK_RATE
+//#define NETSTACK_CONF_RDC_CHANNEL_CHECK_RATE 2
 /*---------------------------------------------------------------------------*/
 #undef  UDP_PORT
 #define UDP_PORT 							1234

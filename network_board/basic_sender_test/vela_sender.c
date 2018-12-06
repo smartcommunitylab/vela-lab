@@ -22,12 +22,18 @@
 #include <stdio.h>
 #include "network_messages.h"
 #include "lib/random.h"
+#ifdef BOARD_LAUNCHPAD_VELA
+#if BOARD_LAUNCHPAD_VELA==1
+#include "max-17260-sensor.h"
+#endif
+#endif
+
 
 static struct etimer periodic_timer;
 
 static struct simple_udp_connection unicast_connection;
 static uint8_t message_number = 1;
-static uint8_t buf[MAX_REPORT_DATA_SIZE + 2];
+static uint8_t buf[MAX_REPORT_DATA_SIZE + 10];
 static uip_ipaddr_t *addr;
 
 static bool debug = false;
@@ -37,8 +43,11 @@ static struct uip_udp_conn *trickle_conn;
 static uip_ipaddr_t t_ipaddr;     /* destination: link-local all-nodes multicast */
 static struct etimer trickle_et;
 struct network_message_t trickle_msg;
+
+static struct etimer keep_alive_timer;
 PROCESS(vela_sender_process, "vela sender process");
 PROCESS(trickle_protocol_process, "Trickle Protocol process");
+PROCESS(keep_alive_process, "keep alive process");
 
 /*---------------------------------------------------------------------------*/
 static void
@@ -54,13 +63,14 @@ receiver(struct simple_udp_connection *c,
            receiver_port, sender_port, datalen, clock_time());
 }
 /*---------------------------------------------------------------------------*/
+static uip_ipaddr_t ipaddr;
+static uint8_t state;
+
 static void
 set_global_address(void)
 {
-    uip_ipaddr_t ipaddr;
-    int i;
-    uint8_t state;
 
+    int i;
     uip_ip6addr(&ipaddr, UIP_DS6_DEFAULT_PREFIX, 0, 0, 0, 0, 0, 0, 0);
     uip_ds6_set_addr_iid(&ipaddr, &uip_lladdr);
     uip_ds6_addr_add(&ipaddr, 0, ADDR_AUTOCONF);
@@ -90,6 +100,7 @@ void vela_sender_init() {
 
     process_start(&vela_sender_process, "vela sender process");
     process_start(&trickle_protocol_process, "trickle protocol process");
+    process_start(&keep_alive_process, "keep alive process");
     return;
 }
 
@@ -105,7 +116,15 @@ static uint8_t send_to_sink(struct network_message_t n_msg) {
         buf[1] = n_msg.pkttype;
         buf[2] = message_number;
         memcpy(&buf[3], n_msg.payload.p_data, n_msg.payload.data_len);
-        printf("Sending size: %u, msgNum: %u ,first 2 byte: 0x%02x 0x%02x\n",n_msg.payload.data_len,message_number, buf[0], buf[1]);
+
+        printf("Sending size: %u, msgNum: %u ,first 2 byte: 0x%02x 0x%02x to ",n_msg.payload.data_len,message_number, buf[3], buf[4]);
+        static rpl_dag_t* dag;
+        dag = rpl_get_any_dag();
+        if(dag->preferred_parent != NULL) {
+            printf("Preferred parent: ");
+            uip_debug_ipaddr_print(rpl_get_parent_ipaddr(dag->preferred_parent));
+            printf("\n");
+        }
         simple_udp_sendto(&unicast_connection, buf, n_msg.payload.data_len+3, addr);
         leds_on(LEDS_RED);
         return 0;
@@ -126,11 +145,13 @@ trickle_tx(void *ptr, uint8_t suppress)
     uip_create_unspecified(&trickle_conn->ripaddr);
 }
 
+static struct network_message_t *incoming;
+
 static void
 tcpip_handler(void)
 {
     if(uip_newdata()) {
-        struct network_message_t *incoming = (struct network_message_t *) uip_appdata;
+        incoming = (struct network_message_t *) uip_appdata;
         if(trickle_msg.pktnum == incoming->pktnum) {
             trickle_timer_consistency(&tt);
         }
@@ -154,12 +175,17 @@ tcpip_handler(void)
     return;
 }
 
-PROCESS_THREAD(vela_sender_process, ev, data) { 
-    static struct network_message_t response;
-    static struct etimer pause_timer;
-    static data_t* eventData;
-    static int offset = 0;
-    static int sizeToSend = 0;
+static struct network_message_t response;
+static struct etimer pause_timer;
+static data_t* eventData;
+static int offset = 0;
+static int sizeToSend = 0;
+static struct network_message_t chunk;
+static uint8_t ret;
+static uint8_t* temp;
+static struct network_message_t bat_message;
+
+PROCESS_THREAD(vela_sender_process, ev, data) {
     PROCESS_BEGIN();
     etimer_set(&pause_timer, TIME_BETWEEN_SENDS);
 
@@ -174,26 +200,25 @@ PROCESS_THREAD(vela_sender_process, ev, data) {
             eventData = (data_t*)data;
             offset=0; // offset from the begging of the buffer to send next
             sizeToSend = (int)eventData->data_len; // amount of data in the buffer not yet sent
-            struct network_message_t chunk;
             while ( sizeToSend > 0 ) {
                 if (sizeToSend > MAX_REPORT_DATA_SIZE) {
                     if(offset==0) {
-                        memcpy(buf, eventData->p_data, MAX_REPORT_DATA_SIZE + 2);
-                        chunk.pkttype = network_new_sequence;
-                        chunk.payload.data_len = MAX_REPORT_DATA_SIZE + 2;
-                        memcpy(chunk.payload.p_data, buf, chunk.payload.data_len);
-                        uint8_t ret = send_to_sink(chunk);
-                        if(ret==0){
-                            sizeToSend -= MAX_REPORT_DATA_SIZE + 2;
-                            offset += MAX_REPORT_DATA_SIZE + 2;
-                        }
+                    	  chunk.payload.p_data[0] = (uint8_t)(sizeToSend >> 8);
+                    	  chunk.payload.p_data[1] = (uint8_t)sizeToSend;
+                    	  chunk.pkttype = network_new_sequence;
+                    	  chunk.payload.data_len = MAX_REPORT_DATA_SIZE + 2;
+                    	  memcpy(&chunk.payload.p_data[2], &eventData->p_data[0], MAX_REPORT_DATA_SIZE);
+                    	  ret = send_to_sink(chunk);
+                    	  if(ret==0){
+                    		  sizeToSend -= MAX_REPORT_DATA_SIZE;
+                    	      offset += MAX_REPORT_DATA_SIZE;
+                    	  }
                     }
                     else {
-                        memcpy(&buf, &eventData->p_data[offset], MAX_REPORT_DATA_SIZE);
                         chunk.pkttype = network_active_sequence;
                         chunk.payload.data_len = MAX_REPORT_DATA_SIZE;
-                        memcpy(chunk.payload.p_data, buf, chunk.payload.data_len);
-                        uint8_t ret = send_to_sink(chunk);
+                        memcpy(chunk.payload.p_data, &eventData->p_data[offset], chunk.payload.data_len);
+                        ret = send_to_sink(chunk);
                         if(ret==0){
                             sizeToSend -= MAX_REPORT_DATA_SIZE;
                             offset += MAX_REPORT_DATA_SIZE;
@@ -203,19 +228,31 @@ PROCESS_THREAD(vela_sender_process, ev, data) {
                     PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
                 }
                 else {
-                    // this is my last packet
-                    memcpy(&buf, &eventData->p_data[offset], sizeToSend);
-                    chunk.pkttype = network_last_sequence;
-                    chunk.payload.data_len = sizeToSend;
-                    memcpy(chunk.payload.p_data, buf, sizeToSend);
-                    send_to_sink(chunk);
-                    sizeToSend = 0;
+					if (offset == 0) {
+						chunk.payload.p_data[0] = (uint8_t) (sizeToSend >> 8);
+						chunk.payload.p_data[1] = (uint8_t) sizeToSend;
+						chunk.pkttype = network_new_sequence;
+						chunk.payload.data_len = sizeToSend + 2;
+						memcpy(&chunk.payload.p_data[2], &eventData->p_data[0], sizeToSend);
+						ret = send_to_sink(chunk);
+						if (ret == 0) {
+							sizeToSend = 0;
+						}
+					}
+					else {
+						// this is my last packet
+						chunk.pkttype = network_last_sequence;
+						chunk.payload.data_len = sizeToSend;
+						memcpy(chunk.payload.p_data, &eventData->p_data[offset], sizeToSend);
+						send_to_sink(chunk);
+						sizeToSend = 0;
+					}
                 }
             }
         }
         if(ev == event_pong_received){
             printf("Sending pong\n");
-            uint8_t* temp = (uint8_t*)data;
+            temp = (uint8_t*)data;
             response.pkttype = network_respond_ping;
             response.payload.data_len = 1;
             response.payload.p_data[0] = temp[0];
@@ -223,11 +260,10 @@ PROCESS_THREAD(vela_sender_process, ev, data) {
         }
         if(ev == event_bat_data_ready) {
             printf("Received bat data\n");
-            struct network_message_t message;
-            message.pkttype = network_bat_data;
-            memcpy(message.payload.p_data, data, 10);
-            message.payload.data_len = 10;
-            send_to_sink(message);
+            bat_message.pkttype = network_bat_data;
+            memcpy(bat_message.payload.p_data, data, 12);
+            bat_message.payload.data_len = 12;
+            send_to_sink(bat_message);
         }
     }
     PROCESS_END();
@@ -264,6 +300,50 @@ PROCESS_THREAD(trickle_protocol_process, ev, data)
             trickle_timer_reset_event(&tt);
             etimer_restart(&trickle_et);
         }
+    }
+    PROCESS_END();
+}
+
+#ifdef BOARD_LAUNCHPAD_VELA
+#if BOARD_LAUNCHPAD_VELA==1
+    	static uint16_t REP_CAP_mAh;
+    	static uint16_t REP_SOC_permillis;
+#endif
+#else
+    	static uint16_t bat_data1 = 0;
+    	static uint16_t bat_data2 = 1;
+#endif
+static struct network_message_t keep_alive_msg;
+
+
+PROCESS_THREAD(keep_alive_process, ev, data)
+{
+    PROCESS_BEGIN();
+    etimer_set(&keep_alive_timer, KEEP_ALIVE_INTERVAL);
+
+    keep_alive_msg.pkttype = network_keep_alive;
+    keep_alive_msg.payload.data_len = 4;
+    while(1) {
+    	PROCESS_WAIT_UNTIL(etimer_expired(&keep_alive_timer));
+    	etimer_set(&keep_alive_timer, KEEP_ALIVE_INTERVAL);
+#ifdef BOARD_LAUNCHPAD_VELA
+#if BOARD_LAUNCHPAD_VELA==1
+    	REP_CAP_mAh = max_17260_sensor.value(MAX_17260_SENSOR_TYPE_REP_CAP);
+    	REP_SOC_permillis = max_17260_sensor.value(MAX_17260_SENSOR_TYPE_REP_SOC);
+    	keep_alive_msg.payload.p_data[0] = (uint8_t)REP_CAP_mAh >> 8;
+    	keep_alive_msg.payload.p_data[1] = (uint8_t)REP_CAP_mAh;
+    	keep_alive_msg.payload.p_data[2] = (uint8_t)REP_SOC_permillis >> 8;
+    	keep_alive_msg.payload.p_data[3] = (uint8_t)REP_SOC_permillis;
+#endif
+#else
+    	bat_data1++;
+    	bat_data2++;
+    	keep_alive_msg.payload.p_data[0] = (uint8_t)bat_data1 >> 8;
+    	keep_alive_msg.payload.p_data[1] = (uint8_t)bat_data1;
+    	keep_alive_msg.payload.p_data[2] = (uint8_t)bat_data2 >> 8;
+    	keep_alive_msg.payload.p_data[3] = (uint8_t)bat_data2;
+#endif
+    	send_to_sink(keep_alive_msg);
     }
     PROCESS_END();
 }

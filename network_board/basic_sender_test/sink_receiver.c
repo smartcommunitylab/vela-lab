@@ -28,6 +28,10 @@
 #include "dev/cc26xx-uart.h"
 #include "ti-lib.h"
 
+static uip_ipaddr_t ipaddr;
+static uint8_t state;
+
+
 static struct simple_udp_connection unicast_connection;
 
 static struct trickle_timer tt;
@@ -96,10 +100,7 @@ receiver(struct simple_udp_connection *c,
 static uip_ipaddr_t *
 set_global_address(void)
 {
-    static uip_ipaddr_t ipaddr;
     int i;
-    uint8_t state;
-
     uip_ip6addr(&ipaddr, UIP_DS6_DEFAULT_PREFIX, 0, 0, 0, 0, 0, 0, 0);
     uip_ds6_set_addr_iid(&ipaddr, &uip_lladdr);
     uip_ds6_addr_add(&ipaddr, 0, ADDR_AUTOCONF);
@@ -113,20 +114,17 @@ set_global_address(void)
             PRINTF("\n");
         }
     }
-
     return &ipaddr;
 }
 /*---------------------------------------------------------------------------*/
+static struct uip_ds6_addr *root_if;
+static rpl_dag_t *dag;
+static uip_ipaddr_t prefix;
 static void
 create_rpl_dag(uip_ipaddr_t *ipaddr)
 {
-    struct uip_ds6_addr *root_if;
-
     root_if = uip_ds6_addr_lookup(ipaddr);
     if(root_if != NULL) {
-        rpl_dag_t *dag;
-        uip_ipaddr_t prefix;
-
         rpl_set_root(RPL_DEFAULT_INSTANCE, ipaddr);
         dag = rpl_get_any_dag();
         uip_ip6addr(&prefix, UIP_DS6_DEFAULT_PREFIX, 0, 0, 0, 0, 0, 0, 0);
@@ -178,23 +176,22 @@ tcpip_handler(void)
     }
 }
 
-
+static uip_ipaddr_t * ipaddr_global;
+static struct etimer uping;
 
 PROCESS_THREAD(sink_receiver_process, ev, data)
 {
-    uip_ipaddr_t *ipaddr;
-    static struct etimer uping;
     PROCESS_BEGIN();
 
     cc26xx_uart_set_input(dummy_uart_receiver);
 
     servreg_hack_init();
 
-    ipaddr = set_global_address();
+    ipaddr_global = set_global_address();
 
-    create_rpl_dag(ipaddr);
+    create_rpl_dag(ipaddr_global);
 
-    servreg_hack_register(SERVICE_ID, ipaddr);
+    servreg_hack_register(SERVICE_ID, ipaddr_global);
 
     simple_udp_register(&unicast_connection, UDP_PORT, NULL, UDP_PORT, receiver);
 
@@ -239,6 +236,9 @@ PROCESS_THREAD(trickle_sender_process, ev, data)
     PROCESS_END();
 }
 
+static uint8_t size;
+static uint8_t* input;
+
 PROCESS_THREAD(uart_reader_process, ev, data)
 {
     PROCESS_BEGIN();
@@ -249,8 +249,8 @@ PROCESS_THREAD(uart_reader_process, ev, data)
     while(1) {
         PROCESS_YIELD();
         if(ev == serial_line_event_message){
-            uint8_t size = ((uint8_t*)data)[0];
-            uint8_t* input = (uint8_t*)data;
+            size = ((uint8_t*)data)[0];
+            input = (uint8_t*)data;
 
             t_msg.pkttype = 0;
             t_msg.pkttype = ((uint16_t)input[1])<<8;
@@ -269,4 +269,3 @@ PROCESS_THREAD(uart_reader_process, ev, data)
     }
     PROCESS_END();
 }
-

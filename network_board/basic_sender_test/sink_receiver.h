@@ -6,12 +6,6 @@
 #define MAX_NODES 15
 #define MAX_SERIAL_PAYLOAD_SIZE 51
 
-struct ActiveNode {
-    uint8_t nodeId;
-    struct timer timeoutTimer;
-    uip_ipaddr_t ipaddr;
-};
-
 PROCESS_NAME (sink_receiver_process);
 
 // to initialize the fake_uart

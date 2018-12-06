@@ -26,6 +26,7 @@ echo $VERSION_STRING > version
 # next line is necessary for generate debug symbols
 export CFLAGS="-O0 -g"
 
+make "$@" V=1 PORT=/dev/ttyACM0
 
 #if [ -f ${device_detection_root}/detect-devices.sh ]; then
 #    echo "Detect devices script found!"
@@ -37,7 +38,7 @@ export CFLAGS="-O0 -g"
 #    touch greptmp
 #    read -ra input_line_array <<<"$@"
 #    
-#   count=0
+#    count=0
 #	for i in "${input_line_array[@]}"
 #	do
 #    	command=$( echo $i | cut -c1-6 )
@@ -57,7 +58,7 @@ export CFLAGS="-O0 -g"
 #   					for k in `seq 0 $countl`;
 #        			do
 #                		make_input="$make_input "${input_line_array[$k]}""
-#      				done    
+#       				done    
 #       				echo "MAKE INPUT: $make_input"
 #   					make $make_input V=1 PORT=$target_port
 #   				fi
@@ -67,10 +68,8 @@ export CFLAGS="-O0 -g"
 #    		count=$(($count+1))
 #    	fi
 #    done	
-    
-     
+#    
+#     
 #else
 #	echo "Detect devices script not found, uploading to default port"
-make "$@" V=1 PORT=/dev/ttyACM0
-	    
-fi
+#fi
