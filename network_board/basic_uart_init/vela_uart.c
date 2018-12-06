@@ -35,15 +35,15 @@ PROCESS(cc2650_uart_process, "cc2650 uart process");
 // ALM -- removed next line
 //AUTOSTART_PROCESSES(&cc2650_uart_process);
 
-typedef enum{
-	wait,
-	initializing1,
-	initializing2,
-	initializing3,
-	initializing4,
-	run,
-	resetting,
-} app_state_t;
+//typedef enum{
+//	wait,
+//	initializing1,
+//	initializing2,
+//	initializing3,
+//	initializing4,
+//	run,
+//	resetting,
+//} app_state_t;
 
 typedef enum{
 	start_of_data,
@@ -55,8 +55,13 @@ typedef enum{
 
 #define PING_PACKET_SIZE		5
 #define BT_REPORT_BUFFER_SIZE 	MAX_MESH_PAYLOAD_SIZE
-#define REPORT_TIMEOUT_MS		101000
 #define PING_TIMEOUT 			CLOCK_SECOND*5
+
+#define DEFAULT_ACTIVE_SCAN         1     //boolean
+#define DEFAULT_SCAN_INTERVAL       3520       /**< Scan interval between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
+#define DEFAULT_SCAN_WINDOW         1920     /**< Scan window between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
+#define DEFAULT_TIMEOUT             0
+#define DEFAULT_REPORT_TIMEOUT_MS   101000
 
 /** Converts a macro argument into a character constant.
  */
@@ -64,7 +69,8 @@ typedef enum{
 
 static struct ctimer m_ping_timer;
 
-static app_state_t m_app_state = wait;
+static uint8_t is_nordic_ready=false;
+//static app_state_t m_app_state = wait;
 static uint8_t no_of_attempts = 0;
 static uint8_t bt_report_buffer[BT_REPORT_BUFFER_SIZE];
 static data_t complete_report_data = {bt_report_buffer, 0};
@@ -73,6 +79,30 @@ static struct ctimer m_nordic_watchdog_timer;
 static uint8_t nordic_watchdog_value = 0;
 static uint32_t nordic_watchdog_timeout_ms = 0;
 #endif
+static uint8_t active_scan = DEFAULT_ACTIVE_SCAN;     //boolean
+static uint16_t scan_interval = DEFAULT_SCAN_INTERVAL;       /**< Scan interval between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
+static uint16_t scan_window = DEFAULT_SCAN_WINDOW;     /**< Scan window between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
+static uint16_t timeout = DEFAULT_TIMEOUT;            /**< Scan timeout between 0x0001 and 0xFFFF in seconds, 0x0000 disables timeout. */
+static uint32_t report_timeout_ms = DEFAULT_REPORT_TIMEOUT_MS;
+
+typedef enum{
+    stopped,
+    running,
+    executed,
+} procedure_state_t;
+
+typedef void (*m_f_ptr_t)(void);
+
+typedef struct{
+    uint8_t i;
+    m_f_ptr_t * action;
+    uint8_t size;
+    procedure_state_t state;
+    char name[];
+}procedure_t;
+
+static procedure_t* running_procedure=NULL;
+
 uint32_t report_ready(data_t *p_data);
 uint32_t report_rx_handler(uart_pkt_t* p_packet, report_type_t m_report_type );
 
@@ -81,11 +111,6 @@ void ping_timeout_handler(void *ptr);
 void nordic_watchdog_handler(void *ptr);
 #endif
 
-void fsm_state_update(void);
-void fsm_state_process(void);
-void fsm_stop(void);
-void fsm_start(void);
-void fsm_reset(void);
 void reset_nodric(void);
 
 void send_ping(void);
@@ -93,11 +118,15 @@ void send_set_bt_scan_on(void);
 void send_set_bt_scan_params(void);
 void send_ready(void);
 void send_reset(void);
-void request_periodic_report_to_nordic(uint32_t report_timeout_ms);
+void request_periodic_report_to_nordic(void);
 
 void uart_util_rx_handler(uart_pkt_t* p_packet);
 void uart_util_ack_tx_done(void);
 extern void uart_util_ack_error(ack_wait_t* ack_wait_data);
+
+//PROCEDURE DEFINITION. TODO: try to pack everything into a macro define.
+void (*bluetooth_on_sequence[])(void) ={&send_set_bt_scan_params, &send_set_bt_scan_on, &request_periodic_report_to_nordic};
+procedure_t bluetooth_on_procedure={0, bluetooth_on_sequence, sizeof(bluetooth_on_sequence)/sizeof(m_f_ptr_t) ,stopped,"bluetooth on"};
 
 //ALM -- called to start this as a contiki THREAD
 void vela_uart_init() {
@@ -182,84 +211,40 @@ void nordic_watchdog_handler(void *ptr){
 }
 #endif
 
-static app_state_t new_app_state;
-
-void fsm_state_update(void) {
-	new_app_state = m_app_state;
-	switch (m_app_state) {
-	case wait:
-		new_app_state = wait;
-		break;
-	case initializing1:
-		new_app_state = initializing2;
-		break;
-	case initializing2:
-		new_app_state = initializing3;
-		break;
-	case initializing3:
-		new_app_state = initializing4;
-		break;
-	case initializing4:
-		new_app_state = run;
-		break;
-	case run:
-		new_app_state = run;
-		break;
-	case resetting:
-		new_app_state = initializing1;
-		break;
-	default:
-		new_app_state = m_app_state;
-		break;
-	}
-
-	m_app_state = new_app_state;
+uint8_t procedure_start(procedure_t *m_procedure){
+    printf("Starting procedure \"%s\"\n",m_procedure->name);
+    if(running_procedure->state != running){
+        running_procedure = m_procedure;
+        running_procedure->state=running;
+        running_procedure->i=0;
+        (*running_procedure->action[running_procedure->i])();
+        return 1;
+    }else{
+        return 0;
+    }
 }
 
-void fsm_state_process(void) {
-	//leds_off(LEDS_RED);
-	switch (m_app_state) {
-	case wait:
-		//ctimer_set(&m_ping_timer, PING_TIMEOUT, ping_timeout_handler, NULL);
-		break;
-	case initializing1:
-		//ctimer_stop(&m_ping_timer); //stop pinging
-		send_ready();
-		break;
-	case initializing2:
-		send_set_bt_scan_params();
-		break;
-	case initializing3:
-		send_set_bt_scan_on();
-		break;
-	case initializing4:
-		request_periodic_report_to_nordic(REPORT_TIMEOUT_MS);
-		break;
-	case run:
-//		leds_on(LEDS_GREEN);
-		//nothing to do
-		break;
-	case resetting:
-		send_reset();
-		break;
-	default:
-		break;
-	}
+void procedure_step_on(){
+    if(running_procedure != NULL && running_procedure->state != executed){
+        (running_procedure->i)++;
+        if(running_procedure->i < running_procedure->size){
+            printf("Stepping on procedure \"%s\": action number %u\n",running_procedure->name,running_procedure->i);
+            (*running_procedure->action[running_procedure->i])();
+        }else{
+            running_procedure->state=executed;
+            printf("Procedure \"%s\" exectuted!\n",running_procedure->name);
+        }
+    }
 }
 
-void fsm_stop(void){
-	m_app_state = wait;
-	fsm_state_process();
+void procedure_retry(){
+    running_procedure->state=running;
+    running_procedure->i=0;
+    (*running_procedure->action[running_procedure->i])();
 }
 
-void fsm_start(void) {
-	fsm_reset();
-	fsm_state_process();
-}
-
-void fsm_reset(void){
-	no_of_attempts = 1;
-	m_app_state = initializing1;
+uint8_t procedure_is_running(){
+    return running_procedure->state==running;
 }
 
 #define RESET_PIN_IOID			IOID_1
@@ -360,11 +345,6 @@ void send_set_bt_scan_params(void) {
 	pong_packet.payload.data_len = 7;
 	pong_packet.type = uart_set_bt_scan_params;
 
-	static uint8_t active_scan = 1;		//boolean
-	static uint16_t scan_interval = 3520;		/**< Scan interval between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
-	static uint16_t scan_window = 1920;		/**< Scan window between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
-	static uint16_t timeout = 0;			/**< Scan timeout between 0x0001 and 0xFFFF in seconds, 0x0000 disables timeout. */
-
 	payload[0] = active_scan; //active_scan
 	payload[1] = scan_interval >> 8;
 	payload[2] = scan_interval;
@@ -397,7 +377,7 @@ void send_reset(void) {
 	uart_util_send_pkt(&packet);
 }
 
-void request_periodic_report_to_nordic(uint32_t report_timeout_ms){
+void request_periodic_report_to_nordic(void){
 	static uint8_t payload[4];
 	payload[0] = report_timeout_ms >> 24;
 	payload[1] = report_timeout_ms >> 16;
@@ -421,15 +401,17 @@ void request_periodic_report_to_nordic(uint32_t report_timeout_ms){
 void uart_util_ack_error(ack_wait_t* ack_wait_data) {
     printf("Uart ack error for packet: 0x%04X\n", (uint16_t)ack_wait_data->waiting_ack_for_pkt_type);
 //	leds_on(LEDS_RED);
-	if(m_app_state == wait){
-		return;
-	}
+//	if(m_app_state == wait){
+//		return;
+//	}
 
 	if(no_of_attempts < MAX_ATTEMPTS){
 		no_of_attempts++;
-		fsm_state_process(); //if there is an error try to resend
+		procedure_retry();
+//		fsm_state_process(); //if there is an error try to resend
 	}else{
-		fsm_stop();
+//		fsm_stop();
+		is_nordic_ready=false;
 		reset_nodric(); //when the nordic will reboot it will generate the uart_ready evt. When the TI receives it, it restart the FSM
 	}
 }
@@ -451,8 +433,7 @@ void uart_util_rx_handler(uart_pkt_t* p_packet) { //once it arrives here the ack
 			if (p_payload_data[0] == APP_ACK_SUCCESS) {//if the app ack is positive go on with fsm
 				//leds_off(LEDS_RED);
 				no_of_attempts = 1;
-				fsm_state_update();
-				fsm_state_process();
+				procedure_step_on();
 			} else {	//otherwise call the ack error handler
 				uart_util_ack_error(NULL); //attention, this function can be called also from uart_util when the timeout for ack expires
 			}
@@ -461,7 +442,7 @@ void uart_util_rx_handler(uart_pkt_t* p_packet) { //once it arrives here the ack
 		break;
 	case uart_evt_ready:
 		uart_util_send_ack(p_packet, APP_ACK_SUCCESS); //ack message for evt_ready can be avoided
-		fsm_start();
+		is_nordic_ready=true;
 		return;  //ready message may not send ack
 		break;
 	case uart_req_reset:
@@ -525,15 +506,13 @@ void uart_util_rx_handler(uart_pkt_t* p_packet) { //once it arrives here the ack
 	    uart_util_send_ack(p_packet, APP_ACK_SUCCESS); //ack message for evt_ready can be avoided
 	    //      //here we shall wait the previous message to be sent, but if the uart buffers are enough long the two messages will fit together
 	    if(p_packet->payload.data_len == 1) {
-	    printf("Received pong\n");
-
-
-		printf("Pong payload:\n");
-		int i;
-		for(i=0;i<p_packet->payload.data_len;i++){
-		    printf("[%u] %u\n",i,p_packet->payload.p_data[i]);
-
-		}
+	    printf("Received pong from nordic, sending it to sink\n");
+//		printf("Pong payload:\n");
+//		int i;
+//		for(i=0;i<p_packet->payload.data_len;i++){
+//		    printf("[%u] %u\n",i,p_packet->payload.p_data[i]);
+//
+//		}
 		static uint8_t data[1];
 		data[0] = p_packet->payload.p_data[0];
 		process_post(&vela_sender_process, event_pong_received, data);
@@ -565,6 +544,7 @@ PROCESS_THREAD(cc2650_uart_process, ev, data) {
         event_nordic_message_received = process_alloc_event();
         turn_bt_on = process_alloc_event();
         turn_bt_off = process_alloc_event();
+        turn_bt_on_w_params = process_alloc_event();
 
 		cc26xx_uart_set_input(serial_line_input_byte);
 
@@ -573,8 +553,6 @@ PROCESS_THREAD(cc2650_uart_process, ev, data) {
 		initialize_reset_pin();
 
 		uart_util_initialize();
-
-		fsm_stop();
 
 		reset_nodric();
 
@@ -587,15 +565,28 @@ PROCESS_THREAD(cc2650_uart_process, ev, data) {
 			if (ev == serial_line_event_message) { //NB: *data contains a string, the '\n' character IS NOT included, the '\0' character IS included
 				process_uart_rx_data((uint8_t*)data);
 			}
-			if (ev == event_ping_requested) {
-			    uint8_t* payload = (uint8_t*)data;
-			    send_ping_payload(*payload);
-			}
-			if(ev == turn_bt_off) {
-				send_set_bt_scan_off();
-			}
-			if(ev == turn_bt_on) {
-				send_set_bt_scan_on();
+
+			if(is_nordic_ready && !procedure_is_running()){  //accept events only after the nordic is ready
+                if (ev == event_ping_requested) {
+                    uint8_t* payload = (uint8_t*)data;
+                    send_ping_payload(*payload);
+                }
+                if(ev == turn_bt_off) {
+                    send_set_bt_scan_off();
+                }
+                if(ev == turn_bt_on) {
+                    send_set_bt_scan_on();
+                }
+                if(ev == turn_bt_on_w_params) {
+
+                    active_scan = ((uint8_t*)data)[0];     //boolean
+                    scan_interval = ((((uint8_t*)data)[1])<<8)+((uint8_t*)data)[2];       /**< Scan interval between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
+                    scan_window = ((((uint8_t*)data)[3])<<8)+((uint8_t*)data)[4];     /**< Scan window between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
+                    timeout = ((((uint8_t*)data)[5])<<8)+((uint8_t*)data)[6];
+                    report_timeout_ms = ((((uint8_t*)data)[7])<<24)+((((uint8_t*)data)[8])<<16)+((((uint8_t*)data)[9])<<8)+((uint8_t*)data)[10];
+
+                    procedure_start(&bluetooth_on_procedure);
+                }
 			}
 		}
 	PROCESS_END();
