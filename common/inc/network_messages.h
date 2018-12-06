@@ -26,6 +26,7 @@ typedef enum{
 	network_last_sequence = 0x0102,
 	network_request_ping = 0xF000,
 	network_respond_ping = 0xF001,
+	network_keep_alive = 0xF010,
 	network_bat_data = 0x0200
 } pkttype_t;
 
