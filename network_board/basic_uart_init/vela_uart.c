@@ -26,6 +26,7 @@
 #include "constraints.h"
 #include "sys/ctimer.h"
 #include "vela_uart.h"
+#include "vela_sender.h"
 #include "network_messages.h"
 
 #define NORDIC_WATCHDOG_ENABLED						1
@@ -54,7 +55,7 @@ typedef enum{
 
 #define PING_PACKET_SIZE		5
 #define BT_REPORT_BUFFER_SIZE 	MAX_MESH_PAYLOAD_SIZE
-#define REPORT_TIMEOUT_MS		5000
+#define REPORT_TIMEOUT_MS		101000
 #define PING_TIMEOUT 			CLOCK_SECOND*5
 
 /** Converts a macro argument into a character constant.
@@ -63,14 +64,14 @@ typedef enum{
 
 static struct ctimer m_ping_timer;
 
-app_state_t m_app_state = wait;
-uint8_t no_of_attempts = 0;
-uint8_t bt_report_buffer[BT_REPORT_BUFFER_SIZE];
-data_t complete_report_data = {bt_report_buffer, 0};
+static app_state_t m_app_state = wait;
+static uint8_t no_of_attempts = 0;
+static uint8_t bt_report_buffer[BT_REPORT_BUFFER_SIZE];
+static data_t complete_report_data = {bt_report_buffer, 0};
 #if NORDIC_WATCHDOG_ENABLED
 static struct ctimer m_nordic_watchdog_timer;
-uint8_t nordic_watchdog_value = 0;
-uint32_t nordic_watchdog_timeout_ms = 0;
+static uint8_t nordic_watchdog_value = 0;
+static uint32_t nordic_watchdog_timeout_ms = 0;
 #endif
 uint32_t report_ready(data_t *p_data);
 uint32_t report_rx_handler(uart_pkt_t* p_packet, report_type_t m_report_type );
@@ -115,10 +116,10 @@ uint32_t report_ready(data_t *p_data){
 #endif
 	return APP_ACK_SUCCESS;
 }
+static uint16_t buff_free_from = 0;
+static uint32_t ret = APP_ERROR_COMMAND_NOT_VALID;
 
 uint32_t report_rx_handler(uart_pkt_t* p_packet, report_type_t m_report_type ){
-	static uint16_t buff_free_from = 0;
-	uint32_t ret;
 
 	switch(m_report_type){
 	case start_of_data:
@@ -180,9 +181,11 @@ void nordic_watchdog_handler(void *ptr){
 	}
 }
 #endif
-void fsm_state_update(void) {
 
-	app_state_t new_app_state = m_app_state;
+static app_state_t new_app_state;
+
+void fsm_state_update(void) {
+	new_app_state = m_app_state;
 	switch (m_app_state) {
 	case wait:
 		new_app_state = wait;
@@ -206,6 +209,7 @@ void fsm_state_update(void) {
 		new_app_state = initializing1;
 		break;
 	default:
+		new_app_state = m_app_state;
 		break;
 	}
 
@@ -219,7 +223,7 @@ void fsm_state_process(void) {
 		//ctimer_set(&m_ping_timer, PING_TIMEOUT, ping_timeout_handler, NULL);
 		break;
 	case initializing1:
-		ctimer_stop(&m_ping_timer); //stop pinging
+		//ctimer_stop(&m_ping_timer); //stop pinging
 		send_ready();
 		break;
 	case initializing2:
@@ -271,17 +275,17 @@ void reset_nodric(void){
 void send_ping(void) {
 /*  CREATE DUMMY UINT8 ARRAY   */
 #if PING_PACKET_SIZE != 0
-	uint8_t payload[PING_PACKET_SIZE];
+	static uint8_t payload[PING_PACKET_SIZE];
 	for (uint16_t i = 0; i < PING_PACKET_SIZE; i++) {
 		payload[i] = PING_PACKET_SIZE - i;
 	}
 	/*  CREATE A PACKET VARIABLE */
-	uart_pkt_t packet;
+	static uart_pkt_t packet;
 	packet.payload.p_data = payload;
 	packet.payload.data_len = PING_PACKET_SIZE;
 	packet.type = uart_ping;
 #else
-	uart_pkt_t packet;
+	static uart_pkt_t packet;
 	packet.payload.p_data = NULL;
 	packet.payload.data_len = PING_PACKET_SIZE;
 	packet.type = uart_ping;
@@ -290,30 +294,32 @@ void send_ping(void) {
 	uart_util_send_pkt(&packet);
 }
 
-void send_ping_payload(uint8_t payload) {
-    uart_pkt_t packet;
-    uint8_t buf[1];
-    buf[0] = payload;
-    packet.payload.p_data = buf;
-    packet.payload.data_len = 1;
-    packet.type = uart_ping;
-    uart_util_send_pkt(&packet);
-
+void send_ping_payload(uint8_t ping_payload) {
+    static uart_pkt_t ping_packet;
+    static uint8_t buf[1];
+    buf[0] = ping_payload;
+    ping_packet.payload.p_data = buf;
+    ping_packet.payload.data_len = 1;
+    ping_packet.type = uart_ping;
+    uart_util_send_pkt(&ping_packet);
 }
 
 static void send_pong(uart_pkt_t* p_packet) {
-	if(p_packet->payload.data_len){
-		uint8_t pong_payload[p_packet->payload.data_len];
+	if(p_packet->payload.data_len ){
+		static uint8_t pong_payload[MAX_PING_PAYLOAD];
+		if(p_packet->payload.data_len > MAX_PING_PAYLOAD){
+			p_packet->payload.data_len = MAX_PING_PAYLOAD;
+		}
 		memcpy(pong_payload, p_packet->payload.p_data, p_packet->payload.data_len);
 
-		uart_pkt_t pong_packet;
+		static uart_pkt_t pong_packet;
 		pong_packet.payload.p_data = pong_payload;
 		pong_packet.payload.data_len = p_packet->payload.data_len;
 		pong_packet.type = uart_pong;
 
 		uart_util_send_pkt(&pong_packet);
 	}else{
-		uart_pkt_t pong_packet;
+		static uart_pkt_t pong_packet;
 		pong_packet.payload.p_data = NULL;
 		pong_packet.payload.data_len = p_packet->payload.data_len;
 		pong_packet.type = uart_pong;
@@ -323,8 +329,8 @@ static void send_pong(uart_pkt_t* p_packet) {
 }
 
 void send_set_bt_scan_on(void) {
-	uart_pkt_t pong_packet;
-	uint8_t payload[1];
+	static uart_pkt_t pong_packet;
+	static uint8_t payload[1];
 	pong_packet.payload.p_data = payload;
 	pong_packet.payload.data_len = 1;
 	pong_packet.type = uart_set_bt_scan_state;
@@ -334,17 +340,30 @@ void send_set_bt_scan_on(void) {
 	uart_util_send_pkt(&pong_packet);
 }
 
+void send_set_bt_scan_off(void) {
+	printf("Turning bt off\n");
+	static uart_pkt_t pong_packet;
+	static uint8_t payload[1];
+	pong_packet.payload.p_data = payload;
+	pong_packet.payload.data_len = 1;
+	pong_packet.type = uart_set_bt_scan_state;
+
+	payload[0] = 0;
+
+	uart_util_send_pkt(&pong_packet);
+}
+
 void send_set_bt_scan_params(void) {
-	uart_pkt_t pong_packet;
-	uint8_t payload[7];
+	static uart_pkt_t pong_packet;
+	static uint8_t payload[7];
 	pong_packet.payload.p_data = payload;
 	pong_packet.payload.data_len = 7;
 	pong_packet.type = uart_set_bt_scan_params;
 
-	uint8_t active_scan = 1;		//boolean
-	uint16_t scan_interval = 3520;		/**< Scan interval between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
-	uint16_t scan_window = 1920;		/**< Scan window between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
-	uint16_t timeout = 0;			/**< Scan timeout between 0x0001 and 0xFFFF in seconds, 0x0000 disables timeout. */
+	static uint8_t active_scan = 1;		//boolean
+	static uint16_t scan_interval = 3520;		/**< Scan interval between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
+	static uint16_t scan_window = 1920;		/**< Scan window between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
+	static uint16_t timeout = 0;			/**< Scan timeout between 0x0001 and 0xFFFF in seconds, 0x0000 disables timeout. */
 
 	payload[0] = active_scan; //active_scan
 	payload[1] = scan_interval >> 8;
@@ -359,9 +378,9 @@ void send_set_bt_scan_params(void) {
 
 void send_ready(void) {
 
-	char version_string[] = STRINGIFY(VERSION_STRING);
+	static char version_string[] = STRINGIFY(VERSION_STRING);
 
-	uart_pkt_t pong_packet;
+	static uart_pkt_t pong_packet;
 	pong_packet.payload.p_data = (uint8_t*)version_string;
 	pong_packet.payload.data_len = strlen(version_string);
 	pong_packet.type = uart_evt_ready;
@@ -370,7 +389,7 @@ void send_ready(void) {
 }
 
 void send_reset(void) {
-	uart_pkt_t packet;
+	static uart_pkt_t packet;
 	packet.payload.p_data = NULL;
 	packet.payload.data_len = 0;
 	packet.type = uart_req_reset;
@@ -379,14 +398,14 @@ void send_reset(void) {
 }
 
 void request_periodic_report_to_nordic(uint32_t report_timeout_ms){
-	uint8_t payload[4];
+	static uint8_t payload[4];
 	payload[0] = report_timeout_ms >> 24;
 	payload[1] = report_timeout_ms >> 16;
 	payload[2] = report_timeout_ms >> 8;
 	payload[3] = report_timeout_ms;
 
 
-	uart_pkt_t packet;
+	static uart_pkt_t packet;
 	packet.payload.p_data = payload;
 	packet.payload.data_len = 4;
 	packet.type = uart_req_bt_neigh_rep;
@@ -420,9 +439,11 @@ void uart_util_ack_tx_done(void){
 
 void uart_util_rx_handler(uart_pkt_t* p_packet) { //once it arrives here the ack is already sent
 
-	uart_pkt_type_t type = p_packet->type;
-	uint8_t *p_payload_data = p_packet->payload.p_data;
-	uint32_t ack_value;
+	static uart_pkt_type_t type;
+	type = p_packet->type;
+	static uint8_t *p_payload_data;
+	p_payload_data = p_packet->payload.p_data;
+	static uint32_t ack_value;
 
 	switch (type) {
 	case uart_app_level_ack:
@@ -430,8 +451,8 @@ void uart_util_rx_handler(uart_pkt_t* p_packet) { //once it arrives here the ack
 			if (p_payload_data[0] == APP_ACK_SUCCESS) {//if the app ack is positive go on with fsm
 				//leds_off(LEDS_RED);
 				no_of_attempts = 1;
-//				fsm_state_update();
-//				fsm_state_process();
+				fsm_state_update();
+				fsm_state_process();
 			} else {	//otherwise call the ack error handler
 				uart_util_ack_error(NULL); //attention, this function can be called also from uart_util when the timeout for ack expires
 			}
@@ -440,7 +461,7 @@ void uart_util_rx_handler(uart_pkt_t* p_packet) { //once it arrives here the ack
 		break;
 	case uart_evt_ready:
 		uart_util_send_ack(p_packet, APP_ACK_SUCCESS); //ack message for evt_ready can be avoided
-//		fsm_start();
+		fsm_start();
 		return;  //ready message may not send ack
 		break;
 	case uart_req_reset:
@@ -513,7 +534,7 @@ void uart_util_rx_handler(uart_pkt_t* p_packet) { //once it arrives here the ack
 		    printf("[%u] %u\n",i,p_packet->payload.p_data[i]);
 
 		}
-		uint8_t data[1];
+		static uint8_t data[1];
 		data[0] = p_packet->payload.p_data[0];
 		process_post(&vela_sender_process, event_pong_received, data);
 
@@ -537,46 +558,46 @@ void initialize_reset_pin(void) {
 
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(cc2650_uart_process, ev, data) {
-	PROCESS_BEGIN()
-		;
-
-
+	PROCESS_BEGIN();
 	    event_data_ready = process_alloc_event();
         event_ping_requested = process_alloc_event();
         event_pong_received = process_alloc_event();
         event_nordic_message_received = process_alloc_event();
-
+        turn_bt_on = process_alloc_event();
+        turn_bt_off = process_alloc_event();
 
 		cc26xx_uart_set_input(serial_line_input_byte);
 
 		clock_wait(CLOCK_SECOND/4); //wait to send all the contiki text before enabling the uart flow control
 
-
 		initialize_reset_pin();
 
 		uart_util_initialize();
-
-		//leds_off(LEDS_CONF_ALL);
-
 
 		fsm_stop();
 
 		reset_nodric();
 
+		printf("Nordic board reset, waiting ready message\n");
+
 		while (1) {
 		    //send_ping();
-			PROCESS_WAIT_EVENT()
-			;
+			PROCESS_WAIT_EVENT();
 
 			if (ev == serial_line_event_message) { //NB: *data contains a string, the '\n' character IS NOT included, the '\0' character IS included
-				process_uart_rx_data((uint8_t*) data);
+				process_uart_rx_data((uint8_t*)data);
 			}
 			if (ev == event_ping_requested) {
 			    uint8_t* payload = (uint8_t*)data;
 			    send_ping_payload(*payload);
 			}
+			if(ev == turn_bt_off) {
+				send_set_bt_scan_off();
+			}
+			if(ev == turn_bt_on) {
+				send_set_bt_scan_on();
+			}
 		}
-
 	PROCESS_END();
 }
 /*---------------------------------------------------------------------------*/
