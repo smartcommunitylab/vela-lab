@@ -62,7 +62,6 @@ SRC_FILES += \
   $(SDK_ROOT)/components/softdevice/common/nrf_sdh.c \
   $(SDK_ROOT)/components/softdevice/common/nrf_sdh_ble.c \
   $(SDK_ROOT)/components/softdevice/common/nrf_sdh_soc.c \
-  $(PROJ_DIR)/tof/ifs_tof.c \
   $(SDK_ROOT)/components/drivers_nrf/ppi/nrf_drv_ppi.c \
   $(SDK_ROOT)/components/drivers_nrf/timer/nrf_drv_timer.c \
   $(SDK_ROOT)/components/libraries/queue/nrf_queue.c \
@@ -194,7 +193,6 @@ INC_FOLDERS += \
   $(SDK_ROOT)/components/drivers_nrf/power \
   ${COMMON_DIR}/lib/uart_util \
   ${COMMON_DIR}/inc \
-  $(PROJ_DIR)/tof \
 
 # Libraries common to all targets
 LIB_FILES += \

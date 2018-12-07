@@ -110,6 +110,10 @@
 
 #define ENABLE_AMTv
 
+#define DEFAULT_ACTIVE_SCAN             1     //boolean
+#define DEFAULT_SCAN_INTERVAL           3520       /**< Scan interval between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
+#define DEFAULT_SCAN_WINDOW             1920     /**< Scan window between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
+#define DEFAULT_TIMEOUT                 0
 #define PERIODIC_TIMER_INTERVAL         APP_TIMER_TICKS(1000)
 #define NODE_TIMEOUT_DEFAULT_MS			(uint32_t)60000
 
@@ -513,7 +517,7 @@ static void send_ready(void) {
 	uart_util_send_pkt(&pong_packet);
 }
 
-void uart_util_rx_handler(uart_pkt_t* p_packet) { //once it arrives here the ack is already sent
+void uart_util_rx_handler(uart_pkt_t* p_packet) {
 
 	uart_pkt_type_t type = p_packet->type;
 	uint8_t *p_payload_data = p_packet->payload.p_data;
@@ -1025,7 +1029,7 @@ void start_periodic_report(uint32_t timeout_ms) {
 		m_periodic_report_timeout = timeout_ms;
 		beacon_timeout_ms = timeout_ms;
 	} else {
-		if (m_periodic_report_timeout) { //if this command is sent with timeout_ms == 0 disable the report if it was enabled, or send a single report if it was not enabled
+		if (m_periodic_report_timeout) { //if this command is sent with timeout_ms == 0 disable the report. If the report wasn't enabled, send a single report, if it was enabled stop everithing
 			ret_code_t err_code;
 			err_code = app_timer_stop(m_report_timer_id);
 			APP_ERROR_CHECK(err_code);
@@ -1099,6 +1103,8 @@ static void ble_stack_init(void) {
 
 	// Register a handler for BLE events.
 	NRF_SDH_BLE_OBSERVER(m_ble_observer, APP_BLE_OBSERVER_PRIO, ble_evt_handler, NULL);
+
+	set_scan_params(DEFAULT_ACTIVE_SCAN, DEFAULT_SCAN_INTERVAL, DEFAULT_SCAN_WINDOW, DEFAULT_TIMEOUT);
 }
 
 /**@brief Function for initializing GAP parameters.
