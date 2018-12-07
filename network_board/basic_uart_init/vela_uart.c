@@ -49,7 +49,7 @@ typedef enum{
 #define DEFAULT_SCAN_INTERVAL       3520       /**< Scan interval between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
 #define DEFAULT_SCAN_WINDOW         1920     /**< Scan window between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
 #define DEFAULT_TIMEOUT             0
-#define DEFAULT_REPORT_TIMEOUT_MS   5000//101000
+#define DEFAULT_REPORT_TIMEOUT_MS   101000
 
 /** Converts a macro argument into a character constant.
  */
@@ -234,7 +234,6 @@ void procedure_execute_action(){
 
 void procedure_retry(){
     running_procedure->state=running;
-    running_procedure->i=0;
     (*running_procedure->action[running_procedure->i])();
 }
 
@@ -524,7 +523,6 @@ void post_ack_uart_rx_handler(uart_pkt_t* p_packet) {
         break;
     case uart_evt_ready:
         is_nordic_ready=true;
-        procedure_start(&bluetooth_on);
         break;
     case uart_req_reset:
     case uart_req_bt_state:
@@ -598,6 +596,9 @@ PROCESS_THREAD(cc2650_uart_process, ev, data) {
         turn_bt_on = process_alloc_event();
         turn_bt_off = process_alloc_event();
         turn_bt_on_w_params = process_alloc_event();
+        turn_bt_on_low = process_alloc_event();
+        turn_bt_on_def = process_alloc_event();
+        turn_bt_on_high = process_alloc_event();
 
 		cc26xx_uart_set_input(serial_line_input_byte);
 
@@ -625,10 +626,10 @@ PROCESS_THREAD(cc2650_uart_process, ev, data) {
                     send_ping_payload(*payload);
                 }
                 if(ev == turn_bt_off) {
-                    procedure_start(&bluetooth_off);
+                	procedure_start(&bluetooth_off);
                 }
                 if(ev == turn_bt_on) {
-                    procedure_start(&bluetooth_on);
+                	procedure_start(&bluetooth_on);
                 }
                 if(ev == turn_bt_on_w_params) {
 
@@ -640,6 +641,19 @@ PROCESS_THREAD(cc2650_uart_process, ev, data) {
 
                     procedure_start(&bluetooth_on);
                 }
+                if(ev == turn_bt_on_low) {
+                    scan_window = DEFAULT_SCAN_WINDOW / 2;     /**< Scan window between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
+                    procedure_start(&bluetooth_on);
+                }
+                if(ev == turn_bt_on_def) {
+                    scan_window = DEFAULT_SCAN_WINDOW;     /**< Scan window between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
+                    procedure_start(&bluetooth_on);
+                }
+                if(ev == turn_bt_on_high) {
+                    scan_window = DEFAULT_SCAN_INTERVAL;     /**< Scan window between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
+                    procedure_start(&bluetooth_on);
+                }
+
 			}
 		}
 	PROCESS_END();

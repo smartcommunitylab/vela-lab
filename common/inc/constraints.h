@@ -23,9 +23,13 @@ typedef struct
     uint16_t   data_len;    /**< Length of data. */
 } data_t;
 
-
 #define MAX_NUMBER_OF_BT_BEACONS 		100
+/* Maximum packetsize before fragmentation occurs is 54 bytes with llsec disabled.
+   54 bytes - Header size = 50 bytes. Highest power of 9 under 50 is 45 bytes per packet,
+   which is 5 reports per packet */ 
 #define SINGLE_NODE_REPORT_SIZE 		9
+#define MAX_REPORTS_PER_PACKET 5
+#define MAX_PACKET_SIZE MAX_REPORTS_PER_PACKET * SINGLE_NODE_REPORT_SIZE
 
 /*EDDYSTONE DEFINES*/
 #define EDDYSTONE_SERVICE_UUID_16BIT	0xFEAA
