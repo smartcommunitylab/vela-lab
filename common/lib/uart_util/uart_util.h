@@ -211,6 +211,7 @@ extern void uart_util_ack_tx_done(void);
 void uart_util_flush(void);
 uint8_t to_hex(uint8_t i);
 void uart_util_send_ack(uart_pkt_t* p_packet, uint8_t error_code);
+uint8_t uart_util_is_waiting_ack(void);
 
 #ifdef CONTIKI
 void process_uart_rx_data(uint8_t *serial_data);

@@ -321,6 +321,9 @@ uint8_t uart_util_ack_check(uart_pkt_t* p_packet) {
 	}
 }
 
+uint8_t uart_util_is_waiting_ack(void){
+    return m_ack_wait.ack_waiting!=0;
+}
 
 #ifndef CONTIKI
 //Function for handling uart events (this function is called by the system)
