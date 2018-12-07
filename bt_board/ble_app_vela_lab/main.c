@@ -576,11 +576,13 @@ void uart_util_rx_handler(uart_pkt_t* p_packet) {
 		break;
 	case uart_req_bt_neigh_rep:
 		if (p_packet->payload.data_len == 4) {
+            ack_value = APP_ACK_SUCCESS;
+		    uart_util_send_ack(p_packet, ack_value);
+
 			uint32_t timeout_ms = (p_payload_data[0] << 24) + (p_payload_data[1] << 16) + (p_payload_data[2] << 8) + (p_payload_data[3]);
 			start_periodic_report(timeout_ms);
 			blink_led(PROGRESS_LED, LED_BLINK_TIMEOUT_MS);
-			//TODO: does it need to check something before sending ack?
-			ack_value = APP_ACK_SUCCESS;
+			return;
 		}
 		break;
 	case uart_resp_bt_state:
