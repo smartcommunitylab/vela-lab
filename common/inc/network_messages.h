@@ -27,7 +27,14 @@ typedef enum{
 	network_request_ping = 0xF000,
 	network_respond_ping = 0xF001,
 	network_keep_alive = 0xF010,
-	network_bat_data = 0x0200
+	network_bat_data = 0x0200,
+	ti_set_keep_alive = 0xF801,	
+	nordic_turn_bt_off = 0xF020,
+	nordic_turn_bt_on = 0xF021,
+	nordic_turn_bt_on_w_params = 0xF022,
+        nordic_turn_bt_on_low = 0xF023,
+        nordic_turn_bt_on_def = 0xF024,
+	nordic_turn_bt_on_high = 0xF025
 } pkttype_t;
 
 typedef struct

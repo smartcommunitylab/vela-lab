@@ -45,6 +45,10 @@ static struct etimer trickle_et;
 struct network_message_t trickle_msg;
 
 static struct etimer keep_alive_timer;
+static struct etimer delay_ping_timer;
+
+static uint8_t keep_alive_interval = KEEP_ALIVE_INTERVAL;
+
 PROCESS(vela_sender_process, "vela sender process");
 PROCESS(trickle_protocol_process, "Trickle Protocol process");
 PROCESS(keep_alive_process, "keep alive process");
@@ -158,14 +162,52 @@ tcpip_handler(void)
         else {
             if(incoming->pktnum > trickle_msg.pktnum){
                 trickle_msg = *incoming;
-                switch(trickle_msg.pkttype) {
+            	printf("Received new message, type: %X\n", trickle_msg.pkttype);
+            	switch(trickle_msg.pkttype) {
                 case network_request_ping: {
                     ;
                     printf("Ping request\n");
                     process_post(&cc2650_uart_process, event_ping_requested, &incoming->payload.p_data[0]);
                     break;
                 }
-                default:
+                case nordic_turn_bt_off: {
+                	;
+                	printf("Turning Bluetooth off...\n");
+            		process_post(&cc2650_uart_process, turn_bt_off, NULL);
+            		break;
+				}
+				case nordic_turn_bt_on: {
+					;
+					printf("Turning Bluetooth on...\n");
+					process_post(&cc2650_uart_process, turn_bt_on, NULL);
+					break;
+				}
+				case nordic_turn_bt_on_low: {
+					;
+					printf("Turning Bluetooth on...\n");
+					process_post(&cc2650_uart_process, turn_bt_on_low, NULL);
+					break;
+				}
+				case nordic_turn_bt_on_def: {
+					;
+					printf("Turning Bluetooth on...\n");
+					process_post(&cc2650_uart_process, turn_bt_on_def, NULL);
+					break;
+				}
+				case nordic_turn_bt_on_high: {
+					;
+					printf("Turning Bluetooth on...\n");
+					process_post(&cc2650_uart_process, turn_bt_on_high, NULL);
+					break;
+				}
+				case ti_set_keep_alive: {
+					;
+					printf("Setting keep alive interval to %hhu\n", incoming->payload.p_data[0]);
+					keep_alive_interval = (uint8_t)incoming->payload.p_data[0];
+					etimer_set(&keep_alive_timer, keep_alive_interval * CLOCK_SECOND);
+					break;
+				}
+				default:
                     break;
                 }
             }
@@ -256,6 +298,8 @@ PROCESS_THREAD(vela_sender_process, ev, data) {
             response.pkttype = network_respond_ping;
             response.payload.data_len = 1;
             response.payload.p_data[0] = temp[0];
+            etimer_set(&delay_ping_timer, random_rand() % (2 * CLOCK_SECOND));
+            PROCESS_WAIT_UNTIL(etimer_expired(&delay_ping_timer));
             send_to_sink(response);
         }
         if(ev == event_bat_data_ready) {
@@ -315,17 +359,16 @@ PROCESS_THREAD(trickle_protocol_process, ev, data)
 #endif
 static struct network_message_t keep_alive_msg;
 
-
 PROCESS_THREAD(keep_alive_process, ev, data)
 {
     PROCESS_BEGIN();
-    etimer_set(&keep_alive_timer, KEEP_ALIVE_INTERVAL);
+    etimer_set(&keep_alive_timer, keep_alive_interval * CLOCK_SECOND);
 
     keep_alive_msg.pkttype = network_keep_alive;
     keep_alive_msg.payload.data_len = 4;
     while(1) {
     	PROCESS_WAIT_UNTIL(etimer_expired(&keep_alive_timer));
-    	etimer_set(&keep_alive_timer, KEEP_ALIVE_INTERVAL);
+    	etimer_set(&keep_alive_timer, keep_alive_interval * CLOCK_SECOND);
 #ifdef BOARD_LAUNCHPAD_VELA
 #if BOARD_LAUNCHPAD_VELA==1
     	REP_CAP_mAh = max_17260_sensor.value(MAX_17260_SENSOR_TYPE_REP_CAP);

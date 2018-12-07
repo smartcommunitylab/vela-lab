@@ -26,8 +26,8 @@ PROJECT_SOURCEFILES += sink_receiver.c
 TARGET ?= srf06-cc26xx
 #BOARD=launchpad/cc2650
 #use this one for the nodes that DO NOT HAVE the new interface board with the solar panel
-#BOARD=launchpad_vela/cc2650
-BOARD=launchpad_vela/cc1350
+BOARD=launchpad_vela/cc2650
+#BOARD=launchpad_vela/cc1350
 
 BSL_FLAGS += -b 115200
 

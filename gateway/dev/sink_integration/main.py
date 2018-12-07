@@ -5,11 +5,16 @@ import logging
 from recordtype import recordtype
 from enum import IntEnum, unique
 from datetime import timedelta
+import _thread
+import readchar
 
 START_CHAR = '2a'
 START_BUF = '2a2a2a'  # this is not really a buffer
 BAUD_RATE = 1000000
 SERIAL_PORT = "/dev/ttyACM0"
+
+endchar = 0x0a
+SER_END_CHAR = endchar.to_bytes(1, byteorder='big', signed=False)
 
 SINGLE_REPORT_SIZE = 9
 MAX_ONGOING_SEQUENCES = 10
@@ -46,7 +51,11 @@ timeoutInterval = 300
 timeoutTime = 60
 
 previousTimePing = 0
-pingInterval = 15
+pingInterval = 115
+
+btPreviousTime = 0
+btToggleInterval = 1800
+btToggleBool = True
 
 # Data logger
 nameDataLog = "dataLogger"
@@ -69,6 +78,56 @@ class PacketType(IntEnum):
     network_bat_data = 0x0200
     network_request_ping = 0xF000
     network_respond_ping = 0xF001
+    network_keep_alive = 0xF010
+    ti_set_keep_alive = 0xF801
+    nordic_turn_bt_off = 0xF020
+    nordic_turn_bt_on = 0xF021
+    nordic_turn_bt_on_w_params = 0xF022
+    nordic_turn_bt_on_low = 0xF023
+    nordic_turn_bt_on_def = 0xF024
+    nordic_turn_bt_on_high = 0xF025
+
+
+def handle_user_input():
+    while 1:
+        try:
+            user_input = int(input("Select a configuration\n1 = request ping\n2 = enable bluetooth\n3 = disable bluetooth\n"
+                        "4 = bt low\n5 = bt_def\n6 = bt_high\n >6 = set keep alive interval in seconds"))
+            if user_input == 1:
+                payload = 233
+                send_serial_msg(3, PacketType.network_request_ping, payload.to_bytes(1, byteorder="big", signed=False))
+                print("Sent ping request")
+            elif user_input == 2:
+                send_serial_msg(2, PacketType.nordic_turn_bt_on, 0)
+                print("Turning bt on")
+            elif user_input == 3:
+                send_serial_msg(2, PacketType.nordic_turn_bt_off, 0)
+                print("Turning bt off")
+            elif user_input == 4:
+                send_serial_msg(2, PacketType.nordic_turn_bt_on_low, 0)
+                print("Turning bt on low")
+            elif user_input == 5:
+                send_serial_msg(2, PacketType.nordic_turn_bt_on_def, 0)
+                print("Turning bt on def")
+            elif user_input == 6:
+                send_serial_msg(2, PacketType.nordic_turn_bt_on_high, 0)
+                print("Turning bt on high")
+            elif user_input > 6:
+                interval = user_input
+                send_serial_msg(3, PacketType.ti_set_keep_alive, interval.to_bytes(1, byteorder="big", signed=False))
+                print("Setting keep alive")
+        except ValueError:
+            print("read failed")
+
+
+def send_serial_msg(size, pkttype, payload):
+    msg = size.to_bytes(length=1, byteorder='big', signed=False)
+    msg += pkttype.to_bytes(length=2, byteorder='big', signed=False)
+    if size > 2:
+        msg += payload
+    msg += SER_END_CHAR
+    ser.write(msg)
+
 
 
 def decode_payload(seqid, size):
@@ -111,6 +170,8 @@ def check_for_packetdrop(nodeid, pktnum):
 
 
 print("Starting...")
+
+_thread.start_new_thread(handle_user_input, ())
 
 if ser.is_open:
     print("Serial Port already open!", ser.port, "open before initialization... closing first")
@@ -261,15 +322,17 @@ try:
                             batCapacity = int.from_bytes(ser.read(2), byteorder="big", signed=False)
                             batSoC = int.from_bytes(ser.read(2), byteorder="big", signed=False) / 10
                             batELT = str(timedelta(minutes=int.from_bytes(ser.read(2), byteorder="big", signed=False)))[:-3] # Convert minutes to hours and minutes
-                            batAvgConsumption = int.from_bytes(ser.read(2), byteorder="big", signed=True) / 100
+                            batAvgConsumption = int.from_bytes(ser.read(2), byteorder="big", signed=True) / 10
                             batAvgVoltage = int.from_bytes(ser.read(2), byteorder="big", signed=False)
+                            batAvgTemp = int.from_bytes(ser.read(2), byteorder="big", signed=True) / 100
 
                             print("Received bat data, Capacity: {0} mAh | State Of Charge: {1}% | Estimated Lifetime: {2} (hh:mm) | "
-                                  "Average Consumption: {3} mA | Average Battery Voltage: {4}"
-                                  .format(batCapacity, batSoC, batELT, batAvgConsumption, batAvgVoltage))
-                            dataLogger.info("Received bat data, Capacity: {0} mAh | State Of Charge: {1}% | Estimated Lifetime: {2} (hh:mm) | "
-                                  "Average Consumption: {3} mA | Average Battery Voltage: {4} mV"
-                                            .format(batCapacity, batSoC, batELT, batAvgConsumption, batAvgVoltage))
+                                  "Average Consumption: {3} mA | Average Battery Voltage: {4} | Average Temperature {5}"
+                                  .format(batCapacity, batSoC, batELT, batAvgConsumption, batAvgVoltage, batAvgTemp))
+                            dataLogger.info("[Node {0}] Received bat data, Capacity: {1} mAh | State Of Charge: {2}% | Estimated Lifetime: {3} (hh:mm) | "
+                                            "Average Consumption: {4} mA | Average Battery Voltage: {5} mV | Temperature: {6} *C"
+                                            .format(nodeid, batCapacity, batSoC, batELT, batAvgConsumption,
+                                                    batAvgVoltage, batAvgTemp))
 
                         elif PacketType.network_respond_ping == pkttype:
                             payload = int(ser.read(1).hex(), 16)
@@ -282,6 +345,13 @@ try:
                             else:
                                 print("Wrong ping payload: {0}".format(payload))
                                 dataLogger.info("[Node {0}] pinged wrong payload: ".format(nodeid, payload))
+
+                        elif PacketType.network_keep_alive == pkttype:
+                            cap = int.from_bytes(ser.read(2), byteorder="big", signed=False)
+                            soc = int.from_bytes(ser.read(2), byteorder="big", signed=False)
+                            print("Received keep alive packet from node ", nodeid, "with cap & soc: ", cap, " ", soc)
+                            dataLogger.info("[Node {0}] Received keep alive message with capacity: {1} and SoC: {2}".format(nodeid, cap, soc))
+
                         else:
                             print("Unknown packettype: ", pkttype)
                             dataLogger.warning("[Node {0}] Received unknown packettype: {1}".format(nodeid, hex(pkttype)))
@@ -296,28 +366,41 @@ try:
                     del messageSequenceList[x - deletedCounter]
                     deletedCounter += 1
                     print("Deleted seqid {0} because of timeout".format(x + deletedCounter))
-                    dataLogger.debug("[Node {0}] Sequence timed out".format(messageSequenceList[x - deletedCounter].nodeid))
+                    dataLogger.debug("Node Sequence timed out")
 
-            print("Active nodes: ")
-            for x in range(len(ActiveNodes)):
-                print("[", x, "] Nodeid: ", ActiveNodes[x])
+        if currentTime - btPreviousTime > btToggleInterval:
+            ptype = 0
+            if btToggleBool:
+                print("Turning bt off")
+                ptype = PacketType.nordic_turn_bt_off
+                btToggleBool = False
+            else:
+                print("Turning bt on")
+                ptype = PacketType.nordic_turn_bt_on
+                btToggleBool = True
+            send_serial_msg(2, ptype, 0)
+            btPreviousTime = currentTime
 
-        if currentTime - previousTimePing > pingInterval:
-            print("Requesting ping")
-            dataLogger.debug("Sending ping request")
-            size = 3
-            bsize = size.to_bytes(length=1, byteorder='big', signed=False)
-            ptype = PacketType.network_request_ping.value
-            bptype = ptype.to_bytes(length=2, byteorder='big', signed=False)
-            payload = 233
-            bpayload = payload.to_bytes(length=1, byteorder='big', signed=False)
-            msg = bsize
-            msg += bptype
-            msg += bpayload
-            ser.write(msg)
-            endchar = 0x0a
-            ser.write(endchar.to_bytes(1, byteorder='big', signed=False))
-            previousTimePing = currentTime
+        #     if btToggleBool:
+        #         print("Turning bt off")
+        #         ptype = PacketType.nordic_turn_bt_off
+        #         btToggleBool = False
+        #     else:
+        #         print("Turning bt on")
+        #         ptype = PacketType.nordic_turn_bt_on
+        #         btToggleBool = True
+        #
+        #     size = 2
+        #     bsize = size.to_bytes(length=1, byteorder='big', signed=False)
+        #     bptype = ptype.to_bytes(length=2, byteorder='big', signed=False)
+        #     msg = bsize
+        #     msg += bptype
+        #     ser.write(msg)
+        #     endchar = 0x0a
+        #     ser.write(endchar.to_bytes(1, byteorder='big', signed=False))
+        #
+        #     btPreviousTime = currentTime
+
 
 except UnicodeDecodeError as e:
     pass
