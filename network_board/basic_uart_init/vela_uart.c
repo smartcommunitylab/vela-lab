@@ -32,18 +32,6 @@
 #define NORDIC_WATCHDOG_ENABLED						1
 
 PROCESS(cc2650_uart_process, "cc2650 uart process");
-// ALM -- removed next line
-//AUTOSTART_PROCESSES(&cc2650_uart_process);
-
-//typedef enum{
-//	wait,
-//	initializing1,
-//	initializing2,
-//	initializing3,
-//	initializing4,
-//	run,
-//	resetting,
-//} app_state_t;
 
 typedef enum{
 	start_of_data,
@@ -61,7 +49,7 @@ typedef enum{
 #define DEFAULT_SCAN_INTERVAL       3520       /**< Scan interval between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
 #define DEFAULT_SCAN_WINDOW         1920     /**< Scan window between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
 #define DEFAULT_TIMEOUT             0
-#define DEFAULT_REPORT_TIMEOUT_MS   101000
+#define DEFAULT_REPORT_TIMEOUT_MS   5000//101000
 
 /** Converts a macro argument into a character constant.
  */
@@ -103,6 +91,9 @@ typedef struct{
 
 static procedure_t* running_procedure=NULL;
 
+#define PROCEDURE(name, ...) void (*name##_sequence[])(void)={__VA_ARGS__}; \
+                            procedure_t name={0, name##_sequence, sizeof(name##_sequence)/sizeof(m_f_ptr_t) ,stopped, STRINGIFY(name)}
+
 uint32_t report_ready(data_t *p_data);
 uint32_t report_rx_handler(uart_pkt_t* p_packet, report_type_t m_report_type );
 
@@ -115,18 +106,19 @@ void reset_nodric(void);
 
 void send_ping(void);
 void send_set_bt_scan_on(void);
+void send_set_bt_scan_off(void);
 void send_set_bt_scan_params(void);
 void send_ready(void);
 void send_reset(void);
 void request_periodic_report_to_nordic(void);
+void stop_periodic_report_to_nordic(void);
 
 void uart_util_rx_handler(uart_pkt_t* p_packet);
 void uart_util_ack_tx_done(void);
 extern void uart_util_ack_error(ack_wait_t* ack_wait_data);
 
-//PROCEDURE DEFINITION. TODO: try to pack everything into a macro define.
-void (*bluetooth_on_sequence[])(void) ={&send_set_bt_scan_params, &send_set_bt_scan_on, &request_periodic_report_to_nordic};
-procedure_t bluetooth_on_procedure={0, bluetooth_on_sequence, sizeof(bluetooth_on_sequence)/sizeof(m_f_ptr_t) ,stopped,"bluetooth on"};
+PROCEDURE(bluetooth_on, &send_set_bt_scan_params, &send_set_bt_scan_on, &request_periodic_report_to_nordic);
+PROCEDURE(bluetooth_off, &send_set_bt_scan_off, &stop_periodic_report_to_nordic);
 
 //ALM -- called to start this as a contiki THREAD
 void vela_uart_init() {
@@ -217,19 +209,22 @@ uint8_t procedure_start(procedure_t *m_procedure){
         running_procedure = m_procedure;
         running_procedure->state=running;
         running_procedure->i=0;
-        (*running_procedure->action[running_procedure->i])();
+        if(!uart_util_is_waiting_ack()){//start the procedure only if no ack is pending, otherwise prepare it, it will start as soon the ack is returned
+            (*running_procedure->action[running_procedure->i])();
+            (running_procedure->i)++;
+        }
         return 1;
     }else{
         return 0;
     }
 }
 
-void procedure_step_on(){
+void procedure_execute_action(){
     if(running_procedure != NULL && running_procedure->state != executed){
-        (running_procedure->i)++;
         if(running_procedure->i < running_procedure->size){
             printf("Stepping on procedure \"%s\": action number %u\n",running_procedure->name,running_procedure->i);
             (*running_procedure->action[running_procedure->i])();
+            (running_procedure->i)++;
         }else{
             running_procedure->state=executed;
             printf("Procedure \"%s\" exectuted!\n",running_procedure->name);
@@ -393,24 +388,33 @@ void request_periodic_report_to_nordic(void){
 	uart_util_send_pkt(&packet);
 #if NORDIC_WATCHDOG_ENABLED //turn this to one to enable the nordic watchdog
 	nordic_watchdog_timeout_ms = (report_timeout_ms+100);
-	ctimer_set(&m_nordic_watchdog_timer, (nordic_watchdog_timeout_ms*CLOCK_SECOND)/1000, nordic_watchdog_handler, NULL);
+	if(report_timeout_ms!=0){
+	    ctimer_set(&m_nordic_watchdog_timer, (nordic_watchdog_timeout_ms*CLOCK_SECOND)/1000, nordic_watchdog_handler, NULL);
+	}else{
+	    nordic_watchdog_timeout_ms=0;
+	    ctimer_stop(&m_nordic_watchdog_timer);
+	}
 #endif
+}
+
+void stop_periodic_report_to_nordic(void){
+    report_timeout_ms=0;
+    request_periodic_report_to_nordic();
 }
 
 #define MAX_ATTEMPTS 3
 void uart_util_ack_error(ack_wait_t* ack_wait_data) {
-    printf("Uart ack error for packet: 0x%04X\n", (uint16_t)ack_wait_data->waiting_ack_for_pkt_type);
-//	leds_on(LEDS_RED);
-//	if(m_app_state == wait){
-//		return;
-//	}
+    if(ack_wait_data != NULL){
+        printf("Uart ack error for packet: 0x%04X\n", (uint16_t)ack_wait_data->waiting_ack_for_pkt_type);
+    }else{
+        printf("Uart ack error\n");
+    }
 
 	if(no_of_attempts < MAX_ATTEMPTS){
 		no_of_attempts++;
 		procedure_retry();
-//		fsm_state_process(); //if there is an error try to resend
 	}else{
-//		fsm_stop();
+	    printf("Nordic didn't respond, resetting it!\n");
 		is_nordic_ready=false;
 		reset_nodric(); //when the nordic will reboot it will generate the uart_ready evt. When the TI receives it, it restart the FSM
 	}
@@ -419,114 +423,163 @@ void uart_util_ack_error(ack_wait_t* ack_wait_data) {
 void uart_util_ack_tx_done(void){
 }
 
-void uart_util_rx_handler(uart_pkt_t* p_packet) { //once it arrives here the ack is already sent
+uint32_t pre_ack_uart_rx_handler(uart_pkt_t* p_packet) {
+    uart_pkt_type_t type;
+    type = p_packet->type;
+    uint8_t *p_payload_data;
+    p_payload_data = p_packet->payload.p_data;
+    uint32_t ack_value;
 
-	static uart_pkt_type_t type;
-	type = p_packet->type;
-	static uint8_t *p_payload_data;
-	p_payload_data = p_packet->payload.p_data;
+    switch (type) {
+    case uart_app_level_ack:
+        if (p_packet->payload.data_len == 5) {
+            ack_value = APP_ACK_SUCCESS;
+        }else{
+            ack_value = APP_ERROR_COMMAND_NOT_VALID;
+        }
+        break;
+    case uart_evt_ready:
+        ack_value = APP_ACK_SUCCESS;
+//        return;  //ready message may not send ack
+        break;
+    case uart_req_reset:
+        ack_value = APP_ERROR_NOT_IMPLEMENTED;
+//      sd_nvic_SystemReset(fsm_stop);
+        break;
+    case uart_req_bt_state:
+    case uart_req_bt_scan_state:
+    case uart_req_bt_adv_state:
+    case uart_req_bt_scan_params:
+    case uart_req_bt_adv_params:
+    case uart_req_bt_neigh_rep:
+        ack_value = APP_ERROR_COMMAND_NOT_VALID;
+        //never called on the Mesh side of the uart
+        break;
+    case uart_resp_bt_state:
+        ack_value = APP_ERROR_NOT_IMPLEMENTED;
+        //still not implemented
+        break;
+    case uart_resp_bt_scan_state:
+        ack_value = APP_ERROR_NOT_IMPLEMENTED;
+        //still not implemented
+        break;
+    case uart_resp_bt_adv_state:
+        ack_value = APP_ERROR_NOT_IMPLEMENTED;
+        //still not implemented
+        break;
+    case uart_resp_bt_scan_params:
+        ack_value = APP_ERROR_NOT_IMPLEMENTED;
+        //still not implemented
+        break;
+    case uart_resp_bt_adv_params:
+        ack_value = APP_ERROR_NOT_IMPLEMENTED;
+        //still not implemented
+        break;
+    case uart_resp_bt_neigh_rep_start:
+        ack_value = report_rx_handler(p_packet, start_of_data);
+        break;
+    case uart_resp_bt_neigh_rep_more:
+        ack_value = report_rx_handler(p_packet, more_data);
+        break;
+    case uart_resp_bt_neigh_rep_end:
+        ack_value = report_rx_handler(p_packet, end_of_data);
+        break;
+    case uart_set_bt_state:
+    case uart_set_bt_scan_state:
+    case uart_set_bt_adv_state:
+    case uart_set_bt_scan_params:
+    case uart_set_bt_adv_params:
+        ack_value = APP_ERROR_COMMAND_NOT_VALID;
+        break;
+    case uart_ping:
+        ack_value = APP_ACK_SUCCESS;
+        break;
+    case uart_pong:
+        ack_value = APP_ACK_SUCCESS;
+        break;
+    default:
+        ack_value = APP_ERROR_NOT_FOUND;
+        break;
+    }
+
+    return ack_value;
+}
+
+void post_ack_uart_rx_handler(uart_pkt_t* p_packet) {
+    uart_pkt_type_t type;
+    type = p_packet->type;
+    uint8_t *p_payload_data;
+    p_payload_data = p_packet->payload.p_data;
+
+    switch (type) {
+    case uart_app_level_ack:
+        if (p_packet->payload.data_len == 5) {
+            if (p_payload_data[0] == APP_ACK_SUCCESS) {
+                no_of_attempts = 1;
+                procedure_execute_action();
+            } else {
+                uart_util_ack_error(NULL); //attention, this function can be called also from uart_util when the timeout for ack expires
+            }
+        }
+        break;
+    case uart_evt_ready:
+        is_nordic_ready=true;
+        procedure_start(&bluetooth_on);
+        break;
+    case uart_req_reset:
+    case uart_req_bt_state:
+    case uart_req_bt_scan_state:
+    case uart_req_bt_adv_state:
+    case uart_req_bt_scan_params:
+    case uart_req_bt_adv_params:
+    case uart_req_bt_neigh_rep:
+    case uart_resp_bt_state:
+    case uart_resp_bt_scan_state:
+    case uart_resp_bt_adv_state:
+    case uart_resp_bt_scan_params:
+    case uart_resp_bt_adv_params:
+    case uart_resp_bt_neigh_rep_start:
+    case uart_resp_bt_neigh_rep_more:
+        break;
+    case uart_resp_bt_neigh_rep_end:
+        break;
+    case uart_set_bt_state:
+    case uart_set_bt_scan_state:
+    case uart_set_bt_adv_state:
+    case uart_set_bt_scan_params:
+    case uart_set_bt_adv_params:
+        break;
+    case uart_ping: //here we shall wait the previous message to be sent, but if the buffers are enough long the two messages will fit
+        send_pong(p_packet);
+        break;
+    case uart_pong:
+        if (p_packet->payload.data_len == 1)
+        {
+            printf("Received pong from nordic, sending it to sink\n");
+            static uint8_t data[1];
+            data[0] = p_packet->payload.p_data[0];
+            process_post(&vela_sender_process, event_pong_received, data);
+        }
+        break;
+    default:
+        break;
+    }
+
+    return;
+}
+
+void uart_util_rx_handler(uart_pkt_t* p_packet) {
+
 	static uint32_t ack_value;
 
-	switch (type) {
-	case uart_app_level_ack:
-		if (p_packet->payload.data_len == 5) {
-			if (p_payload_data[0] == APP_ACK_SUCCESS) {//if the app ack is positive go on with fsm
-				//leds_off(LEDS_RED);
-				no_of_attempts = 1;
-				procedure_step_on();
-			} else {	//otherwise call the ack error handler
-				uart_util_ack_error(NULL); //attention, this function can be called also from uart_util when the timeout for ack expires
-			}
-		}
-		return; //this avoids sending ack for ack messages
-		break;
-	case uart_evt_ready:
-		uart_util_send_ack(p_packet, APP_ACK_SUCCESS); //ack message for evt_ready can be avoided
-		is_nordic_ready=true;
-		return;  //ready message may not send ack
-		break;
-	case uart_req_reset:
-		ack_value = APP_ERROR_NOT_IMPLEMENTED;
-//		sd_nvic_SystemReset(fsm_stop);
-		break;
-	case uart_req_bt_state:
-	case uart_req_bt_scan_state:
-	case uart_req_bt_adv_state:
-	case uart_req_bt_scan_params:
-	case uart_req_bt_adv_params:
-	case uart_req_bt_neigh_rep:
-		ack_value = APP_ERROR_COMMAND_NOT_VALID;
-		//never called on the Mesh side of the uart
-		break;
-	case uart_resp_bt_state:
-		ack_value = APP_ERROR_NOT_IMPLEMENTED;
-		//still not implemented
-		break;
-	case uart_resp_bt_scan_state:
-		ack_value = APP_ERROR_NOT_IMPLEMENTED;
-		//still not implemented
-		break;
-	case uart_resp_bt_adv_state:
-		ack_value = APP_ERROR_NOT_IMPLEMENTED;
-		//still not implemented
-		break;
-	case uart_resp_bt_scan_params:
-		ack_value = APP_ERROR_NOT_IMPLEMENTED;
-		//still not implemented
-		break;
-	case uart_resp_bt_adv_params:
-		ack_value = APP_ERROR_NOT_IMPLEMENTED;
-		//still not implemented
-		break;
-	case uart_resp_bt_neigh_rep_start:
-		ack_value = report_rx_handler(p_packet, start_of_data);
-		break;
-	case uart_resp_bt_neigh_rep_more:
-		ack_value = report_rx_handler(p_packet, more_data);
-		break;
-	case uart_resp_bt_neigh_rep_end:
-		ack_value = report_rx_handler(p_packet, end_of_data);
-		break;
-	case uart_set_bt_state:
-	case uart_set_bt_scan_state:
-	case uart_set_bt_adv_state:
-	case uart_set_bt_scan_params:
-	case uart_set_bt_adv_params:
-		ack_value = APP_ERROR_COMMAND_NOT_VALID;
-		//never called on the Mesh side of the uart
-		break;
-	case uart_ping:
-		ack_value = APP_ACK_SUCCESS;
-		uart_util_send_ack(p_packet, ack_value); //send the ack before pong message
-		//here we shall wait the previous message to be sent, but if the buffers are enough long the two messages will fit
-		send_pong(p_packet);
-		return;	//do not send the ack twice
-		break;
-	case uart_pong:
-	    uart_util_send_ack(p_packet, APP_ACK_SUCCESS); //ack message for evt_ready can be avoided
-	    //      //here we shall wait the previous message to be sent, but if the uart buffers are enough long the two messages will fit together
-	    if(p_packet->payload.data_len == 1) {
-	    printf("Received pong from nordic, sending it to sink\n");
-//		printf("Pong payload:\n");
-//		int i;
-//		for(i=0;i<p_packet->payload.data_len;i++){
-//		    printf("[%u] %u\n",i,p_packet->payload.p_data[i]);
-//
-//		}
-		static uint8_t data[1];
-		data[0] = p_packet->payload.p_data[0];
-		process_post(&vela_sender_process, event_pong_received, data);
+	ack_value = pre_ack_uart_rx_handler(p_packet);
 
-		//		fsm_start();
-	    }
-		return;
-		break;
-	default:
-		ack_value = APP_ERROR_NOT_FOUND;
-		break;
+	if(p_packet->type != uart_app_level_ack){ //do not send the ack for acks
+	    uart_util_send_ack(p_packet, ack_value);
 	}
 
-	uart_util_send_ack(p_packet, ack_value);
+	post_ack_uart_rx_handler(p_packet);
+
 	return;
 }
 
@@ -572,10 +625,10 @@ PROCESS_THREAD(cc2650_uart_process, ev, data) {
                     send_ping_payload(*payload);
                 }
                 if(ev == turn_bt_off) {
-                    send_set_bt_scan_off();
+                    procedure_start(&bluetooth_off);
                 }
                 if(ev == turn_bt_on) {
-                    send_set_bt_scan_on();
+                    procedure_start(&bluetooth_on);
                 }
                 if(ev == turn_bt_on_w_params) {
 
@@ -585,7 +638,7 @@ PROCESS_THREAD(cc2650_uart_process, ev, data) {
                     timeout = ((((uint8_t*)data)[5])<<8)+((uint8_t*)data)[6];
                     report_timeout_ms = ((((uint8_t*)data)[7])<<24)+((((uint8_t*)data)[8])<<16)+((((uint8_t*)data)[9])<<8)+((uint8_t*)data)[10];
 
-                    procedure_start(&bluetooth_on_procedure);
+                    procedure_start(&bluetooth_on);
                 }
 			}
 		}
