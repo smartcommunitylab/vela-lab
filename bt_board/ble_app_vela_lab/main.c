@@ -68,15 +68,22 @@
 //#include "nrf_cli_rtt.h"
 //#include "nrf_cli_uart.h"
 
-//#include "nrf_log.h"
-//#include "nrf_log_ctrl.h"
-//#include "nrf_log_default_backends.h"
 #include "uart_util.h"
 #include "constraints.h"
-
+#include "sequential_procedures.h"
 #ifdef ENABLE_TOF
 #include "ifs_tof.h"
 #endif
+
+#include "nrf_log_default_backends.h"
+#define  NRF_LOG_MODULE_NAME application
+#include "nrf_log.h"
+#include "nrf_log_ctrl.h"
+NRF_LOG_MODULE_REGISTER();
+#define PRINTF(...) NRF_LOG_DEBUG(__VA_ARGS__); \
+        NRF_LOG_PROCESS()
+
+
 #define CONN_INTERVAL_DEFAULT           (uint16_t)(MSEC_TO_UNITS(10, UNIT_1_25_MS))    /**< Default connection interval used at connection establishment by central side. */
 
 #define CONN_INTERVAL_MIN               (uint16_t)(MSEC_TO_UNITS(10, UNIT_1_25_MS))    /**< Minimum acceptable connection interval, in 1.25 ms units. */
@@ -205,7 +212,6 @@ static char const m_target_periph_name_alt[] = {'C',
 
 bool m_scan_active = false, m_advertising_active = false, m_ready_received = false, m_tx_error = false;
 static uint32_t m_periodic_report_timeout = 0;
-uint32_t report_procedure_running = 0;
 uint8_t stop = 0;
 uint32_t beacon_timeout_ms = NODE_TIMEOUT_DEFAULT_MS;
 //uint32_t blinking_led_bit_map;
@@ -271,17 +277,16 @@ static ble_gap_conn_params_t m_conn_param =
     .conn_sup_timeout  = CONN_SUP_TIMEOUT     // Supervisory timeout.
 };
 
-//deprecated
 uint32_t adv_data_to_string(s_data_t *p_adv_data, char* p_str, uint8_t max_len);
 uint32_t bd_addr_to_string(ble_gap_addr_t *p_addr, char* p_str, uint8_t max_len);
 
 //application helpers
 uint32_t add_node_to_report_payload(node_t *m_network, uint8_t* report_payload, uint16_t max_size);
-void send_neighbors_report(void);
+uint8_t send_neighbors_report(void);
 void cancel_ongoing_report(void);
-static void send_pong(uart_pkt_t* p_packet);
-void send_ping(void);
-static void send_ready(void);
+void send_pong(uart_pkt_t* p_packet);
+uint8_t send_ping(void);
+uint8_t send_ready(void);
 
 //uart communication helpers
 extern void uart_util_rx_handler(uart_pkt_t* p_packet);
@@ -360,6 +365,15 @@ void ifs_tof_evt_handler(ifs_tof_evt_t * p_evt);
 static bool is_link_present(ble_gap_evt_adv_report_t const * p_adv_report);
 #endif
 
+PROCEDURE(ping, &send_ping);
+PROCEDURE(ready, &send_ready);
+PROCEDURE_VAR_LEN(ble_report, &send_neighbors_report);
+//PROCEDURE(ble_report, &send_neighbors_report,&send_neighbors_report,&send_neighbors_report);
+
+static uint8_t start_procedure(procedure_t *m_procedure){
+    return sequential_procedure_start(m_procedure, uart_util_is_waiting_ack()); //if we are waiting an ack start use the delayed start
+}
+
 uint32_t bd_addr_to_string(ble_gap_addr_t *p_addr, char* p_str, uint8_t max_len) {
 //	return sprintf(p_str, "%02X:%02X:%02X:%02X:%02X:%02X", p_addr->addr[5], p_addr->addr[4], p_addr->addr[3], p_addr->addr[2], p_addr->addr[1],
 //			p_addr->addr[0]);
@@ -408,7 +422,7 @@ uint32_t add_node_to_report_payload(node_t *p_node, uint8_t* report_payload, uin
 	return idx;
 }
 
-void send_neighbors_report(void) {
+uint8_t send_neighbors_report(void) {
 
 	static uint16_t n = 0;
 	bool pkt_full = false;
@@ -417,11 +431,11 @@ void send_neighbors_report(void) {
 
 	uart_pkt_t packet;
 
-	if (report_procedure_running == 0) { //sanity check, if the report procedure was not active (maybe it was cancelled) reset n to zero
-		n = 0;
-	}
+	PRINTF("send_neighbors_report(). n=%u\n",n);
 
-	report_procedure_running = 1;
+	if(!sequential_procedure_is_this_running(&ble_report)){ //sanity check, if the report procedure was not active (maybe it was cancelled) reset n to zero
+	    n=0;
+	}
 
 	packet.payload.p_data = report_payload;
 	if (n == 0) {	//if this is the first packet of the report the type will end with the '_start'
@@ -439,6 +453,7 @@ void send_neighbors_report(void) {
 			n++;
 		} else {
 			pkt_full = true;
+			PRINTF("Report packet full!!\n");
 		}
 	}
 
@@ -446,7 +461,6 @@ void send_neighbors_report(void) {
 	if (n >= MAXIMUM_NETWORK_SIZE) { //if it is the last packet for this report change the message type to uart_resp_bt_neigh_rep_end
 		packet.type = uart_resp_bt_neigh_rep_end;
 		n = 0;
-		report_procedure_running = 0;
 		payload_free_from = 0;
 	}
 	uart_util_send_pkt(&packet);
@@ -454,13 +468,16 @@ void send_neighbors_report(void) {
 	if (n == 0) {	//this is executed after the transmission of uart_resp_bt_neigh_rep_end
 		reset_network();
 	}
+
+	return (uint8_t)n;
 }
 
 void cancel_ongoing_report(void) {
-	report_procedure_running = 0;
+    sequential_procedure_stop_this(&ble_report);
 }
 
-static void send_pong(uart_pkt_t* p_packet) {
+void send_pong(uart_pkt_t* p_packet) {
+    PRINTF("Sending pong packet\n");
 	if (p_packet->payload.data_len) {
 		uint8_t pong_payload[p_packet->payload.data_len];
 		memcpy(pong_payload, p_packet->payload.p_data, p_packet->payload.data_len);
@@ -483,7 +500,8 @@ static void send_pong(uart_pkt_t* p_packet) {
 
 #define PING_PACKET_SIZE		10
 //example of use of uart_util_send. This function is called with a timer and send a packet to the UART
-void send_ping(void) {
+uint8_t send_ping(void) {
+    PRINTF("Sending ping packet\n");
 	/*  CREATE DUMMY UINT8 ARRAY   */
 #if PING_PACKET_SIZE != 0
 	uint8_t payload[PING_PACKET_SIZE];
@@ -503,10 +521,12 @@ void send_ping(void) {
 #endif
 	/*  SEND THE PACKET  */
 	uart_util_send_pkt(&packet);
+
+    return 0;
 }
 
-static void send_ready(void) {
-
+uint8_t send_ready(void) {
+    PRINTF("Sending ready packet\n");
 	char version_string[] = STRINGIFY(VERSION_STRING);
 
 	uart_pkt_t pong_packet;
@@ -515,6 +535,8 @@ static void send_ready(void) {
 	pong_packet.type = uart_evt_ready;
 
 	uart_util_send_pkt(&pong_packet);
+
+	return 0;
 }
 
 void uart_util_rx_handler(uart_pkt_t* p_packet) {
@@ -523,7 +545,10 @@ void uart_util_rx_handler(uart_pkt_t* p_packet) {
 	uint8_t *p_payload_data = p_packet->payload.p_data;
 	uint32_t ack_value = APP_ERROR_NOT_FOUND;
 
-	if (report_procedure_running == 1 && type != uart_app_level_ack) { //during report procedures accept only ack packet
+	PRINTF("Received UART packet. Type: 0x%04X\n",type);
+
+	if (sequential_procedure_is_this_running(&ble_report) && type != uart_app_level_ack) { //during report procedures accept only ack packet
+	    PRINTF("Invalid state for handling that packet!\n");
 		ack_value = APP_ERROR_INVALID_STATE;
 		uart_util_send_ack(p_packet, ack_value);
 		return;
@@ -532,15 +557,14 @@ void uart_util_rx_handler(uart_pkt_t* p_packet) {
 	switch (type) {
 	case uart_app_level_ack:
 		if (p_packet->payload.data_len == 5) {
-			if (p_payload_data[0] == APP_ACK_SUCCESS) { //if the app ack is positive go on with the report
-				m_tx_error = false;
-				if (report_procedure_running == 1) { //if it was ongoing
-					send_neighbors_report();
-				}
-			} else {	//otherwise cancel this report
-				blink_led(ERROR_LED, LED_BLINK_TIMEOUT_MS);
-				cancel_ongoing_report();
-			}
+	        if (p_packet->payload.data_len == 5) {
+	            if (p_payload_data[0] == APP_ACK_SUCCESS) {
+	                m_tx_error = false;
+	                sequential_procedure_execute_action();
+	            } else {
+	                uart_util_ack_error(NULL); //attention, this function can be called also from uart_util when the timeout for ack expires
+	            }
+	        }
 		}
 		return; //this avoids sending ack for ack messages
 		break;
@@ -640,7 +664,7 @@ void uart_util_rx_handler(uart_pkt_t* p_packet) {
 	case uart_ping:
 		ack_value = APP_ACK_SUCCESS;
 		uart_util_send_ack(p_packet, ack_value); //send the ack before pong message
-		//here we shall wait the previous message to be sent, but if the buffers are enough long the two messages will fit
+//		//here we shall wait the previous message to be sent, but if the buffers are enough long the two messages will fit
 		send_pong(p_packet);
 		return;	//do not send the ack twice
 		break;
@@ -662,6 +686,7 @@ void uart_util_ack_tx_done(void) {
 }
 
 void uart_util_ack_error(ack_wait_t* ack_wait_data) {
+    PRINTF("UART ack error!!!\n");
 	blink_led(ERROR_LED, LED_BLINK_TIMEOUT_MS);
 	m_tx_error = true;
 }
@@ -1017,6 +1042,7 @@ void application_timers_start(void) {
 
 void start_periodic_report(uint32_t timeout_ms) {
 	if (timeout_ms != 0 && timeout_ms < MIN_REPORT_TIMEOUT_MS) {
+	    PRINTF("Non valid value for BLE report timeout!\n");
 		return;
 	}
 
@@ -1037,7 +1063,8 @@ void start_periodic_report(uint32_t timeout_ms) {
 			APP_ERROR_CHECK(err_code);
 			m_periodic_report_timeout = 0;
 		} else {
-			send_neighbors_report();
+	        PRINTF("Sending a single report!\n");
+		    start_procedure(&ble_report);
 		}
 	}
 }
@@ -1045,7 +1072,8 @@ void start_periodic_report(uint32_t timeout_ms) {
 static void report_timeout_handler(void * p_context) {
 	UNUSED_PARAMETER(p_context);
 
-	send_neighbors_report();
+    PRINTF("Sending a periodic report!\n");
+    start_procedure(&ble_report);
 }
 
 static void periodic_timer_timeout_handler(void * p_context) {
@@ -1417,7 +1445,7 @@ static void on_ble_gap_evt_connected(ble_gap_evt_t const * p_gap_evt) {
  */
 static void on_ble_gap_evt_adv_report(ble_gap_evt_t const * p_gap_evt) {
 
-	if(report_procedure_running){ //do not update the network during report, just for safety
+	if(sequential_procedure_is_this_running(&ble_report)){ //do not update the network during report, just for safety
 		return;
 	}
 
@@ -1467,7 +1495,7 @@ static void on_ble_gap_evt_adv_report(ble_gap_evt_t const * p_gap_evt) {
 
 static void scan_stop(void) {
 	if (m_scan_active) {
-//		NRF_LOG_INFO("Stopping scan.\n\r");
+	    PRINTF("Stopping scan\n");
 
 		blink_led(SCAN_ADV_LED, LED_BLINK_TIMEOUT_MS);
 		m_scan_active = false;
@@ -1479,6 +1507,7 @@ static void scan_stop(void) {
 /**@brief Function to start scanning. */
 static void scan_start(void) {
 	if (!m_scan_active) {
+        PRINTF("Starting scan\n");
 //        NRF_LOG_INFO("Starting scan.\n\r");
 		reset_network();
 		blink_led(SCAN_ADV_LED, LED_BLINK_TIMEOUT_MS);
@@ -1491,6 +1520,7 @@ static void scan_start(void) {
 /**@brief Function for starting advertising. */
 static void advertising_stop(void) {
 	if (m_advertising_active) {
+        PRINTF("Stopping advertising\n");
 //		NRF_LOG_INFO("Stopping advertising.\n\r");
 
 		blink_led(SCAN_ADV_LED, LED_BLINK_TIMEOUT_MS);
@@ -1503,6 +1533,7 @@ static void advertising_stop(void) {
 /**@brief Function for starting advertising. */
 static void advertising_start(void) {
 	if (!m_advertising_active) {
+        PRINTF("Starting advertising\n");
 		ble_gap_adv_params_t const adv_params = { .type = BLE_GAP_ADV_TYPE_ADV_IND, .p_peer_addr = NULL, .fp = BLE_GAP_ADV_FP_ANY, .interval =
 		ADV_INTERVAL, .timeout = 0, };
 
@@ -1521,6 +1552,7 @@ static void set_scan_params(uint8_t scan_active, uint16_t scan_interval, uint16_
 		APP_ERROR_CHECK(err_code);
 	}
 
+    PRINTF("Setting scan params\n");
 	m_scan_param.active = scan_active;
 	m_scan_param.interval = scan_interval;
 	m_scan_param.window = scan_window;
@@ -1899,7 +1931,18 @@ static void wait_for_event(void) {
 	(void) sd_app_evt_wait();
 }
 
+/**@brief Function for initializing the nrf log module.
+ */
+static void log_init(void)
+{
+    ret_code_t err_code = NRF_LOG_INIT(app_timer_cnt_get);
+    APP_ERROR_CHECK(err_code);
+
+    NRF_LOG_DEFAULT_BACKENDS_INIT();
+}
+
 int main(void) {
+    log_init();
 	initialize_leds();
 	timer_init();
 	initialize_uart();
@@ -1926,10 +1969,15 @@ int main(void) {
 
 	application_timers_start();
 
-	send_ready();
+    PRINTF("Running!\n");
+
+	start_procedure(&ready);
 
 	while (1) {
-		wait_for_event();
+        if (NRF_LOG_PROCESS() == false) // Process logs
+        {
+            wait_for_event();
+        }
 	}
 }
 

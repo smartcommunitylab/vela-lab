@@ -18,6 +18,7 @@ $(info $$COMMON_DIR_REL_PATH is: ${COMMON_DIR_REL_PATH})
 
 MODULES+=${COMMON_DIR_REL_PATH}/lib/uart_util
 MODULES+=${COMMON_DIR_REL_PATH}/inc
+MODULES+=${COMMON_DIR_REL_PATH}/lib/sequential_procedures
 
 PROJECT_SOURCEFILES += vela_uart.c
 PROJECT_SOURCEFILES += vela_sender.c

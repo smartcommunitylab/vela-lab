@@ -68,6 +68,7 @@ SRC_FILES += \
   $(SDK_ROOT)/components/drivers_nrf/power/nrf_drv_power.c \
   $(SDK_ROOT)/components/libraries/serial/nrf_serial.c \
   ${COMMON_DIR}/lib/uart_util/uart_util.c \
+  ${COMMON_DIR}/lib/sequential_procedures/sequential_procedures.c
   
 # Include folders common to all targets
 INC_FOLDERS += \
@@ -193,6 +194,7 @@ INC_FOLDERS += \
   $(SDK_ROOT)/components/drivers_nrf/power \
   ${COMMON_DIR}/lib/uart_util \
   ${COMMON_DIR}/inc \
+  ${COMMON_DIR}/lib/sequential_procedures \
 
 # Libraries common to all targets
 LIB_FILES += \
@@ -223,7 +225,7 @@ CFLAGS += -fno-builtin -fshort-enums
 CFLAGS += -DPPI_ENABLED=1
 CFLAGS += -DTIMER_ENABLED=1
 CFLAGS += -DTIMER1_ENABLED=1
-CFLAGS += -DDEBUG
+CFLAGS += -DDEBUG=1
 CFLAGS += -DDISABLE_NEW_LINE_DAV
 CFLAGS += -DEGU_ENABLED=1
 CFLAGS += -DNRF_SERIAL_ENABLED=1
@@ -231,6 +233,11 @@ CFLAGS += -DNRF_QUEUE_ENABLED=1
 CFLAGS += -DPOWER_ENABLED=1
 CFLAGS += -DVERSION_STRING=$(VERSION_STRING)
 CFLAGS += -DUART_ENABLED=1
+CFLAGS += -DNRF_LOG_ENABLED=1 # Use if RTT output is desired.
+CFLAGS += -DNRF_LOG_USES_RTT=1
+CFLAGS += -DNRF_LOG_BACKEND_SERIAL_USES_RTT=1
+CFLAGS += -DNRF_LOG_BACKEND_RTT_ENABLED=1
+CFLAGS += -DNRF_LOG_DEFAULT_LEVEL=4
 #CFLAGS += -DREDIRECT_TO_USB
 
 # C++ flags common to all targets
@@ -250,6 +257,10 @@ ASMFLAGS += -DNRF_SD_BLE_API_VERSION=5
 ASMFLAGS += -DS132
 ASMFLAGS += -DSOFTDEVICE_PRESENT
 ASMFLAGS += -DSWI_DISABLE0
+#ASMFLAGS += -DNRF_LOG_ENABLED=1 # Use if RTT output is desired.
+#ASMFLAGS += -DNRF_LOG_USES_RTT=1
+#ASMFLAGS += -DNRF_LOG_BACKEND_SERIAL_USES_RTT=1
+#ASMFLAGS += -DNRF_LOG_BACKEND_RTT_ENABLED=1
 
 # Linker flags
 LDFLAGS += $(OPT)
