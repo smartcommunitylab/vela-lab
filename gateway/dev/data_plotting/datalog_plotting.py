@@ -11,7 +11,7 @@ splitlines = list()
 packetnumbers = list()
 packetnumbertimes = list()
 for x in range(len(lines)):
-    if 'INFO' in lines[x] and '[New message]' not in lines[x]:
+    if 'INFO' in lines[x] and '[New message]' not in lines[x] and "[Node 135]" in lines[x]:
         line = lines[x].replace(',', '|', 1)
         line_list = line.split('|')
         t_info = line_list[0]
@@ -19,7 +19,7 @@ for x in range(len(lines)):
         line_list[0] = "{0} {1}".format(l_t_info[0], l_t_info[1])
         splitlines.append(line_list)
 
-    elif '[New message]' in lines[x]:
+    elif '[New message]' in lines[x] and "nodeid 135" in lines[x]:
         line_list = lines[x].split()
         timestr = "{0} {1}".format(line_list[0], line_list[1])
         dt = datetime.strptime(timestr, "%Y/%m/%d %H:%M:%S")
@@ -67,6 +67,7 @@ all_soc = list()
 all_lifetime = list()
 all_consumption = list()
 all_voltage = list()
+all_temp = list()
 
 for x in range(len(splitlines)):
     if len(splitlines[x]) > 1:
@@ -80,6 +81,8 @@ for x in range(len(splitlines)):
         all_consumption.append(float(avgcons[2]))
         avgvoltage = splitlines[x][5].split()
         all_voltage.append(float(avgvoltage[3]))
+        avgtemp = splitlines[x][6].split()
+        all_temp.append(float(avgtemp[1]))
 
 plt.figure(figsize=(20, 15))
 
@@ -129,12 +132,11 @@ plt.ylabel('Lost Packets')
 plt.tight_layout()
 
 ax6 = plt.subplot(3, 2, 6)
-plt.title("Packet frequency")
-plt.ylim(0, 1)
-plt.plot_date(packetnumbertimes, pnumtimediff, 'y-')
+plt.title("Temperature")
+plt.plot_date(dates, all_temp, 'y-')
 plt.gcf().autofmt_xdate()
 plt.xlabel('Time')
-plt.ylabel('Time per packet (s)')
+plt.ylabel('Temperature (*C)')
 plt.tight_layout()
 
 plt.setp(ax1.get_xticklabels(), visible=True)

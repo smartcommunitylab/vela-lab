@@ -12,7 +12,7 @@ PROCESS_NAME (vela_sender_process);
 #define MAX_PACKET_BUF              54      // biggest packet size before fragmentation occurs
 #define KEEP_ALIVE_PORT 30000
 
-#define KEEP_ALIVE_INTERVAL 		5
+#define KEEP_ALIVE_INTERVAL 		20
 
 // the event to be raised between the uart and the sender
 process_event_t event_buffer_empty;

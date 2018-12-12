@@ -257,7 +257,7 @@ PROCESS_THREAD(uart_reader_process, ev, data)
             t_msg.pkttype |= input[2];
             t_msg.pktnum++;
             if(t_msg.pktnum == 254) {
-                t_msg.pktnum = 1;
+                t_msg.pktnum = 0;
             }
             t_msg.payload.data_len = size-HEADER_SIZE;
 

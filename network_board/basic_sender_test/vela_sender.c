@@ -150,24 +150,37 @@ trickle_tx(void *ptr, uint8_t suppress)
 }
 
 static struct network_message_t *incoming;
-
+static rpl_dag_t* dag;
 static void
 tcpip_handler(void)
 {
     if(uip_newdata()) {
+    	dag = rpl_get_any_dag();
+    	if(dag != NULL && dag->preferred_parent != NULL) {
+    	    printf("Preferred parent: ");
+    	    uip_debug_ipaddr_print(rpl_get_parent_ipaddr(dag->preferred_parent));
+    	    printf("\n");
+    	}
         incoming = (struct network_message_t *) uip_appdata;
+    	printf("Received new Trickle message, counter: %d, type: %X, payload: %d\n", incoming->pktnum, incoming->pkttype, incoming->payload.p_data[0]);
+
         if(trickle_msg.pktnum == incoming->pktnum) {
             trickle_timer_consistency(&tt);
         }
         else {
-            if(incoming->pktnum > trickle_msg.pktnum){
+            if(incoming->pktnum > trickle_msg.pktnum || (trickle_msg.pktnum - incoming->pktnum > 5)){
                 trickle_msg = *incoming;
             	printf("Received new message, type: %X\n", trickle_msg.pkttype);
             	switch(trickle_msg.pkttype) {
                 case network_request_ping: {
                     ;
                     printf("Ping request\n");
-                    process_post(&cc2650_uart_process, event_ping_requested, &incoming->payload.p_data[0]);
+//                    process_post(&cc2650_uart_process, event_ping_requested, &incoming->payload.p_data[0]);
+                    struct network_message_t response;
+                    response.pkttype = network_respond_ping;
+					response.payload.data_len = 1;
+					response.payload.p_data[0] = 233;
+					send_to_sink(response);
                     break;
                 }
                 case nordic_turn_bt_off: {
@@ -238,6 +251,7 @@ PROCESS_THREAD(vela_sender_process, ev, data) {
     while (1)
     {
         PROCESS_WAIT_EVENT();
+        /*
         if(ev == event_data_ready) {
             eventData = (data_t*)data;
             offset=0; // offset from the begging of the buffer to send next
@@ -292,6 +306,7 @@ PROCESS_THREAD(vela_sender_process, ev, data) {
                 }
             }
         }
+        */
         if(ev == event_pong_received){
             printf("Sending pong\n");
             temp = (uint8_t*)data;

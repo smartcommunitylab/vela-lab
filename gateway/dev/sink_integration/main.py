@@ -57,17 +57,28 @@ btPreviousTime = 0
 btToggleInterval = 1800
 btToggleBool = True
 
-# Data logger
-nameDataLog = "dataLogger"
-timestr = time.strftime("%Y%m%d-%H%M%S")
-filenameDataLog = timestr + "-data.log"
-formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s', datefmt='%Y/%m/%d %H:%M:%S')
-handler = logging.FileHandler(filenameDataLog)
-handler.setFormatter(formatter)
-dataLogger = logging.getLogger(nameDataLog)
+# Loggers
 LOG_LEVEL = logging.DEBUG
+
+formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s', datefmt='%Y/%m/%d %H:%M:%S')
+timestr = time.strftime("%Y%m%d-%H%M%S")
+
+
+nameAppLog = "appLogger"
+filenameAppLog = timestr + "-app.log"
+handler = logging.FileHandler(filenameAppLog)
+handler.setFormatter(formatter)
+appLogger = logging.getLogger(nameAppLog)
+appLogger.setLevel(LOG_LEVEL)
+appLogger.addHandler(handler)
+
+nameDataLog = "dataLogger"
+filenameDataLog = timestr + "-data.log"
+datalog_handler = logging.FileHandler(filenameDataLog)
+datalog_handler.setFormatter(formatter)
+dataLogger = logging.getLogger(nameDataLog)
 dataLogger.setLevel(LOG_LEVEL)
-dataLogger.addHandler(handler)
+dataLogger.addHandler(datalog_handler)
 
 
 @unique
@@ -142,8 +153,8 @@ def decode_payload(seqid, size):
             messageSequenceList[seqid].datacounter += SINGLE_REPORT_SIZE
     except ValueError:
         print("[DecodePayload] Payload size to decode is smaller than available bytes")
-        dataLogger.warning("[Node {0}] Requested to decode more bytes than available. Requested: {1}"
-                           .format(messageSequenceList[seqid].nodeid, size))
+        appLogger.warning("[Node {0}] Requested to decode more bytes than available. Requested: {1}"
+                          .format(messageSequenceList[seqid].nodeid, size))
     finally:
         return
 
@@ -162,8 +173,8 @@ def check_for_packetdrop(nodeid, pktnum):
         if nodeDropInfoList[x].nodeid == nodeid:
             global dropCounter
             dropCounter += pktnum - nodeDropInfoList[x].lastpkt - 1
-            dataLogger.debug("[Node {0}] Dropped {1} packet(s). Latest packet: {2}, new packet: {3}"
-                             .format(nodeid, pktnum - nodeDropInfoList[x].lastpkt - 1, nodeDropInfoList[x].lastpkt,
+            appLogger.debug("[Node {0}] Dropped {1} packet(s). Latest packet: {2}, new packet: {3}"
+                            .format(nodeid, pktnum - nodeDropInfoList[x].lastpkt - 1, nodeDropInfoList[x].lastpkt,
                                      pktnum))
             return
     nodeDropInfoList.append(NodeDropInfo(nodeid, pktnum))
@@ -186,7 +197,7 @@ try:
                 bytesWaiting = ser.in_waiting
             except Exception as e:
                 print("Serial Port input exception:", e)
-                dataLogger.error("Serial Port input exception: {0}".format(e))
+                appLogger.error("Serial Port input exception: {0}".format(e))
                 bytesWaiting = 0
                 ser.close()
                 time.sleep(1)
@@ -203,33 +214,35 @@ try:
                         pkttype = int(ser.read(2).hex(), 16)
                         pktnum = int.from_bytes(ser.read(1), "little", signed=False)
                         print("[New message] nodeid ", nodeid, ", pkttype ", hex(pkttype), ", pktnum ", pktnum)
-                        dataLogger.info("[New message] nodeid {0}, pkttype {1} pktnum {2}".format(nodeid, hex(pkttype), pktnum))
+                        appLogger.info("[New message] nodeid {0}, pkttype {1} pktnum {2}".format(nodeid, hex(pkttype), pktnum))
                         check_for_packetdrop(nodeid, pktnum)
 
                         if PacketType.network_new_sequence == pkttype:
                             datalen = int(ser.read(2).hex(), 16)
                             if datalen % SINGLE_REPORT_SIZE != 0:
                                 print("Invalid datalength: ", datalen)
-                                dataLogger.warning("[Node {0}] invalid sequencelength: {1}".format(nodeid, datalen))
+                                appLogger.warning("[Node {0}] invalid sequencelength: {1}".format(nodeid, datalen))
                             seqid = get_sequence_index(nodeid)
                             if seqid != -1:
                                 if messageSequenceList[seqid].lastPktnum == pktnum:
                                     print("Duplicate packet from node ", str(nodeid), " with pktnum ",
                                           str(pktnum))
-                                    dataLogger.info("[Node {0}] duplicate packet, pktnum: {1}".format(nodeid, pktnum))
+                                    appLogger.info("[Node {0}] duplicate packet, pktnum: {1}".format(nodeid, pktnum))
                                     # remove duplicate packet data from uart buffer
                                     remainingDataSize = messageSequenceList[seqid].sequenceSize - messageSequenceList[seqid].datacounter
                                     if remainingDataSize >= MAX_PACKET_PAYLOAD:
-                                        ser.read(MAX_PACKET_PAYLOAD)
+                                        dataLogger.info("[Node {0}] {1}{2}{3}".format(nodeid, hex(pkttype), hex(pktnum),
+                                                                                      ser.read(MAX_PACKET_PAYLOAD)))
                                     else:
-                                        ser.read(remainingDataSize)
+                                        dataLogger.info("[Node {0}] {1}{2}{3}".format(nodeid, hex(pkttype), hex(pktnum),
+                                                                                      ser.read(remainingDataSize)))
                                     continue
                                 else:
                                     print("Previous sequence has not been completed yet")
                                     # TODO what to do now? For now, assume last packet was dropped
                                     # TODO send received data instead of deleting it all
-                                    dataLogger.info("[Node {0}] Received new sequence packet "
-                                                    "while old sequence has not been completed".format(nodeid))
+                                    appLogger.info("[Node {0}] Received new sequence packet "
+                                                   "while old sequence has not been completed".format(nodeid))
                                     del messageSequenceList[seqid]
 
                             messageSequenceList.append(MessageSequence(datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S'),
@@ -239,11 +252,24 @@ try:
 
                             if messageSequenceList[seqid].sequenceSize >= MAX_PACKET_PAYLOAD:
                                 decode_payload(seqid, MAX_PACKET_PAYLOAD)
+                                dataString = ""
+                                i = 6
+                                for x in range(5):
+                                    dataString += messageSequenceList[seqid].datalist[len(messageSequenceList[seqid].datalist) - i]
+                                    i -= 1
+                                dataLogger.info("[Node {0}] {1}{2}{3}".format(nodeid, hex(pkttype), hex(pktnum), dataString))
                             else:
                                 decode_payload(seqid, datalen)
+                                dataString = ""
+                                i = datalen / 9 + 1
+                                for x in range(datalen / 9):
+                                    dataString += messageSequenceList[seqid].datalist[len(messageSequenceList[seqid].datalist) - i]
+                                    i -= 1
+                                dataLogger.info("[Node {0}] {1}{2}{3}".format(nodeid, hex(pkttype), hex(pktnum), dataString))
+
                                 # TODO Only 1 packet in this sequence, so upload this packet already
                                 print("Single packet sequence completed")
-                                dataLogger.debug("[Node {0}] Single packet sequence complete".format(nodeid))
+                                appLogger.debug("[Node {0}] Single packet sequence complete".format(nodeid))
                                 del messageSequenceList[seqid]
 
                         elif PacketType.network_active_sequence == pkttype:
@@ -273,6 +299,13 @@ try:
                             messageSequenceList[seqid].latestTime = time.time()
                             decode_payload(seqid, MAX_PACKET_PAYLOAD)
 
+                            dataString = ""
+                            i = 6
+                            for x in range(5):
+                                dataString += messageSequenceList[seqid].datalist[len(messageSequenceList[seqid].datalist) - i]
+                                i -= 1
+                            dataLogger.info("[Node {0}] {1}{2}{3}".format(nodeid, hex(pkttype), hex(pktnum), dataString))
+
                         elif PacketType.network_last_sequence == pkttype:
                             # TODO upload data before deleting element from list
                             print("Full message defragmented")
@@ -282,38 +315,74 @@ try:
                                                                            pktnum, 0, 0, [], time.time()))
                                 seqid = len(messageSequenceList) - 1
                                 decode_payload(seqid, MAX_PACKET_PAYLOAD)
+                                dataString = ""
+                                try:
+                                    decode_payload(seqid, MAX_PACKET_PAYLOAD)
+                                    i = 6
+                                    for x in range(5):
+                                        dataString += messageSequenceList[seqid].datalist[
+                                            len(messageSequenceList[seqid].datalist) - i]
+                                        i -= 1
+                                except IndexError:
+                                    pass
+                                finally:
+                                    dataLogger.info("[Node {0}] {1}{2}{3}".format(nodeid, hex(pkttype), hex(pktnum), dataString))
+
                                 print("Message defragmented but header files were never received")
                                 print("Nodeid: ", str(messageSequenceList[seqid].nodeid), " datacounter: ",
                                       str(messageSequenceList[seqid].datacounter), " ContactData elements: ",
                                       str(len(messageSequenceList[seqid].datalist)))
                                 headerDropCounter += 1
-                                dataLogger.info("[Node {0}] Message defragmented but header files were never received"
+                                appLogger.info("[Node {0}] Message defragmented but header files were never received"
                                                 " -  datacounter: {1} ContactData elements: {2}"
-                                                .format(nodeid, messageSequenceList[seqid].datacounter,
+                                               .format(nodeid, messageSequenceList[seqid].datacounter,
                                                         len(messageSequenceList[seqid].datalist)))
                                 del messageSequenceList[seqid]
 
                             elif messageSequenceList[seqid].sequenceSize == -1:
                                 decode_payload(seqid, MAX_PACKET_PAYLOAD)
+
+                                dataString = ""
+                                try:
+                                    decode_payload(seqid, MAX_PACKET_PAYLOAD)
+                                    i = 6
+                                    for x in range(5):
+                                        dataString += messageSequenceList[seqid].datalist[
+                                            len(messageSequenceList[seqid].datalist) - i]
+                                        i -= 1
+                                except IndexError:
+                                    pass
+                                finally:
+                                    dataLogger.info(
+                                        "[Node {0}] {1}{2}{3}".format(nodeid, hex(pkttype), hex(pktnum), dataString))
+
                                 print("Message defragmented but header files were never received")
                                 print("Nodeid: ", messageSequenceList[seqid].nodeid, " datacounter: ",
                                       messageSequenceList[seqid].datacounter, " ContactData elements: ",
                                       len(messageSequenceList[seqid].datalist))
-                                dataLogger.info("[Node {0}] Message defragmented but header files were never received"
+                                appLogger.info("[Node {0}] Message defragmented but header files were never received"
                                                 " -  datacounter: {1} ContactData elements: "
-                                                .format(nodeid, messageSequenceList[seqid].datacounter,
+                                               .format(nodeid, messageSequenceList[seqid].datacounter,
                                                         len(messageSequenceList[seqid].datalist)))
                                 del messageSequenceList[seqid]
 
                             else:
                                 remainingDataSize = messageSequenceList[seqid].sequenceSize - messageSequenceList[seqid].datacounter
                                 decode_payload(seqid, remainingDataSize)
+                                dataString = ""
+                                i = remainingDataSize / 9 + 1
+                                for x in range(int(remainingDataSize / 9)):
+                                    dataString += messageSequenceList[seqid].datalist[
+                                        len(messageSequenceList[seqid].datalist) - i]
+                                    i -= 1
+                                dataLogger.info(
+                                    "[Node {0}] {1}{2}{3}".format(nodeid, hex(pkttype), hex(pktnum), dataString))
                                 if messageSequenceList[seqid].sequenceSize != messageSequenceList[seqid].datacounter:
                                     print("ERROR: Messagesequence ended, but datacounter is not equal to sequencesize")
                                 print("Nodeid: ", str(messageSequenceList[seqid].nodeid), " sequencesize: ",
                                       str(messageSequenceList[seqid].sequenceSize), " ContactData elements: ",
                                       str(len(messageSequenceList[seqid].datalist)))
-                                dataLogger.warning("[Node {0}] Messagesequence ended, but datacounter is not equal to sequencesize -  datacounter: {1}"
+                                appLogger.warning("[Node {0}] Messagesequence ended, but datacounter is not equal to sequencesize -  datacounter: {1}"
                                                    " ContactData elements: {2}".format(nodeid, messageSequenceList[seqid].datacounter,
                                                                                        len(messageSequenceList[seqid].datalist)))
                                 del messageSequenceList[seqid]
@@ -321,7 +390,8 @@ try:
                         elif PacketType.network_bat_data == pkttype:
                             batCapacity = int.from_bytes(ser.read(2), byteorder="big", signed=False)
                             batSoC = int.from_bytes(ser.read(2), byteorder="big", signed=False) / 10
-                            batELT = str(timedelta(minutes=int.from_bytes(ser.read(2), byteorder="big", signed=False)))[:-3] # Convert minutes to hours and minutes
+                            bytesELT = ser.read(2)
+                            batELT = str(timedelta(minutes=int.from_bytes(bytesELT, byteorder="big", signed=False)))[:-3] # Convert minutes to hours and minutes
                             batAvgConsumption = int.from_bytes(ser.read(2), byteorder="big", signed=True) / 10
                             batAvgVoltage = int.from_bytes(ser.read(2), byteorder="big", signed=False)
                             batAvgTemp = int.from_bytes(ser.read(2), byteorder="big", signed=True) / 100
@@ -329,32 +399,37 @@ try:
                             print("Received bat data, Capacity: {0} mAh | State Of Charge: {1}% | Estimated Lifetime: {2} (hh:mm) | "
                                   "Average Consumption: {3} mA | Average Battery Voltage: {4} | Average Temperature {5}"
                                   .format(batCapacity, batSoC, batELT, batAvgConsumption, batAvgVoltage, batAvgTemp))
-                            dataLogger.info("[Node {0}] Received bat data, Capacity: {1} mAh | State Of Charge: {2}% | Estimated Lifetime: {3} (hh:mm) | "
+                            appLogger.info("[Node {0}] Received bat data, Capacity: {1} mAh | State Of Charge: {2}% | Estimated Lifetime: {3} (hh:mm) | "
                                             "Average Consumption: {4} mA | Average Battery Voltage: {5} mV | Temperature: {6} *C"
-                                            .format(nodeid, batCapacity, batSoC, batELT, batAvgConsumption,
+                                           .format(nodeid, batCapacity, batSoC, batELT, batAvgConsumption,
                                                     batAvgVoltage, batAvgTemp))
+                            dataLogger.info("[Node {0}] {1}{2}{3}{4}{5}{6}{7}{8}".format(nodeid, pkttype, pktnum, hex(batCapacity), hex(int(batSoC * 10)),
+                                                                                            bytesELT, hex(int(batAvgConsumption * 10)),
+                                                                                            hex(batAvgVoltage), hex(batAvgTemp)))
 
                         elif PacketType.network_respond_ping == pkttype:
                             payload = int(ser.read(1).hex(), 16)
-                            ser.read(20)
+                            dataLogger.info("[Node {0}]{1}{2}{3}".format(nodeid, hex(pkttype), hex(pktnum), hex(payload)))
                             if payload == 233:
                                 print("Node id ", nodeid, " pinged succesfully!")
-                                dataLogger.debug("[Node {0}] pinged succesfully!".format(nodeid))
+                                appLogger.debug("[Node {0}] pinged succesfully!".format(nodeid))
                                 if nodeid not in ActiveNodes:
                                     ActiveNodes.append(nodeid)
                             else:
                                 print("Wrong ping payload: {0}".format(payload))
-                                dataLogger.info("[Node {0}] pinged wrong payload: ".format(nodeid, payload))
+                                appLogger.info("[Node {0}] pinged wrong payload: ".format(nodeid, payload))
 
                         elif PacketType.network_keep_alive == pkttype:
                             cap = int.from_bytes(ser.read(2), byteorder="big", signed=False)
                             soc = int.from_bytes(ser.read(2), byteorder="big", signed=False)
                             print("Received keep alive packet from node ", nodeid, "with cap & soc: ", cap, " ", soc)
-                            dataLogger.info("[Node {0}] Received keep alive message with capacity: {1} and SoC: {2}".format(nodeid, cap, soc))
+                            appLogger.info("[Node {0}] Received keep alive message with capacity: {1} and SoC: {2}".format(nodeid, cap, soc))
+                            dataLogger.info("[Node {0}]{1}{2}{3}{4}".format(nodeid, hex(pkttype), hex(pktnum), hex(cap), hex(soc)))
 
                         else:
                             print("Unknown packettype: ", pkttype)
-                            dataLogger.warning("[Node {0}] Received unknown packettype: {1}".format(nodeid, hex(pkttype)))
+                            appLogger.warning("[Node {0}] Received unknown packettype: {1}".format(nodeid, hex(pkttype)))
+                            dataLogger.info("[Node {0}]{1}{2}".format(nodeid, hex(pkttype), hex(pktnum)))
 
         currentTime = time.time()
         if currentTime - previousTimeTimeout > timeoutInterval:
@@ -366,7 +441,7 @@ try:
                     del messageSequenceList[x - deletedCounter]
                     deletedCounter += 1
                     print("Deleted seqid {0} because of timeout".format(x + deletedCounter))
-                    dataLogger.debug("Node Sequence timed out")
+                    appLogger.debug("Node Sequence timed out")
 
         if currentTime - btPreviousTime > btToggleInterval:
             ptype = 0
@@ -381,26 +456,6 @@ try:
             send_serial_msg(2, ptype, 0)
             btPreviousTime = currentTime
 
-        #     if btToggleBool:
-        #         print("Turning bt off")
-        #         ptype = PacketType.nordic_turn_bt_off
-        #         btToggleBool = False
-        #     else:
-        #         print("Turning bt on")
-        #         ptype = PacketType.nordic_turn_bt_on
-        #         btToggleBool = True
-        #
-        #     size = 2
-        #     bsize = size.to_bytes(length=1, byteorder='big', signed=False)
-        #     bptype = ptype.to_bytes(length=2, byteorder='big', signed=False)
-        #     msg = bsize
-        #     msg += bptype
-        #     ser.write(msg)
-        #     endchar = 0x0a
-        #     ser.write(endchar.to_bytes(1, byteorder='big', signed=False))
-        #
-        #     btPreviousTime = currentTime
-
 
 except UnicodeDecodeError as e:
     pass
@@ -413,12 +468,12 @@ except KeyboardInterrupt:
     print("Packet delivery rate: ", 100 * (deliverCounter / (deliverCounter + dropCounter)))
     print("Messages defragmented: ", defragmentationCounter)
 
-    dataLogger.info("-----Packet delivery stats summary-----")
-    dataLogger.info("Total packets delivered: {0}".format(deliverCounter))
-    dataLogger.info("Total packets dropped: {0}".format(dropCounter))
-    dataLogger.info("Total header packets dropped: {0}".format(headerDropCounter))
-    dataLogger.info("Packet delivery rate: {0}".format(100 * (deliverCounter / (deliverCounter + dropCounter))))
-    dataLogger.info("Messages defragmented: {0}".format(defragmentationCounter))
+    appLogger.info("-----Packet delivery stats summary-----")
+    appLogger.info("Total packets delivered: {0}".format(deliverCounter))
+    appLogger.info("Total packets dropped: {0}".format(dropCounter))
+    appLogger.info("Total header packets dropped: {0}".format(headerDropCounter))
+    appLogger.info("Packet delivery rate: {0}".format(100 * (deliverCounter / (deliverCounter + dropCounter))))
+    appLogger.info("Messages defragmented: {0}".format(defragmentationCounter))
     raise
 
 finally:

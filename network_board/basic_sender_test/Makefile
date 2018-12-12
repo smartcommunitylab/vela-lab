@@ -23,9 +23,9 @@ PROJECT_SOURCEFILES += vela_sender.c
 PROJECT_SOURCEFILES += sink_receiver.c
 
 TARGET ?= srf06-cc26xx
-BOARD=launchpad/cc1350
+#BOARD=launchpad/cc1350
 #BOARD=launchpad_vela/cc2650
-#BOARD=launchpad/cc2650
+BOARD=launchpad/cc2650
 
 BSL_FLAGS += -b 115200
 
