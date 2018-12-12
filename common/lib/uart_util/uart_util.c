@@ -40,7 +40,7 @@ uint8_t is_an_ack(uart_pkt_t* p_packet);
 uint8_t uart_util_ack_check(uart_pkt_t* p_packet);
 static void stop_wait_for_ack(void);
 #ifdef CONTIKI
-void enable_uart_flow_control(void);
+static void enable_uart_flow_control(void);
 #endif
 #ifndef CONTIKI
 static void sleep_handler(void);
@@ -94,7 +94,7 @@ uint8_t to_hex(uint8_t i){
 	return (i <= 9 ? '0' + i : 'A' - 10 + i);
 }
 
-uint32_t hex_array_to_uint8(uint8_t *p_hex_data, uint16_t len, uint8_t* p_byte_data){
+static uint32_t hex_array_to_uint8(uint8_t *p_hex_data, uint16_t len, uint8_t* p_byte_data){
 	if(p_hex_data == NULL || len == 0 || p_byte_data == 0){
 		return 0;
 	}
@@ -105,7 +105,7 @@ uint32_t hex_array_to_uint8(uint8_t *p_hex_data, uint16_t len, uint8_t* p_byte_d
 	return i;
 }
 
-uint32_t uint8_to_hex_array(uint8_t *p_byte_data, uint32_t len, uint8_t* p_hex_data, uint8_t max_len) {
+static uint32_t uint8_to_hex_array(uint8_t *p_byte_data, uint32_t len, uint8_t* p_hex_data, uint8_t max_len) {
 	if(p_byte_data == NULL || len == 0 || max_len == 0){
 		return 0;
 	}
@@ -117,11 +117,11 @@ uint32_t uint8_to_hex_array(uint8_t *p_byte_data, uint32_t len, uint8_t* p_hex_d
 	return str_i;
 }
 
-uint8_t is_start_sequence(uint8_t *data){
+static uint8_t is_start_sequence(uint8_t *data){
 	return data[0] == UART_PKT_START_SYMBOL; //it may search on multiple array position, for now keep it simple and process one char at the time
 }
 
-uint8_t is_end_sequence(uint8_t *data){
+static uint8_t is_end_sequence(uint8_t *data){
 #ifndef CONTIKI
 	return data[0] == UART_PKT_END_SYMBOL; //it may search on multiple array position, for now keep it simple and process one char at the time
 #else
@@ -130,7 +130,7 @@ uint8_t is_end_sequence(uint8_t *data){
 }
 
 #ifdef CONTIKI
-uint32_t contiki_serial_read(uint8_t *source, uint8_t *dest, uint16_t max_len, size_t *written_size){
+static uint32_t contiki_serial_read(uint8_t *source, uint8_t *dest, uint16_t max_len, size_t *written_size){
 	if(max_len >= 1){
 		written_size[0] = 1;
 		dest[0] = source[0];
@@ -356,10 +356,10 @@ uint8_t is_an_ack(uart_pkt_t* p_packet){
 }
 
 #ifdef CONTIKI
-void ack_timeout_handler(void *ptr){
+static void ack_timeout_handler(void *ptr){
 	ctimer_stop(&m_ack_timer);
 #else
-void ack_timeout_handler(){
+static void ack_timeout_handler(){
 #endif
 	if (m_ack_wait.ack_waiting) {
 		ack_wait_t old_wait = m_ack_wait; //stop_wait_for_ack() resets the m_ack_wait variable. So we store a temporary version to pass it to uart_util_ack_error(...)
@@ -407,7 +407,7 @@ static void start_wait_for_ack(uint32_t timeout, uart_pkt_t *p_paket){ //timeout
 }
 
 #ifdef CONTIKI
-unsigned int uart1_send_bytes(const unsigned char *s, unsigned int len)
+static unsigned int uart1_send_bytes(const unsigned char *s, unsigned int len)
 {
   unsigned int i = 0;
 
@@ -510,7 +510,7 @@ void uart_util_send_ack(uart_pkt_t* p_packet, uint8_t error_code){
 }
 
 #ifdef CONTIKI
-void enable_uart_flow_control(void){
+static void enable_uart_flow_control(void){
 
 	/* disable the UART */
     ti_lib_uart_disable(UART0_BASE);
@@ -539,7 +539,7 @@ void enable_uart_flow_control(void){
 	ti_lib_uart_enable(UART0_BASE);
 }
 
-void update_isr_priority() {
+static void update_isr_priority() {
     /* disable the UART */
     ti_lib_uart_disable(UART0_BASE);
 

@@ -28,8 +28,19 @@
 #include "vela_uart.h"
 #include "vela_sender.h"
 #include "network_messages.h"
+#include "sequential_procedures.h"
 
 #define NORDIC_WATCHDOG_ENABLED						1
+
+#ifdef DEBUG
+#undef DEBUG
+#endif
+#define DEBUG 1
+#if DEBUG
+#define PRINTF(...) printf(__VA_ARGS__)
+#else
+#define PRINTF(...)
+#endif
 
 PROCESS(cc2650_uart_process, "cc2650 uart process");
 
@@ -49,7 +60,7 @@ typedef enum{
 #define DEFAULT_SCAN_INTERVAL       3520       /**< Scan interval between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
 #define DEFAULT_SCAN_WINDOW         1920     /**< Scan window between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
 #define DEFAULT_TIMEOUT             0
-#define DEFAULT_REPORT_TIMEOUT_MS   101000
+#define DEFAULT_REPORT_TIMEOUT_MS   60000
 
 /** Converts a macro argument into a character constant.
  */
@@ -73,45 +84,24 @@ static uint16_t scan_window = DEFAULT_SCAN_WINDOW;     /**< Scan window between 
 static uint16_t timeout = DEFAULT_TIMEOUT;            /**< Scan timeout between 0x0001 and 0xFFFF in seconds, 0x0000 disables timeout. */
 static uint32_t report_timeout_ms = DEFAULT_REPORT_TIMEOUT_MS;
 
-typedef enum{
-    stopped,
-    running,
-    executed,
-} procedure_state_t;
+static uint32_t report_ready(data_t *p_data);
+static uint32_t report_rx_handler(uart_pkt_t* p_packet, report_type_t m_report_type );
 
-typedef void (*m_f_ptr_t)(void);
-
-typedef struct{
-    uint8_t i;
-    m_f_ptr_t * action;
-    uint8_t size;
-    procedure_state_t state;
-    char name[];
-}procedure_t;
-
-static procedure_t* running_procedure=NULL;
-
-#define PROCEDURE(name, ...) void (*name##_sequence[])(void)={__VA_ARGS__}; \
-                            procedure_t name={0, name##_sequence, sizeof(name##_sequence)/sizeof(m_f_ptr_t) ,stopped, STRINGIFY(name)}
-
-uint32_t report_ready(data_t *p_data);
-uint32_t report_rx_handler(uart_pkt_t* p_packet, report_type_t m_report_type );
-
-void ping_timeout_handler(void *ptr);
+static void ping_timeout_handler(void *ptr);
 #if NORDIC_WATCHDOG_ENABLED
-void nordic_watchdog_handler(void *ptr);
+static void nordic_watchdog_handler(void *ptr);
 #endif
 
 void reset_nodric(void);
 
-void send_ping(void);
-void send_set_bt_scan_on(void);
-void send_set_bt_scan_off(void);
-void send_set_bt_scan_params(void);
-void send_ready(void);
-void send_reset(void);
-void request_periodic_report_to_nordic(void);
-void stop_periodic_report_to_nordic(void);
+static uint8_t send_ping(void);
+static uint8_t send_set_bt_scan_on(void);
+static uint8_t send_set_bt_scan_off(void);
+static uint8_t send_set_bt_scan_params(void);
+static uint8_t send_ready(void);
+static uint8_t send_reset(void);
+static uint8_t request_periodic_report_to_nordic(void);
+static uint8_t stop_periodic_report_to_nordic(void);
 
 void uart_util_rx_handler(uart_pkt_t* p_packet);
 void uart_util_ack_tx_done(void);
@@ -119,6 +109,7 @@ extern void uart_util_ack_error(ack_wait_t* ack_wait_data);
 
 PROCEDURE(bluetooth_on, &send_set_bt_scan_params, &send_set_bt_scan_on, &request_periodic_report_to_nordic);
 PROCEDURE(bluetooth_off, &send_set_bt_scan_off, &stop_periodic_report_to_nordic);
+PROCEDURE(ready,&send_ready);
 
 //ALM -- called to start this as a contiki THREAD
 void vela_uart_init() {
@@ -129,7 +120,7 @@ void vela_uart_init() {
 }
 
 
-uint32_t report_ready(data_t *p_data){
+static uint32_t report_ready(data_t *p_data){
 	//PROCESS REPORT: return APP_ACK_SUCCESS as soon as possible
 	process_post(&vela_sender_process, event_data_ready, p_data);
 #if NORDIC_WATCHDOG_ENABLED
@@ -140,7 +131,7 @@ uint32_t report_ready(data_t *p_data){
 static uint16_t buff_free_from = 0;
 static uint32_t ret = APP_ERROR_COMMAND_NOT_VALID;
 
-uint32_t report_rx_handler(uart_pkt_t* p_packet, report_type_t m_report_type ){
+static uint32_t report_rx_handler(uart_pkt_t* p_packet, report_type_t m_report_type ){
 
 	switch(m_report_type){
 	case start_of_data:
@@ -182,17 +173,18 @@ uint32_t report_rx_handler(uart_pkt_t* p_packet, report_type_t m_report_type ){
 	return ret;
 }
 
-void ping_timeout_handler(void *ptr){
+static void ping_timeout_handler(void *ptr){
 	ctimer_reset(&m_ping_timer);
 
 	send_ping();
 }
 
 #if NORDIC_WATCHDOG_ENABLED
-void nordic_watchdog_handler(void *ptr){
+static void nordic_watchdog_handler(void *ptr){
 	nordic_watchdog_value++;
 
-	if(nordic_watchdog_value > 5){
+	if(nordic_watchdog_value > 3){
+	    PRINTF("Nordic didn't respond, I'm resetting myself!\n");
 		while(1){ //Stay here. The reset of the mcu will be triggered by the watchdog timer initialized into contiki-main.c
 		}
 	}else{
@@ -203,42 +195,8 @@ void nordic_watchdog_handler(void *ptr){
 }
 #endif
 
-uint8_t procedure_start(procedure_t *m_procedure){
-    printf("Starting procedure \"%s\"\n",m_procedure->name);
-    if(running_procedure->state != running){
-        running_procedure = m_procedure;
-        running_procedure->state=running;
-        running_procedure->i=0;
-        if(!uart_util_is_waiting_ack()){//start the procedure only if no ack is pending, otherwise prepare it, it will start as soon the ack is returned
-            (*running_procedure->action[running_procedure->i])();
-            (running_procedure->i)++;
-        }
-        return 1;
-    }else{
-        return 0;
-    }
-}
-
-void procedure_execute_action(){
-    if(running_procedure != NULL && running_procedure->state != executed){
-        if(running_procedure->i < running_procedure->size){
-            printf("Stepping on procedure \"%s\": action number %u\n",running_procedure->name,running_procedure->i);
-            (*running_procedure->action[running_procedure->i])();
-            (running_procedure->i)++;
-        }else{
-            running_procedure->state=executed;
-            printf("Procedure \"%s\" exectuted!\n",running_procedure->name);
-        }
-    }
-}
-
-void procedure_retry(){
-    running_procedure->state=running;
-    (*running_procedure->action[running_procedure->i])();
-}
-
-uint8_t procedure_is_running(){
-    return running_procedure->state==running;
+static uint8_t start_procedure(procedure_t *m_procedure){
+    return sequential_procedure_start(m_procedure, uart_util_is_waiting_ack()); //if we are waiting an ack start use the delayed start
 }
 
 #define RESET_PIN_IOID			IOID_1
@@ -251,7 +209,7 @@ void reset_nodric(void){
 
 
 //example of use of uart_util_send. This function is called with a timer and send a packet to the UART
-void send_ping(void) {
+static uint8_t send_ping(void) {
 /*  CREATE DUMMY UINT8 ARRAY   */
 #if PING_PACKET_SIZE != 0
 	static uint8_t payload[PING_PACKET_SIZE];
@@ -271,9 +229,11 @@ void send_ping(void) {
 #endif
 	/*  SEND THE PACKET  */
 	uart_util_send_pkt(&packet);
+
+	return 0;
 }
 
-void send_ping_payload(uint8_t ping_payload) {
+static void send_ping_payload(uint8_t ping_payload) {
     static uart_pkt_t ping_packet;
     static uint8_t buf[1];
     buf[0] = ping_payload;
@@ -283,7 +243,7 @@ void send_ping_payload(uint8_t ping_payload) {
     uart_util_send_pkt(&ping_packet);
 }
 
-static void send_pong(uart_pkt_t* p_packet) {
+static uint8_t send_pong(uart_pkt_t* p_packet) {
 	if(p_packet->payload.data_len ){
 		static uint8_t pong_payload[MAX_PING_PAYLOAD];
 		if(p_packet->payload.data_len > MAX_PING_PAYLOAD){
@@ -305,9 +265,10 @@ static void send_pong(uart_pkt_t* p_packet) {
 
 		uart_util_send_pkt(&pong_packet);
 	}
+    return 0;
 }
 
-void send_set_bt_scan_on(void) {
+static uint8_t send_set_bt_scan_on(void) {
 	static uart_pkt_t pong_packet;
 	static uint8_t payload[1];
 	pong_packet.payload.p_data = payload;
@@ -317,10 +278,12 @@ void send_set_bt_scan_on(void) {
 	payload[0] = 1;
 
 	uart_util_send_pkt(&pong_packet);
+
+	return 0;
 }
 
-void send_set_bt_scan_off(void) {
-	printf("Turning bt off\n");
+static uint8_t send_set_bt_scan_off(void) {
+	PRINTF("Turning bt off\n");
 	static uart_pkt_t pong_packet;
 	static uint8_t payload[1];
 	pong_packet.payload.p_data = payload;
@@ -330,9 +293,11 @@ void send_set_bt_scan_off(void) {
 	payload[0] = 0;
 
 	uart_util_send_pkt(&pong_packet);
+
+    return 0;
 }
 
-void send_set_bt_scan_params(void) {
+static uint8_t send_set_bt_scan_params(void) {
 	static uart_pkt_t pong_packet;
 	static uint8_t payload[7];
 	pong_packet.payload.p_data = payload;
@@ -348,9 +313,11 @@ void send_set_bt_scan_params(void) {
 	payload[6] = timeout;
 
 	uart_util_send_pkt(&pong_packet);
+
+    return 0;
 }
 
-void send_ready(void) {
+static uint8_t send_ready(void) {
 
 	static char version_string[] = STRINGIFY(VERSION_STRING);
 
@@ -360,18 +327,22 @@ void send_ready(void) {
 	pong_packet.type = uart_evt_ready;
 
 	uart_util_send_pkt(&pong_packet);
+
+    return 0;
 }
 
-void send_reset(void) {
+static uint8_t send_reset(void) {
 	static uart_pkt_t packet;
 	packet.payload.p_data = NULL;
 	packet.payload.data_len = 0;
 	packet.type = uart_req_reset;
 
 	uart_util_send_pkt(&packet);
+
+    return 0;
 }
 
-void request_periodic_report_to_nordic(void){
+static uint8_t request_periodic_report_to_nordic(void){
 	static uint8_t payload[4];
 	payload[0] = report_timeout_ms >> 24;
 	payload[1] = report_timeout_ms >> 16;
@@ -394,26 +365,30 @@ void request_periodic_report_to_nordic(void){
 	    ctimer_stop(&m_nordic_watchdog_timer);
 	}
 #endif
+
+    return 0;
 }
 
-void stop_periodic_report_to_nordic(void){
+static uint8_t stop_periodic_report_to_nordic(void){
     report_timeout_ms=0;
     request_periodic_report_to_nordic();
+
+    return 0;
 }
 
 #define MAX_ATTEMPTS 3
 void uart_util_ack_error(ack_wait_t* ack_wait_data) {
     if(ack_wait_data != NULL){
-        printf("Uart ack error for packet: 0x%04X\n", (uint16_t)ack_wait_data->waiting_ack_for_pkt_type);
+        PRINTF("Uart ack error for packet: 0x%04X\n", (uint16_t)ack_wait_data->waiting_ack_for_pkt_type);
     }else{
-        printf("Uart ack error\n");
+        PRINTF("Uart ack error\n");
     }
 
 	if(no_of_attempts < MAX_ATTEMPTS){
 		no_of_attempts++;
-		procedure_retry();
+		sequential_procedure_retry();
 	}else{
-	    printf("Nordic didn't respond, resetting it!\n");
+	    PRINTF("Nordic didn't respond, resetting it!\n");
 		is_nordic_ready=false;
 		reset_nodric(); //when the nordic will reboot it will generate the uart_ready evt. When the TI receives it, it restart the FSM
 	}
@@ -422,7 +397,7 @@ void uart_util_ack_error(ack_wait_t* ack_wait_data) {
 void uart_util_ack_tx_done(void){
 }
 
-uint32_t pre_ack_uart_rx_handler(uart_pkt_t* p_packet) {
+static uint32_t pre_ack_uart_rx_handler(uart_pkt_t* p_packet) {
     uart_pkt_type_t type;
     type = p_packet->type;
     uint8_t *p_payload_data;
@@ -504,7 +479,7 @@ uint32_t pre_ack_uart_rx_handler(uart_pkt_t* p_packet) {
     return ack_value;
 }
 
-void post_ack_uart_rx_handler(uart_pkt_t* p_packet) {
+static void post_ack_uart_rx_handler(uart_pkt_t* p_packet) {
     uart_pkt_type_t type;
     type = p_packet->type;
     uint8_t *p_payload_data;
@@ -515,7 +490,7 @@ void post_ack_uart_rx_handler(uart_pkt_t* p_packet) {
         if (p_packet->payload.data_len == 5) {
             if (p_payload_data[0] == APP_ACK_SUCCESS) {
                 no_of_attempts = 1;
-                procedure_execute_action();
+                sequential_procedure_execute_action();
             } else {
                 uart_util_ack_error(NULL); //attention, this function can be called also from uart_util when the timeout for ack expires
             }
@@ -523,6 +498,7 @@ void post_ack_uart_rx_handler(uart_pkt_t* p_packet) {
         break;
     case uart_evt_ready:
         is_nordic_ready=true;
+        start_procedure(&ready);
         break;
     case uart_req_reset:
     case uart_req_bt_state:
@@ -553,7 +529,7 @@ void post_ack_uart_rx_handler(uart_pkt_t* p_packet) {
     case uart_pong:
         if (p_packet->payload.data_len == 1)
         {
-            printf("Received pong from nordic, sending it to sink\n");
+            PRINTF("Received pong from nordic, sending it to sink\n");
             static uint8_t data[1];
             data[0] = p_packet->payload.p_data[0];
             process_post(&vela_sender_process, event_pong_received, data);
@@ -610,7 +586,7 @@ PROCESS_THREAD(cc2650_uart_process, ev, data) {
 
 		reset_nodric();
 
-		printf("Nordic board reset, waiting ready message\n");
+		PRINTF("Nordic board reset, waiting ready message\n");
 
 		while (1) {
 		    //send_ping();
@@ -620,16 +596,17 @@ PROCESS_THREAD(cc2650_uart_process, ev, data) {
 				process_uart_rx_data((uint8_t*)data);
 			}
 
-			if(is_nordic_ready && !procedure_is_running()){  //accept events only after the nordic is ready
+			if(is_nordic_ready && !sequential_procedure_is_running()){  //accept events only after the nordic is ready
                 if (ev == event_ping_requested) {
                     uint8_t* payload = (uint8_t*)data;
                     send_ping_payload(*payload);
                 }
                 if(ev == turn_bt_off) {
-                	procedure_start(&bluetooth_off);
+                    start_procedure(&bluetooth_off);
                 }
                 if(ev == turn_bt_on) {
-                	procedure_start(&bluetooth_on);
+                    report_timeout_ms = DEFAULT_REPORT_TIMEOUT_MS;
+                    start_procedure(&bluetooth_on);
                 }
                 if(ev == turn_bt_on_w_params) {
 
@@ -639,19 +616,22 @@ PROCESS_THREAD(cc2650_uart_process, ev, data) {
                     timeout = ((((uint8_t*)data)[5])<<8)+((uint8_t*)data)[6];
                     report_timeout_ms = ((((uint8_t*)data)[7])<<24)+((((uint8_t*)data)[8])<<16)+((((uint8_t*)data)[9])<<8)+((uint8_t*)data)[10];
 
-                    procedure_start(&bluetooth_on);
+                    start_procedure(&bluetooth_on);
                 }
                 if(ev == turn_bt_on_low) {
                     scan_window = DEFAULT_SCAN_WINDOW / 2;     /**< Scan window between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
-                    procedure_start(&bluetooth_on);
+                    report_timeout_ms = DEFAULT_REPORT_TIMEOUT_MS;
+                    start_procedure(&bluetooth_on);
                 }
                 if(ev == turn_bt_on_def) {
                     scan_window = DEFAULT_SCAN_WINDOW;     /**< Scan window between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
-                    procedure_start(&bluetooth_on);
+                    report_timeout_ms = DEFAULT_REPORT_TIMEOUT_MS;
+                    start_procedure(&bluetooth_on);
                 }
                 if(ev == turn_bt_on_high) {
                     scan_window = DEFAULT_SCAN_INTERVAL;     /**< Scan window between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
-                    procedure_start(&bluetooth_on);
+                    report_timeout_ms = DEFAULT_REPORT_TIMEOUT_MS;
+                    start_procedure(&bluetooth_on);
                 }
 
 			}
