@@ -251,7 +251,7 @@ PROCESS_THREAD(vela_sender_process, ev, data) {
     while (1)
     {
         PROCESS_WAIT_EVENT();
-        /*
+
         if(ev == event_data_ready) {
             eventData = (data_t*)data;
             offset=0; // offset from the begging of the buffer to send next
@@ -306,7 +306,6 @@ PROCESS_THREAD(vela_sender_process, ev, data) {
                 }
             }
         }
-        */
         if(ev == event_pong_received){
             printf("Sending pong\n");
             temp = (uint8_t*)data;
