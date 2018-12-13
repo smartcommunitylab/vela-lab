@@ -80,9 +80,9 @@
 #include "nrf_log.h"
 #include "nrf_log_ctrl.h"
 NRF_LOG_MODULE_REGISTER();
-#define PRINTF(...) NRF_LOG_DEBUG(__VA_ARGS__); \
+#define PRINTF(...) NRF_LOG_DEBUG(__VA_ARGS__) /* \
         NRF_LOG_PROCESS()
-
+*/
 
 #define CONN_INTERVAL_DEFAULT           (uint16_t)(MSEC_TO_UNITS(10, UNIT_1_25_MS))    /**< Default connection interval used at connection establishment by central side. */
 
@@ -431,8 +431,6 @@ uint8_t send_neighbors_report(void) {
 
 	uart_pkt_t packet;
 
-	PRINTF("send_neighbors_report(). n=%u\n",n);
-
 	if(!sequential_procedure_is_this_running(&ble_report)){ //sanity check, if the report procedure was not active (maybe it was cancelled) reset n to zero
 	    n=0;
 	}
@@ -463,12 +461,14 @@ uint8_t send_neighbors_report(void) {
 		n = 0;
 		payload_free_from = 0;
 	}
-	uart_util_send_pkt(&packet);
 
 	if (n == 0) {	//this is executed after the transmission of uart_resp_bt_neigh_rep_end
 		reset_network();
 	}
 
+    PRINTF("send_neighbors_report() executed. Returning n=%u\n",n);
+
+    uart_util_send_pkt(&packet);
 	return (uint8_t)n;
 }
 
@@ -1553,7 +1553,7 @@ static void set_scan_params(uint8_t scan_active, uint16_t scan_interval, uint16_
 		APP_ERROR_CHECK(err_code);
 	}
 
-    PRINTF("Setting scan params\n");
+    PRINTF("Setting scan params: scan_active=%u, scan_interval=%u, scan_window=%u, scan_timeout=%u\n",scan_active,scan_interval,scan_window,scan_timeout);
 	m_scan_param.active = scan_active;
 	m_scan_param.interval = scan_interval;
 	m_scan_param.window = scan_window;
