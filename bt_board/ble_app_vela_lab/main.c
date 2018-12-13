@@ -1041,6 +1041,7 @@ void application_timers_start(void) {
 }
 
 void start_periodic_report(uint32_t timeout_ms) {
+    PRINTF("Setting BLE report with timeout %u ms!\n",timeout_ms);
 	if (timeout_ms != 0 && timeout_ms < MIN_REPORT_TIMEOUT_MS) {
 	    PRINTF("Non valid value for BLE report timeout!\n");
 		return;
