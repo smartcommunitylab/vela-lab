@@ -102,9 +102,9 @@ void vela_sender_init() {
 
     simple_udp_register(&unicast_connection, UDP_PORT, NULL, UDP_PORT, receiver);
 
-    process_start(&vela_sender_process, "vela sender process");
+//    process_start(&vela_sender_process, "vela sender process");
     process_start(&trickle_protocol_process, "trickle protocol process");
-    process_start(&keep_alive_process, "keep alive process");
+//    process_start(&keep_alive_process, "keep alive process");
     return;
 }
 
@@ -142,10 +142,9 @@ static uint8_t send_to_sink(struct network_message_t n_msg) {
 static void
 trickle_tx(void *ptr, uint8_t suppress)
 {
-    if(suppress == TRICKLE_TIMER_TX_SUPPRESS) {
-        return;
-    }
+    printf("Trickle TX\n");
     uip_ipaddr_copy(&trickle_conn->ripaddr, &t_ipaddr);
+    uip_udp_packet_send(trickle_conn, &trickle_msg, sizeof(trickle_msg));
     uip_create_unspecified(&trickle_conn->ripaddr);
 }
 
@@ -168,19 +167,24 @@ tcpip_handler(void)
             trickle_timer_consistency(&tt);
         }
         else {
-            if(incoming->pktnum > trickle_msg.pktnum || (trickle_msg.pktnum - incoming->pktnum > 5)){
+            trickle_timer_inconsistency(&tt);
+            printf("At %lu: Trickle inconsistency. Scheduled TX for %lu\n",
+                         (unsigned long)clock_time(),
+                         (unsigned long)(tt.ct.etimer.timer.start +
+            tt.ct.etimer.timer.interval));
+            if(incoming->pktnum > trickle_msg.pktnum || (trickle_msg.pktnum - incoming->pktnum > 10)){
                 trickle_msg = *incoming;
             	printf("Received new message, type: %X\n", trickle_msg.pkttype);
             	switch(trickle_msg.pkttype) {
                 case network_request_ping: {
                     ;
                     printf("Ping request\n");
-//                    process_post(&cc2650_uart_process, event_ping_requested, &incoming->payload.p_data[0]);
-                    struct network_message_t response;
-                    response.pkttype = network_respond_ping;
-					response.payload.data_len = 1;
-					response.payload.p_data[0] = 233;
-					send_to_sink(response);
+                    process_post(&cc2650_uart_process, event_ping_requested, &incoming->payload.p_data[0]);
+//                    struct network_message_t response;
+//                    response.pkttype = network_respond_ping;
+//					response.payload.data_len = 1;
+//					response.payload.p_data[0] = 233;
+//					send_to_sink(response);
                     break;
                 }
                 case nordic_turn_bt_off: {
@@ -224,7 +228,6 @@ tcpip_handler(void)
                     break;
                 }
             }
-            trickle_timer_inconsistency(&tt);
         }
     }
     return;
@@ -254,7 +257,7 @@ PROCESS_THREAD(vela_sender_process, ev, data) {
 
         if(ev == event_data_ready) {
             eventData = (data_t*)data;
-            offset=0; // offset from the begging of the buffer to send next
+            offset=0; // offset from the begining of the buffer to send next
             sizeToSend = (int)eventData->data_len; // amount of data in the buffer not yet sent
             while ( sizeToSend > 0 ) {
                 if (sizeToSend > MAX_REPORT_DATA_SIZE) {
