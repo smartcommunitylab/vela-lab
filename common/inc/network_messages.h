@@ -40,7 +40,7 @@ typedef enum{
 typedef struct
 {
     uint16_t   data_len;    /**< Length of valid data. */
-    uint8_t   p_data[49];      /**< Pointer to data. */
+    uint8_t   p_data[SERIAL_LINE_CONF_BUFSIZE];      /**< Pointer to data. */
 } payload_data_t;
 
 struct network_message_t {
