@@ -118,8 +118,7 @@ static uint8_t send_to_sink(network_message_t n_msg) {
     leds_toggle(LEDS_GREEN);
     if(addr!=NULL){
         PRINTF("sendingsink...\n");
-        //if (++message_number == 254)  message_number = 1; //message_number is between 1 and 253
-        n_msg.pktnum = message_number;
+        message_number++;
         buf[0] = n_msg.pkttype >> 8;
         buf[1] = n_msg.pkttype;
         buf[2] = message_number;
