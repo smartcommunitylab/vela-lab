@@ -148,7 +148,7 @@ trickle_tx(void *ptr, uint8_t suppress)
 {
     PRINTF("Trickle TX\n");
     uip_ipaddr_copy(&trickle_conn->ripaddr, &t_ipaddr);
-    uip_udp_packet_send(trickle_conn, &trickle_msg, sizeof(trickle_msg));
+    uip_udp_packet_send(trickle_conn, &trickle_msg, sizeof(trickle_msg)-sizeof(trickle_msg.payload)+sizeof(trickle_msg.payload.data_len)+trickle_msg.payload.data_len);
     uip_create_unspecified(&trickle_conn->ripaddr);
 }
 

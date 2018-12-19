@@ -18,7 +18,11 @@
 #ifndef NETWORK_MESSAGES_H
 #define NETWORK_MESSAGES_H
 
-#define HEADER_SIZE 2
+
+#define NET_MESS_MSGTYPE_LEN    2
+#define NET_MESS_MSGLEN_LEN     1
+
+#define NET_MESS_BUFF_SIZE      SERIAL_LINE_CONF_BUFSIZE
 
 typedef enum{
 	network_new_sequence = 0x0100,
@@ -39,8 +43,8 @@ typedef enum{
 
 typedef struct
 {
-    uint16_t   data_len;    /**< Length of valid data. */
-    uint8_t   p_data[SERIAL_LINE_CONF_BUFSIZE];      /**< Pointer to data. */
+    uint16_t   data_len;    /**< Length of valid data. in this payload*/
+    uint8_t   p_data[NET_MESS_BUFF_SIZE];      /**< Pointer to data. */
 } payload_data_t;
 
 struct network_message_t {

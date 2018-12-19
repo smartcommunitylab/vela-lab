@@ -40,7 +40,7 @@ static uip_ipaddr_t t_ipaddr;     /* destination: link-local all-nodes multicast
 static struct etimer trickle_et;
 
 static struct network_message_t* incoming;
-static struct network_message_t t_msg;
+static struct network_message_t trickle_msg;
 
 /*---------------------------------------------------------------------------*/
 PROCESS(uart_reader_process, "Uart reader process");
@@ -153,7 +153,7 @@ trickle_tx(void *ptr, uint8_t suppress)
 
     /* Destination IP: link-local all-nodes multicast */
     uip_ipaddr_copy(&trickle_conn->ripaddr, &t_ipaddr);
-    uip_udp_packet_send(trickle_conn, &t_msg, sizeof(t_msg));
+    uip_udp_packet_send(trickle_conn, &trickle_msg, sizeof(trickle_msg)-sizeof(trickle_msg.payload)+sizeof(trickle_msg.payload.data_len)+trickle_msg.payload.data_len);
     /* Restore to 'accept incoming from any IP' */
     uip_create_unspecified(&trickle_conn->ripaddr);
 }
@@ -236,8 +236,9 @@ PROCESS_THREAD(trickle_sender_process, ev, data)
     PROCESS_END();
 }
 
-static uint8_t size;
+static uint8_t payload_size, uart_line_size;
 static uint8_t* input;
+
 
 PROCESS_THREAD(uart_reader_process, ev, data)
 {
@@ -249,19 +250,24 @@ PROCESS_THREAD(uart_reader_process, ev, data)
     while(1) {
         PROCESS_YIELD();
         if(ev == serial_line_event_message){
-            size = ((uint8_t*)data)[0];
-            input = (uint8_t*)data;
 
-            t_msg.pkttype = 0;
-            t_msg.pkttype = ((uint16_t)input[1])<<8;
-            t_msg.pkttype |= input[2];
-            t_msg.pktnum++;
-            if(t_msg.pktnum == 254) {
-                t_msg.pktnum = 0;
+            input=(uint8_t*)data;
+            payload_size=input[0];
+            uart_line_size=payload_size+NET_MESS_MSGTYPE_LEN+NET_MESS_MSGLEN_LEN;
+
+#ifdef ENABLE_UART_ECHO
+            static uint8_t in=0;
+            for(in=0;in<uart_line_size;in++){
+                printf("%02x",input[in]);
             }
-            t_msg.payload.data_len = size-HEADER_SIZE;
+            printf("\n");
+#endif
 
-            memcpy(t_msg.payload.p_data, &input[HEADER_SIZE+1], size - HEADER_SIZE);
+            trickle_msg.pkttype = ((uint16_t) input[1]) << 8;
+            trickle_msg.pkttype |= input[2];
+            trickle_msg.pktnum++;
+            trickle_msg.payload.data_len=payload_size;
+            memcpy(trickle_msg.payload.p_data, &input[NET_MESS_MSGTYPE_LEN+NET_MESS_MSGLEN_LEN], payload_size);
 
             trickle_timer_reset_event(&tt);
             leds_toggle(LEDS_RED);

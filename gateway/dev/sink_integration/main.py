@@ -106,27 +106,27 @@ def handle_user_input():
                         "4 = bt low\n5 = bt_def\n6 = bt_high\n 7 = bt_with_params\n>7 = set keep alive interval in seconds\n"))
             if user_input == 1:
                 payload = 233
-                send_serial_msg(PacketType.network_request_ping, True, payload.to_bytes(1, byteorder="big", signed=False))
+                send_serial_msg(PacketType.network_request_ping, payload.to_bytes(1, byteorder="big", signed=False))
                 print("Sent ping request")
                 appLogger.debug("[SENDING] Requesting ping")
             elif user_input == 2:
-                send_serial_msg(PacketType.nordic_turn_bt_on, False, 0)
+                send_serial_msg(PacketType.nordic_turn_bt_on, None)
                 print("Turning bt on")
                 appLogger.debug("[SENDING] Enable Bluetooth")
             elif user_input == 3:
-                send_serial_msg(PacketType.nordic_turn_bt_off, False, 0)
+                send_serial_msg(PacketType.nordic_turn_bt_off, None)
                 print("Turning bt off")
                 appLogger.debug("[SENDING] Disable Bluetooth")
             elif user_input == 4:
-                send_serial_msg(PacketType.nordic_turn_bt_on_low, False, 0)
+                send_serial_msg(PacketType.nordic_turn_bt_on_low, None)
                 print("Turning bt on low")
                 appLogger.debug("[SENDING] Enable Bluetooth LOW")
             elif user_input == 5:
-                send_serial_msg(PacketType.nordic_turn_bt_on_def, False, 0)
+                send_serial_msg(PacketType.nordic_turn_bt_on_def, None)
                 print("Turning bt on def")
                 appLogger.debug("[SENDING] Enable Bluetooth DEF")
             elif user_input == 6:
-                send_serial_msg(PacketType.nordic_turn_bt_on_high, False, 0)
+                send_serial_msg(PacketType.nordic_turn_bt_on_high, None)
                 print("Turning bt on high")
                 appLogger.debug("[SENDING] Enable Bluetooth HIGH")
             elif user_input == 7:
@@ -143,32 +143,35 @@ def handle_user_input():
                 btimeout = timeout.to_bytes(2, byteorder="big", signed=False)
                 breport_timeout_ms = report_timeout_ms.to_bytes(4, byteorder="big", signed=False)
                 payload = bactive_scan + bscan_interval + bscan_window + btimeout + breport_timeout_ms
-                send_serial_msg(PacketType.nordic_turn_bt_on_w_params, True, payload)
+                send_serial_msg(PacketType.nordic_turn_bt_on_w_params, payload)
             elif user_input > 7:
                 interval = user_input
-                send_serial_msg(PacketType.ti_set_keep_alive, True, interval.to_bytes(1, byteorder="big", signed=False))
+                send_serial_msg(PacketType.ti_set_keep_alive, interval.to_bytes(1, byteorder="big", signed=False))
                 print("Setting keep alive")
         except ValueError:
             print("read failed")
 
 
-def send_serial_msg(pkttype, containsPayload, ser_payload):
-    size = 2
-    if containsPayload:
-        size += len(ser_payload)
-        ser.write(size.to_bytes(length=1, byteorder='big', signed=False))
-        ser.write(pkttype.to_bytes(length=2, byteorder='big', signed=False))
-        ser.write(ser_payload)
-        ser.write(SER_END_CHAR)
-        dataLogger.info("[SENDING] {0} ".format(size.to_bytes(length=1, byteorder='big', signed=False) +
+def send_serial_msg(pkttype, ser_payload):
+	payload_size = 0
+
+	if ser_payload != None:
+		payload_size = len(ser_payload)
+
+	ser.write(payload_size.to_bytes(length=1, byteorder='big', signed=False))
+	ser.write(pkttype.to_bytes(length=2, byteorder='big', signed=False))
+
+	if ser_payload != None:
+		ser.write(ser_payload)
+
+	ser.write(SER_END_CHAR)
+	
+	if ser_payload != None:
+		dataLogger.info("[SENDING] {0} ".format(payload_size.to_bytes(length=1, byteorder='big', signed=False) +
                                                 pkttype.to_bytes(length=2, byteorder='big',signed=False) + ser_payload + SER_END_CHAR))
-
-
-    else:
-        ser.write(size.to_bytes(length=1, byteorder='big', signed=False))
-        ser.write(pkttype.to_bytes(length=2, byteorder='big', signed=False))
-        ser.write(SER_END_CHAR)
-        dataLogger.info("[SENDING] {0} ".format(size.to_bytes(length=1, byteorder='big', signed=False) + pkttype.to_bytes(length=2, byteorder='big', signed=False) + SER_END_CHAR))
+	else:
+		dataLogger.info("[SENDING] {0} ".format(payload_size.to_bytes(length=1, byteorder='big', signed=False) +
+                                                pkttype.to_bytes(length=2, byteorder='big',signed=False) + SER_END_CHAR))
 
 
 def decode_payload(seqid, size):
@@ -436,7 +439,7 @@ try:
                 appLogger.debug("[SENDING] Enable Bluetooth")
                 ptype = PacketType.nordic_turn_bt_on
                 btToggleBool = True
-            send_serial_msg(ptype, False, 0)
+            send_serial_msg(ptype, None)
             btPreviousTime = currentTime
 
 
