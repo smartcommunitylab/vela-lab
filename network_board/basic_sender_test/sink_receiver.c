@@ -216,7 +216,7 @@ PROCESS_THREAD(trickle_sender_process, ev, data)
     PRINTF("Connection: local/remote port %u/%u\n",
            UIP_HTONS(trickle_conn->lport), UIP_HTONS(trickle_conn->rport));
 
-    trickle_timer_config(&tt, IMIN, IMAX, REDUNDANCY_CONST);
+    trickle_timer_config(&tt, TRICKLE_IMIN, TRICKLE_IMAX, REDUNDANCY_CONST);
     trickle_timer_set(&tt, trickle_tx, &tt);
 
     t_msg.pktnum = 0;

@@ -46,8 +46,8 @@
 //#define SEND_INTERVAL	  					(15 * CLOCK_SECOND)
 /*---------------------------------------------------------------------------*/
 /* Trickle defines */
-#define IMIN               10 * CLOCK_SECOND   /* ticks */
-#define IMAX               6   /* doublings of IMIN, so τmax = IMIN*(2^IMAX) */
+#define TRICKLE_IMIN               10 * CLOCK_SECOND   /* ticks */
+#define TRICKLE_IMAX               6   /* doublings of IMIN, so τmax = IMIN*(2^IMAX) */
 #define REDUNDANCY_CONST   2   /*  aka k*/
 #define TRICKLE_PROTO_PORT 30001
 

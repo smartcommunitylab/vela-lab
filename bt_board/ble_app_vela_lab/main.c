@@ -76,13 +76,16 @@
 #endif
 
 #include "nrf_log_default_backends.h"
+#if DEBUG
 #define  NRF_LOG_MODULE_NAME application
 #include "nrf_log.h"
 #include "nrf_log_ctrl.h"
 NRF_LOG_MODULE_REGISTER();
-#define PRINTF(...) NRF_LOG_DEBUG(__VA_ARGS__) /* \
-        NRF_LOG_PROCESS()
-*/
+#define PRINTF(...) NRF_LOG_DEBUG(__VA_ARGS__); /*\
+                    NRF_LOG_PROCESS()*/
+#else
+#define PRINTF(...)
+#endif
 
 #define CONN_INTERVAL_DEFAULT           (uint16_t)(MSEC_TO_UNITS(10, UNIT_1_25_MS))    /**< Default connection interval used at connection establishment by central side. */
 
@@ -466,7 +469,7 @@ uint8_t send_neighbors_report(void) {
 		reset_network();
 	}
 
-    PRINTF("send_neighbors_report() executed. Returning n=%u\n",n);
+    PRINTF("Returning n=%u\n",n);
 
     uart_util_send_pkt(&packet);
 	return (uint8_t)n;

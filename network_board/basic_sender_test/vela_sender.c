@@ -36,7 +36,11 @@ static uint8_t message_number = 1;
 static uint8_t buf[MAX_REPORT_DATA_SIZE + 10];
 static uip_ipaddr_t *addr;
 
+#ifdef DEBUG
+static bool debug = DEBUG;
+#else
 static bool debug = false;
+#endif
 
 static struct trickle_timer tt;
 static struct uip_udp_conn *trickle_conn;
@@ -63,7 +67,7 @@ receiver(struct simple_udp_connection *c,
          const uint8_t *data,
          uint16_t datalen)
 {
-    printf("Data received on port %d from port %d with length %d at %lu\n",
+    PRINTF("Data received on port %d from port %d with length %d at %lu\n",
            receiver_port, sender_port, datalen, clock_time());
 }
 /*---------------------------------------------------------------------------*/
@@ -79,13 +83,13 @@ set_global_address(void)
     uip_ds6_set_addr_iid(&ipaddr, &uip_lladdr);
     uip_ds6_addr_add(&ipaddr, 0, ADDR_AUTOCONF);
 
-    if (debug) printf("IPv6 addresses: ");
+    if (debug) PRINTF("IPv6 addresses: ");
     for(i = 0; i < UIP_DS6_ADDR_NB; i++) {
         state = uip_ds6_if.addr_list[i].state;
         if(uip_ds6_if.addr_list[i].isused &&
                 (state == ADDR_TENTATIVE || state == ADDR_PREFERRED)) {
-            uip_debug_ipaddr_print(&uip_ds6_if.addr_list[i].ipaddr);
-            if (debug) printf("\n");
+            PRINT6ADDR(&uip_ds6_if.addr_list[i].ipaddr);
+            if (debug) PRINTF("\n");
         }
     }
 }
@@ -93,7 +97,7 @@ set_global_address(void)
 void vela_sender_init() {
     random_init(0);
 
-    printf("vela_sender: initializing \n");
+    PRINTF("vela_sender: initializing \n");
     message_number = 0;
 
     servreg_hack_init();
@@ -113,7 +117,7 @@ static uint8_t send_to_sink(struct network_message_t n_msg) {
     addr = servreg_hack_lookup(SERVICE_ID);
     leds_toggle(LEDS_GREEN);
     if(addr!=NULL){
-        printf("sendingsink...\n");
+        PRINTF("sendingsink...\n");
         if (++message_number == 254)  message_number = 1; //message_number is between 1 and 253
         n_msg.pktnum = message_number;
         buf[0] = n_msg.pkttype >> 8;
@@ -121,20 +125,20 @@ static uint8_t send_to_sink(struct network_message_t n_msg) {
         buf[2] = message_number;
         memcpy(&buf[3], n_msg.payload.p_data, n_msg.payload.data_len);
 
-        printf("Sending size: %u, msgNum: %u ,first 2 byte: 0x%02x 0x%02x to ",n_msg.payload.data_len,message_number, buf[3], buf[4]);
+        PRINTF("Sending size: %u, msgNum: %u ,first 2 byte: 0x%02x 0x%02x to ",n_msg.payload.data_len,message_number, buf[3], buf[4]);
         static rpl_dag_t* dag;
         dag = rpl_get_any_dag();
         if(dag->preferred_parent != NULL) {
-            printf("Preferred parent: ");
-            uip_debug_ipaddr_print(rpl_get_parent_ipaddr(dag->preferred_parent));
-            printf("\n");
+            PRINTF("Preferred parent: ");
+            PRINT6ADDR(rpl_get_parent_ipaddr(dag->preferred_parent));
+            PRINTF("\n");
         }
         simple_udp_sendto(&unicast_connection, buf, n_msg.payload.data_len+3, addr);
         leds_on(LEDS_RED);
         return 0;
     } else {
         leds_off(LEDS_RED);
-        printf("ERROR: No sink available!\n");
+        PRINTF("ERROR: No sink available!\n");
         return -1;
     }
 }
@@ -142,7 +146,7 @@ static uint8_t send_to_sink(struct network_message_t n_msg) {
 static void
 trickle_tx(void *ptr, uint8_t suppress)
 {
-    printf("Trickle TX\n");
+    PRINTF("Trickle TX\n");
     uip_ipaddr_copy(&trickle_conn->ripaddr, &t_ipaddr);
     uip_udp_packet_send(trickle_conn, &trickle_msg, sizeof(trickle_msg));
     uip_create_unspecified(&trickle_conn->ripaddr);
@@ -156,29 +160,29 @@ tcpip_handler(void)
     if(uip_newdata()) {
     	dag = rpl_get_any_dag();
     	if(dag != NULL && dag->preferred_parent != NULL) {
-    	    printf("Preferred parent: ");
-    	    uip_debug_ipaddr_print(rpl_get_parent_ipaddr(dag->preferred_parent));
-    	    printf("\n");
+    	    PRINTF("Preferred parent: ");
+    	    PRINT6ADDR(rpl_get_parent_ipaddr(dag->preferred_parent));
+    	    PRINTF("\n");
     	}
         incoming = (struct network_message_t *) uip_appdata;
-    	printf("Received new Trickle message, counter: %d, type: %X, payload: %d\n", incoming->pktnum, incoming->pkttype, incoming->payload.p_data[0]);
+    	PRINTF("Received new Trickle message, counter: %d, type: %X, payload: %d\n", incoming->pktnum, incoming->pkttype, incoming->payload.p_data[0]);
 
         if(trickle_msg.pktnum == incoming->pktnum) {
             trickle_timer_consistency(&tt);
         }
         else {
             trickle_timer_inconsistency(&tt);
-            printf("At %lu: Trickle inconsistency. Scheduled TX for %lu\n",
+            PRINTF("At %lu: Trickle inconsistency. Scheduled TX for %lu\n",
                          (unsigned long)clock_time(),
                          (unsigned long)(tt.ct.etimer.timer.start +
             tt.ct.etimer.timer.interval));
             if(incoming->pktnum > trickle_msg.pktnum || (trickle_msg.pktnum - incoming->pktnum > 10)){
                 trickle_msg = *incoming;
-            	printf("Received new message, type: %X\n", trickle_msg.pkttype);
+            	PRINTF("Received new message, type: %X\n", trickle_msg.pkttype);
             	switch(trickle_msg.pkttype) {
                 case network_request_ping: {
                     ;
-                    printf("Ping request\n");
+                    PRINTF("Ping request\n");
                     process_post(&cc2650_uart_process, event_ping_requested, &incoming->payload.p_data[0]);
 //                    struct network_message_t response;
 //                    response.pkttype = network_respond_ping;
@@ -189,37 +193,37 @@ tcpip_handler(void)
                 }
                 case nordic_turn_bt_off: {
                 	;
-                	printf("Turning Bluetooth off...\n");
+                	PRINTF("Turning Bluetooth off...\n");
             		process_post(&cc2650_uart_process, turn_bt_off, NULL);
             		break;
 				}
 				case nordic_turn_bt_on: {
 					;
-					printf("Turning Bluetooth on...\n");
+					PRINTF("Turning Bluetooth on...\n");
 					process_post(&cc2650_uart_process, turn_bt_on, NULL);
 					break;
 				}
 				case nordic_turn_bt_on_low: {
 					;
-					printf("Turning Bluetooth on...\n");
+					PRINTF("Turning Bluetooth on...\n");
 					process_post(&cc2650_uart_process, turn_bt_on_low, NULL);
 					break;
 				}
 				case nordic_turn_bt_on_def: {
 					;
-					printf("Turning Bluetooth on...\n");
+					PRINTF("Turning Bluetooth on...\n");
 					process_post(&cc2650_uart_process, turn_bt_on_def, NULL);
 					break;
 				}
 				case nordic_turn_bt_on_high: {
 					;
-					printf("Turning Bluetooth on...\n");
+					PRINTF("Turning Bluetooth on...\n");
 					process_post(&cc2650_uart_process, turn_bt_on_high, NULL);
 					break;
 				}
 				case ti_set_keep_alive: {
 					;
-					printf("Setting keep alive interval to %hhu\n", incoming->payload.p_data[0]);
+					PRINTF("Setting keep alive interval to %hhu\n", incoming->payload.p_data[0]);
 					keep_alive_interval = (uint8_t)incoming->payload.p_data[0];
 					etimer_set(&keep_alive_timer, keep_alive_interval * CLOCK_SECOND);
 					break;
@@ -250,7 +254,7 @@ PROCESS_THREAD(vela_sender_process, ev, data) {
     event_buffer_empty = process_alloc_event();
     //event_bat_data_ready = process_alloc_event();
 
-    if (debug) printf("unicast: started\n");
+    if (debug) PRINTF("unicast: started\n");
     while (1)
     {
         PROCESS_WAIT_EVENT();
@@ -310,7 +314,7 @@ PROCESS_THREAD(vela_sender_process, ev, data) {
             }
         }
         if(ev == event_pong_received){
-            printf("Sending pong\n");
+            PRINTF("Sending pong\n");
             temp = (uint8_t*)data;
             response.pkttype = network_respond_ping;
             response.payload.data_len = 1;
@@ -320,7 +324,7 @@ PROCESS_THREAD(vela_sender_process, ev, data) {
             send_to_sink(response);
         }
         if(ev == event_bat_data_ready) {
-            printf("Received bat data\n");
+            PRINTF("Received bat data\n");
             bat_message.pkttype = network_bat_data;
             memcpy(bat_message.payload.p_data, data, 12);
             bat_message.payload.data_len = 12;
@@ -333,7 +337,7 @@ PROCESS_THREAD(vela_sender_process, ev, data) {
 PROCESS_THREAD(trickle_protocol_process, ev, data)
 {
     PROCESS_BEGIN();
-    printf("Trickle protocol started\n");
+    PRINTF("Trickle protocol started\n");
     //initialize trickle_msg struct
     trickle_msg.pkttype = 0;
     trickle_msg.pktnum = 0;
@@ -344,10 +348,10 @@ PROCESS_THREAD(trickle_protocol_process, ev, data)
     uip_create_linklocal_allnodes_mcast(&t_ipaddr); /* Store for later */
     trickle_conn = udp_new(NULL, UIP_HTONS(TRICKLE_PROTO_PORT), NULL);
     udp_bind(trickle_conn, UIP_HTONS(TRICKLE_PROTO_PORT));
-    printf("Connection: local/remote port %u/%u\n",
+    PRINTF("Connection: local/remote port %u/%u\n",
            UIP_HTONS(trickle_conn->lport), UIP_HTONS(trickle_conn->rport));
 
-    trickle_timer_config(&tt, IMIN, IMAX, REDUNDANCY_CONST);
+    trickle_timer_config(&tt, TRICKLE_IMIN, TRICKLE_IMAX, REDUNDANCY_CONST);
     trickle_timer_set(&tt, trickle_tx, &tt);
 
     /* At this point trickle is started and is running the first interval.*/

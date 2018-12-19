@@ -28,8 +28,8 @@
         #include "nrf_log.h"
         #include "nrf_log_ctrl.h"
         NRF_LOG_MODULE_REGISTER();
-        #define PRINTF(...) NRF_LOG_DEBUG(__VA_ARGS__); \
-                            NRF_LOG_PROCESS()
+        #define PRINTF(...) NRF_LOG_DEBUG(__VA_ARGS__)/*; \
+                            NRF_LOG_PROCESS()*/
     #endif
 #else
 #define PRINTF(...)
