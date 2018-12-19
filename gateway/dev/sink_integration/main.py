@@ -155,23 +155,20 @@ def handle_user_input():
 def send_serial_msg(pkttype, ser_payload):
 	payload_size = 0
 
-	if ser_payload != None:
+	if ser_payload is not None:
 		payload_size = len(ser_payload)
 
-	ser.write(payload_size.to_bytes(length=1, byteorder='big', signed=False))
-	ser.write(pkttype.to_bytes(length=2, byteorder='big', signed=False))
+	packet = payload_size.to_bytes(length=1, byteorder='big', signed=False) + pkttype.to_bytes(length=2, byteorder='big', signed=False)
 
-	if ser_payload != None:
-		ser.write(ser_payload)
+	if ser_payload is not None:
+		#ser.write(ser_payload)
+		packet=packet+ser_payload
 
-	ser.write(SER_END_CHAR)
+	packet=packet+SER_END_CHAR
 	
-	if ser_payload != None:
-		dataLogger.info("[SENDING] {0} ".format(payload_size.to_bytes(length=1, byteorder='big', signed=False) +
-                                                pkttype.to_bytes(length=2, byteorder='big',signed=False) + ser_payload + SER_END_CHAR))
-	else:
-		dataLogger.info("[SENDING] {0} ".format(payload_size.to_bytes(length=1, byteorder='big', signed=False) +
-                                                pkttype.to_bytes(length=2, byteorder='big',signed=False) + SER_END_CHAR))
+	ser.write(packet)
+
+	dataLogger.info("[SENDING] {0} ".format(packet))
 
 
 def decode_payload(seqid, size):
@@ -431,15 +428,15 @@ try:
             ptype = 0
             if btToggleBool:
                 print("Turning bt off")
-                appLogger.debug("[SENDING] Disable Bluetooth")
+                #appLogger.debug("[SENDING] Disable Bluetooth")
                 ptype = PacketType.nordic_turn_bt_off
                 btToggleBool = False
             else:
                 print("Turning bt on")
-                appLogger.debug("[SENDING] Enable Bluetooth")
+                #appLogger.debug("[SENDING] Enable Bluetooth")
                 ptype = PacketType.nordic_turn_bt_on
                 btToggleBool = True
-            send_serial_msg(ptype, None)
+            #send_serial_msg(ptype, None)
             btPreviousTime = currentTime
 
 

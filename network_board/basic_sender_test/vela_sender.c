@@ -46,7 +46,7 @@ static struct trickle_timer tt;
 static struct uip_udp_conn *trickle_conn;
 static uip_ipaddr_t t_ipaddr;     /* destination: link-local all-nodes multicast */
 static struct etimer trickle_et;
-struct network_message_t trickle_msg;
+network_message_t trickle_msg;
 
 static struct etimer keep_alive_timer;
 static struct etimer delay_ping_timer;
@@ -113,12 +113,12 @@ void vela_sender_init() {
 }
 
 /*---------------------------------------------------------------------------*/
-static uint8_t send_to_sink(struct network_message_t n_msg) {
+static uint8_t send_to_sink(network_message_t n_msg) {
     addr = servreg_hack_lookup(SERVICE_ID);
     leds_toggle(LEDS_GREEN);
     if(addr!=NULL){
         PRINTF("sendingsink...\n");
-        if (++message_number == 254)  message_number = 1; //message_number is between 1 and 253
+        //if (++message_number == 254)  message_number = 1; //message_number is between 1 and 253
         n_msg.pktnum = message_number;
         buf[0] = n_msg.pkttype >> 8;
         buf[1] = n_msg.pkttype;
@@ -148,11 +148,11 @@ trickle_tx(void *ptr, uint8_t suppress)
 {
     PRINTF("Trickle TX\n");
     uip_ipaddr_copy(&trickle_conn->ripaddr, &t_ipaddr);
-    uip_udp_packet_send(trickle_conn, &trickle_msg, sizeof(trickle_msg)-sizeof(trickle_msg.payload)+sizeof(trickle_msg.payload.data_len)+trickle_msg.payload.data_len);
+    uip_udp_packet_send(trickle_conn, &trickle_msg, sizeof(trickle_msg)-sizeof(trickle_msg.payload.p_data)+trickle_msg.payload.data_len);
     uip_create_unspecified(&trickle_conn->ripaddr);
 }
 
-static struct network_message_t *incoming;
+static network_message_t *incoming;
 static rpl_dag_t* dag;
 static void
 tcpip_handler(void)
@@ -164,7 +164,7 @@ tcpip_handler(void)
     	    PRINT6ADDR(rpl_get_parent_ipaddr(dag->preferred_parent));
     	    PRINTF("\n");
     	}
-        incoming = (struct network_message_t *) uip_appdata;
+        incoming = (network_message_t *) uip_appdata;
     	PRINTF("Received new Trickle message, counter: %d, type: %X, payload: %d\n", incoming->pktnum, incoming->pkttype, incoming->payload.p_data[0]);
 
         if(trickle_msg.pktnum == incoming->pktnum) {
@@ -184,7 +184,7 @@ tcpip_handler(void)
                     ;
                     PRINTF("Ping request\n");
                     process_post(&cc2650_uart_process, event_ping_requested, &incoming->payload.p_data[0]);
-//                    struct network_message_t response;
+//                    network_message_t response;
 //                    response.pkttype = network_respond_ping;
 //					response.payload.data_len = 1;
 //					response.payload.p_data[0] = 233;
@@ -237,15 +237,15 @@ tcpip_handler(void)
     return;
 }
 
-static struct network_message_t response;
+static network_message_t response;
 static struct etimer pause_timer;
 static data_t* eventData;
 static int offset = 0;
 static int sizeToSend = 0;
-static struct network_message_t chunk;
+static network_message_t chunk;
 static uint8_t ret;
 static uint8_t* temp;
-static struct network_message_t bat_message;
+static network_message_t bat_message;
 
 PROCESS_THREAD(vela_sender_process, ev, data) {
     PROCESS_BEGIN();
@@ -378,7 +378,7 @@ PROCESS_THREAD(trickle_protocol_process, ev, data)
     	static uint16_t bat_data1 = 0;
     	static uint16_t bat_data2 = 1;
 #endif
-static struct network_message_t keep_alive_msg;
+static network_message_t keep_alive_msg;
 
 PROCESS_THREAD(keep_alive_process, ev, data)
 {

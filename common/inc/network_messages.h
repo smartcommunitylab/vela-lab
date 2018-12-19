@@ -47,10 +47,11 @@ typedef struct
     uint8_t   p_data[NET_MESS_BUFF_SIZE];      /**< Pointer to data. */
 } payload_data_t;
 
-struct network_message_t {
+typedef struct
+{
    pkttype_t pkttype;
    uint8_t pktnum;
    payload_data_t payload;
-};
+} network_message_t;
 
 #endif

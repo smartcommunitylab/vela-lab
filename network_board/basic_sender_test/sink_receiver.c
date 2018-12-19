@@ -39,8 +39,8 @@ static struct uip_udp_conn *trickle_conn;
 static uip_ipaddr_t t_ipaddr;     /* destination: link-local all-nodes multicast */
 static struct etimer trickle_et;
 
-static struct network_message_t* incoming;
-static struct network_message_t trickle_msg;
+static network_message_t* incoming;
+static network_message_t trickle_msg;
 
 /*---------------------------------------------------------------------------*/
 PROCESS(uart_reader_process, "Uart reader process");
@@ -153,7 +153,7 @@ trickle_tx(void *ptr, uint8_t suppress)
 
     /* Destination IP: link-local all-nodes multicast */
     uip_ipaddr_copy(&trickle_conn->ripaddr, &t_ipaddr);
-    uip_udp_packet_send(trickle_conn, &trickle_msg, sizeof(trickle_msg)-sizeof(trickle_msg.payload)+sizeof(trickle_msg.payload.data_len)+trickle_msg.payload.data_len);
+    uip_udp_packet_send(trickle_conn, &trickle_msg, sizeof(trickle_msg)-sizeof(trickle_msg.payload.p_data)+trickle_msg.payload.data_len);
     /* Restore to 'accept incoming from any IP' */
     uip_create_unspecified(&trickle_conn->ripaddr);
 }
@@ -162,14 +162,14 @@ static void
 tcpip_handler(void)
 {
     if(uip_newdata()) {
-        incoming = (struct network_message_t*) uip_appdata;
-        if(t_msg.pktnum == incoming->pktnum) {
+        incoming = (network_message_t*) uip_appdata;
+        if(trickle_msg.pktnum == incoming->pktnum) {
             trickle_timer_consistency(&tt);
         }
         else {
-            if(t_msg.pktnum < incoming->pktnum) {
+            if(trickle_msg.pktnum < incoming->pktnum) {
                 //Make sure the sink always has the highest pktnum of all tricklenodes
-                t_msg.pktnum = incoming->pktnum + 1;
+                trickle_msg.pktnum = incoming->pktnum + 1;
             }
             trickle_timer_inconsistency(&tt);
         }
@@ -219,7 +219,7 @@ PROCESS_THREAD(trickle_sender_process, ev, data)
     trickle_timer_config(&tt, TRICKLE_IMIN, TRICKLE_IMAX, REDUNDANCY_CONST);
     trickle_timer_set(&tt, trickle_tx, &tt);
 
-    t_msg.pktnum = 0;
+    trickle_msg.pktnum = 0;
 
     /* At this point trickle is started and is running the first interval.*/
     etimer_set(&trickle_et, CLOCK_SECOND * 15);
