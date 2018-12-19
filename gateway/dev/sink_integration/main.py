@@ -103,45 +103,76 @@ def handle_user_input():
     while 1:
         try:
             user_input = int(input("Select a configuration\n1 = request ping\n2 = enable bluetooth\n3 = disable bluetooth\n"
-                        "4 = bt low\n5 = bt_def\n6 = bt_high\n >6 = set keep alive interval in seconds"))
+                        "4 = bt low\n5 = bt_def\n6 = bt_high\n 7 = bt_with_params\n>7 = set keep alive interval in seconds\n"))
             if user_input == 1:
                 payload = 233
-                send_serial_msg(3, PacketType.network_request_ping, payload.to_bytes(1, byteorder="big", signed=False))
+                send_serial_msg(PacketType.network_request_ping, True, payload.to_bytes(1, byteorder="big", signed=False))
                 print("Sent ping request")
+                appLogger.debug("[SENDING] Requesting ping")
             elif user_input == 2:
-                send_serial_msg(2, PacketType.nordic_turn_bt_on, 0)
+                send_serial_msg(PacketType.nordic_turn_bt_on, False, 0)
                 print("Turning bt on")
+                appLogger.debug("[SENDING] Enable Bluetooth")
             elif user_input == 3:
-                send_serial_msg(2, PacketType.nordic_turn_bt_off, 0)
+                send_serial_msg(PacketType.nordic_turn_bt_off, False, 0)
                 print("Turning bt off")
+                appLogger.debug("[SENDING] Disable Bluetooth")
             elif user_input == 4:
-                send_serial_msg(2, PacketType.nordic_turn_bt_on_low, 0)
+                send_serial_msg(PacketType.nordic_turn_bt_on_low, False, 0)
                 print("Turning bt on low")
+                appLogger.debug("[SENDING] Enable Bluetooth LOW")
             elif user_input == 5:
-                send_serial_msg(2, PacketType.nordic_turn_bt_on_def, 0)
+                send_serial_msg(PacketType.nordic_turn_bt_on_def, False, 0)
                 print("Turning bt on def")
+                appLogger.debug("[SENDING] Enable Bluetooth DEF")
             elif user_input == 6:
-                send_serial_msg(2, PacketType.nordic_turn_bt_on_high, 0)
+                send_serial_msg(PacketType.nordic_turn_bt_on_high, False, 0)
                 print("Turning bt on high")
-            elif user_input > 6:
+                appLogger.debug("[SENDING] Enable Bluetooth HIGH")
+            elif user_input == 7:
+                print("Turn on bt with params")
+                appLogger.debug("[SENDING] Enable Bluetooth with params")
+                active_scan = 1
+                scan_interval = 3520
+                scan_window = 1920
+                timeout = 0
+                report_timeout_ms = 45000
+                bactive_scan = active_scan.to_bytes(1, byteorder="big", signed=False)
+                bscan_interval = scan_interval.to_bytes(2, byteorder="big", signed=False)
+                bscan_window = scan_window.to_bytes(2, byteorder="big", signed=False)
+                btimeout = timeout.to_bytes(2, byteorder="big", signed=False)
+                breport_timeout_ms = report_timeout_ms.to_bytes(4, byteorder="big", signed=False)
+                payload = bactive_scan + bscan_interval + bscan_window + btimeout + breport_timeout_ms
+                send_serial_msg(PacketType.nordic_turn_bt_on_w_params, True, payload)
+            elif user_input > 7:
                 interval = user_input
-                send_serial_msg(3, PacketType.ti_set_keep_alive, interval.to_bytes(1, byteorder="big", signed=False))
+                send_serial_msg(PacketType.ti_set_keep_alive, True, interval.to_bytes(1, byteorder="big", signed=False))
                 print("Setting keep alive")
         except ValueError:
             print("read failed")
 
 
-def send_serial_msg(size, pkttype, payload):
-    msg = size.to_bytes(length=1, byteorder='big', signed=False)
-    msg += pkttype.to_bytes(length=2, byteorder='big', signed=False)
-    if size > 2:
-        msg += payload
-    msg += SER_END_CHAR
-    ser.write(msg)
+def send_serial_msg(pkttype, containsPayload, ser_payload):
+    size = 2
+    if containsPayload:
+        size += len(ser_payload)
+        ser.write(size.to_bytes(length=1, byteorder='big', signed=False))
+        ser.write(pkttype.to_bytes(length=2, byteorder='big', signed=False))
+        ser.write(ser_payload)
+        ser.write(SER_END_CHAR)
+        dataLogger.info("[SENDING] {0} ".format(size.to_bytes(length=1, byteorder='big', signed=False) +
+                                                pkttype.to_bytes(length=2, byteorder='big',signed=False) + ser_payload + SER_END_CHAR))
 
+
+    else:
+        ser.write(size.to_bytes(length=1, byteorder='big', signed=False))
+        ser.write(pkttype.to_bytes(length=2, byteorder='big', signed=False))
+        ser.write(SER_END_CHAR)
+        dataLogger.info("[SENDING] {0} ".format(size.to_bytes(length=1, byteorder='big', signed=False) + pkttype.to_bytes(length=2, byteorder='big', signed=False) + SER_END_CHAR))
 
 
 def decode_payload(seqid, size):
+    raw_data = "[Node {0}] ".format(messageSequenceList[seqid].nodeid)
     try:
         for x in range(round(size / SINGLE_REPORT_SIZE)):
             nid = int(ser.read(6).hex(), 16)
@@ -151,11 +182,13 @@ def decode_payload(seqid, size):
             contact = ContactData(nid, lastrssi, maxrssi, pktcounter)
             messageSequenceList[seqid].datalist.append(contact)
             messageSequenceList[seqid].datacounter += SINGLE_REPORT_SIZE
+            raw_data += "{0:0{1}x}".format(nid, 8) + '{:x}'.format(lastrssi) + '{:x}'.format(maxrssi) + '{:x}'.format(pktcounter)
     except ValueError:
         print("[DecodePayload] Payload size to decode is smaller than available bytes")
         appLogger.warning("[Node {0}] Requested to decode more bytes than available. Requested: {1}"
                           .format(messageSequenceList[seqid].nodeid, size))
     finally:
+        dataLogger.info(raw_data)
         return
 
 
@@ -231,11 +264,11 @@ try:
                                     # remove duplicate packet data from uart buffer
                                     remainingDataSize = messageSequenceList[seqid].sequenceSize - messageSequenceList[seqid].datacounter
                                     if remainingDataSize >= MAX_PACKET_PAYLOAD:
-                                        dataLogger.info("[Node {0}] {1}{2}{3}".format(nodeid, hex(pkttype), hex(pktnum),
-                                                                                      ser.read(MAX_PACKET_PAYLOAD)))
+                                        dataLogger.info("[Node {0}] {1}{2}{3}".format(nodeid, '{:02x}'.format(pkttype), '{:x}'.format(pktnum),
+                                                                                      '{:x}'.format(int(ser.read(MAX_PACKET_PAYLOAD).hex(), 16))))
                                     else:
-                                        dataLogger.info("[Node {0}] {1}{2}{3}".format(nodeid, hex(pkttype), hex(pktnum),
-                                                                                      ser.read(remainingDataSize)))
+                                        dataLogger.info("[Node {0}] {1}{2}{3}".format(nodeid, '{:x}'.format(pkttype), '{:x}'.format(pktnum),
+                                                                                      '{:x}'.format(int(ser.read(remainingDataSize).hex(), 16))))
                                     continue
                                 else:
                                     print("Previous sequence has not been completed yet")
@@ -252,20 +285,9 @@ try:
 
                             if messageSequenceList[seqid].sequenceSize >= MAX_PACKET_PAYLOAD:
                                 decode_payload(seqid, MAX_PACKET_PAYLOAD)
-                                dataString = ""
-                                i = 6
-                                for x in range(5):
-                                    dataString += messageSequenceList[seqid].datalist[len(messageSequenceList[seqid].datalist) - i]
-                                    i -= 1
-                                dataLogger.info("[Node {0}] {1}{2}{3}".format(nodeid, hex(pkttype), hex(pktnum), dataString))
+
                             else:
                                 decode_payload(seqid, datalen)
-                                dataString = ""
-                                i = datalen / 9 + 1
-                                for x in range(datalen / 9):
-                                    dataString += messageSequenceList[seqid].datalist[len(messageSequenceList[seqid].datalist) - i]
-                                    i -= 1
-                                dataLogger.info("[Node {0}] {1}{2}{3}".format(nodeid, hex(pkttype), hex(pktnum), dataString))
 
                                 # TODO Only 1 packet in this sequence, so upload this packet already
                                 print("Single packet sequence completed")
@@ -299,13 +321,6 @@ try:
                             messageSequenceList[seqid].latestTime = time.time()
                             decode_payload(seqid, MAX_PACKET_PAYLOAD)
 
-                            dataString = ""
-                            i = 6
-                            for x in range(5):
-                                dataString += messageSequenceList[seqid].datalist[len(messageSequenceList[seqid].datalist) - i]
-                                i -= 1
-                            dataLogger.info("[Node {0}] {1}{2}{3}".format(nodeid, hex(pkttype), hex(pktnum), dataString))
-
                         elif PacketType.network_last_sequence == pkttype:
                             # TODO upload data before deleting element from list
                             print("Full message defragmented")
@@ -315,19 +330,6 @@ try:
                                                                            pktnum, 0, 0, [], time.time()))
                                 seqid = len(messageSequenceList) - 1
                                 decode_payload(seqid, MAX_PACKET_PAYLOAD)
-                                dataString = ""
-                                try:
-                                    decode_payload(seqid, MAX_PACKET_PAYLOAD)
-                                    i = 6
-                                    for x in range(5):
-                                        dataString += messageSequenceList[seqid].datalist[
-                                            len(messageSequenceList[seqid].datalist) - i]
-                                        i -= 1
-                                except IndexError:
-                                    pass
-                                finally:
-                                    dataLogger.info("[Node {0}] {1}{2}{3}".format(nodeid, hex(pkttype), hex(pktnum), dataString))
-
                                 print("Message defragmented but header files were never received")
                                 print("Nodeid: ", str(messageSequenceList[seqid].nodeid), " datacounter: ",
                                       str(messageSequenceList[seqid].datacounter), " ContactData elements: ",
@@ -342,20 +344,6 @@ try:
                             elif messageSequenceList[seqid].sequenceSize == -1:
                                 decode_payload(seqid, MAX_PACKET_PAYLOAD)
 
-                                dataString = ""
-                                try:
-                                    decode_payload(seqid, MAX_PACKET_PAYLOAD)
-                                    i = 6
-                                    for x in range(5):
-                                        dataString += messageSequenceList[seqid].datalist[
-                                            len(messageSequenceList[seqid].datalist) - i]
-                                        i -= 1
-                                except IndexError:
-                                    pass
-                                finally:
-                                    dataLogger.info(
-                                        "[Node {0}] {1}{2}{3}".format(nodeid, hex(pkttype), hex(pktnum), dataString))
-
                                 print("Message defragmented but header files were never received")
                                 print("Nodeid: ", messageSequenceList[seqid].nodeid, " datacounter: ",
                                       messageSequenceList[seqid].datacounter, " ContactData elements: ",
@@ -369,14 +357,7 @@ try:
                             else:
                                 remainingDataSize = messageSequenceList[seqid].sequenceSize - messageSequenceList[seqid].datacounter
                                 decode_payload(seqid, remainingDataSize)
-                                dataString = ""
-                                i = remainingDataSize / 9 + 1
-                                for x in range(int(remainingDataSize / 9)):
-                                    dataString += messageSequenceList[seqid].datalist[
-                                        len(messageSequenceList[seqid].datalist) - i]
-                                    i -= 1
-                                dataLogger.info(
-                                    "[Node {0}] {1}{2}{3}".format(nodeid, hex(pkttype), hex(pktnum), dataString))
+
                                 if messageSequenceList[seqid].sequenceSize != messageSequenceList[seqid].datacounter:
                                     print("ERROR: Messagesequence ended, but datacounter is not equal to sequencesize")
                                 print("Nodeid: ", str(messageSequenceList[seqid].nodeid), " sequencesize: ",
@@ -403,13 +384,13 @@ try:
                                             "Average Consumption: {4} mA | Average Battery Voltage: {5} mV | Temperature: {6} *C"
                                            .format(nodeid, batCapacity, batSoC, batELT, batAvgConsumption,
                                                     batAvgVoltage, batAvgTemp))
-                            dataLogger.info("[Node {0}] {1}{2}{3}{4}{5}{6}{7}{8}".format(nodeid, pkttype, pktnum, hex(batCapacity), hex(int(batSoC * 10)),
-                                                                                            bytesELT, hex(int(batAvgConsumption * 10)),
-                                                                                            hex(batAvgVoltage), hex(batAvgTemp)))
+                            dataLogger.info("[Node {0}] {1}{2}{3}{4}{5}{6}{7}{8}".format(nodeid, pkttype, pktnum, '{:02x}'.format(batCapacity), '{:02x}'.format(int(batSoC * 10)),
+                                                                                            bytesELT, '{:02x}'.format(int(batAvgConsumption * 10)),
+                                                                                         '{:02x}'.format(int(batAvgVoltage)), '{:02x}'.format(100 * int(batAvgTemp))))
 
                         elif PacketType.network_respond_ping == pkttype:
                             payload = int(ser.read(1).hex(), 16)
-                            dataLogger.info("[Node {0}]{1}{2}{3}".format(nodeid, hex(pkttype), hex(pktnum), hex(payload)))
+                            dataLogger.info("[Node {0}]{1}{2}{3}".format(nodeid, '{:02x}'.format(pkttype), '{:x}'.format(pktnum), '{:x}'.format(payload)))
                             if payload == 233:
                                 print("Node id ", nodeid, " pinged succesfully!")
                                 appLogger.debug("[Node {0}] pinged succesfully!".format(nodeid))
@@ -424,12 +405,12 @@ try:
                             soc = int.from_bytes(ser.read(2), byteorder="big", signed=False)
                             print("Received keep alive packet from node ", nodeid, "with cap & soc: ", cap, " ", soc)
                             appLogger.info("[Node {0}] Received keep alive message with capacity: {1} and SoC: {2}".format(nodeid, cap, soc))
-                            dataLogger.info("[Node {0}]{1}{2}{3}{4}".format(nodeid, hex(pkttype), hex(pktnum), hex(cap), hex(soc)))
+                            dataLogger.info("[Node {0}]{1}{2}{3}{4}".format(nodeid, '{:02x}'.format(pkttype), '{:x}'.format(pktnum), '{:02x}'.format(cap), '{:02x}'.format(soc)))
 
                         else:
                             print("Unknown packettype: ", pkttype)
                             appLogger.warning("[Node {0}] Received unknown packettype: {1}".format(nodeid, hex(pkttype)))
-                            dataLogger.info("[Node {0}]{1}{2}".format(nodeid, hex(pkttype), hex(pktnum)))
+                            dataLogger.info("[Node {0}]{1}{2}".format(nodeid, '{:02x}'.format(pkttype), '{:x}'.format(pktnum)))
 
         currentTime = time.time()
         if currentTime - previousTimeTimeout > timeoutInterval:
@@ -447,13 +428,15 @@ try:
             ptype = 0
             if btToggleBool:
                 print("Turning bt off")
+                appLogger.debug("[SENDING] Disable Bluetooth")
                 ptype = PacketType.nordic_turn_bt_off
                 btToggleBool = False
             else:
                 print("Turning bt on")
+                appLogger.debug("[SENDING] Enable Bluetooth")
                 ptype = PacketType.nordic_turn_bt_on
                 btToggleBool = True
-            send_serial_msg(2, ptype, 0)
+            send_serial_msg(ptype, False, 0)
             btPreviousTime = currentTime
 
 
