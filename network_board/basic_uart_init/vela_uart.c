@@ -61,6 +61,7 @@ typedef enum{
 #define DEFAULT_SCAN_WINDOW         1920     /**< Scan window between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
 #define DEFAULT_TIMEOUT             0
 #define DEFAULT_REPORT_TIMEOUT_MS   60000
+#define UART_ACK_DELAY_US           2000
 
 /** Converts a macro argument into a character constant.
  */
@@ -549,7 +550,7 @@ void uart_util_rx_handler(uart_pkt_t* p_packet) {
 	ack_value = pre_ack_uart_rx_handler(p_packet);
 
 	if(p_packet->type != uart_app_level_ack){ //do not send the ack for acks
-	    uart_util_send_ack(p_packet, ack_value);
+	    uart_util_send_ack(p_packet, ack_value,UART_ACK_DELAY_US);
 	}
 
 	post_ack_uart_rx_handler(p_packet);

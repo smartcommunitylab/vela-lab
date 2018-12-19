@@ -23,8 +23,10 @@
 #include "dev/leds.h"
 #include "sys/ctimer.h"
 #include "ti-lib.h"
-#define UART_ACK_TIMEOUT 						CLOCK_SECOND/2
+#include "vela_uart.h"
+#define UART_ACK_TIMEOUT                        CLOCK_SECOND/2
 #else
+#include "nrf_delay.h"
 #define UART_ACK_TIMEOUT						APP_TIMER_TICKS(500)
 #endif
 
@@ -490,9 +492,14 @@ uint32_t uart_util_send_pkt(uart_pkt_t* uart_pkt_t){
 	return ret;
 }
 
+static void uart_util_send_ack_handler(void *ptr){
+    uart_util_send_pkt((uart_pkt_t*)ptr);
 
-void uart_util_send_ack(uart_pkt_t* p_packet, uint8_t error_code){
-	uart_pkt_t ack_pkt;
+    uart_util_ack_tx_done();
+}
+
+void uart_util_send_ack(uart_pkt_t* p_packet, uint8_t error_code, uint32_t ack_delay_us){
+	static uart_pkt_t ack_pkt;
 	ack_pkt.type = uart_app_level_ack;
 	uint8_t ack_data[] = {
 			  	  	  	  error_code,
@@ -504,9 +511,17 @@ void uart_util_send_ack(uart_pkt_t* p_packet, uint8_t error_code){
 	ack_pkt.payload.p_data = ack_data;
 	ack_pkt.payload.data_len = 5; //TODO: for now it is hardcoded, use defines or enum
 
-	uart_util_send_pkt(&ack_pkt);
+#ifdef CONTIKI
+	clock_delay_usec(ack_delay_us);
+	uart_util_send_ack_handler(&ack_pkt);
+#else
+	nrf_delay_us(ack_delay_us);
+	uart_util_send_ack_handler(&ack_pkt);
+#endif
 
-	uart_util_ack_tx_done();
+//	uart_util_send_pkt(&ack_pkt);
+//
+//	uart_util_ack_tx_done();
 }
 
 #ifdef CONTIKI

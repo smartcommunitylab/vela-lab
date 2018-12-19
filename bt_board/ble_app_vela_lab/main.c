@@ -131,6 +131,8 @@ NRF_LOG_MODULE_REGISTER();
 
 #define APP_TIMER_MS(TICKS)  (uint32_t)(ROUNDED_DIV (((uint64_t)TICKS * ( ( (uint64_t)APP_TIMER_CONFIG_RTC_FREQUENCY + 1 ) * 1000 )) , (uint64_t)APP_TIMER_CLOCK_FREQ ))
 
+#define UART_ACK_DELAY_US               0
+
 APP_TIMER_DEF(m_periodic_timer_id);
 APP_TIMER_DEF(m_report_timer_id);
 APP_TIMER_DEF(m_led_blink_timer_id);
@@ -553,7 +555,7 @@ void uart_util_rx_handler(uart_pkt_t* p_packet) {
 	if (sequential_procedure_is_this_running(&ble_report) && type != uart_app_level_ack) { //during report procedures accept only ack packet
 	    PRINTF("Invalid state for handling that packet!\n");
 		ack_value = APP_ERROR_INVALID_STATE;
-		uart_util_send_ack(p_packet, ack_value);
+		uart_util_send_ack(p_packet, ack_value,UART_ACK_DELAY_US);
 		return;
 	}
 
@@ -604,7 +606,7 @@ void uart_util_rx_handler(uart_pkt_t* p_packet) {
 	case uart_req_bt_neigh_rep:
 		if (p_packet->payload.data_len == 4) {
             ack_value = APP_ACK_SUCCESS;
-		    uart_util_send_ack(p_packet, ack_value);
+		    uart_util_send_ack(p_packet, ack_value,UART_ACK_DELAY_US);
 
 			uint32_t timeout_ms = (p_payload_data[0] << 24) + (p_payload_data[1] << 16) + (p_payload_data[2] << 8) + (p_payload_data[3]);
 			start_periodic_report(timeout_ms);
@@ -666,7 +668,7 @@ void uart_util_rx_handler(uart_pkt_t* p_packet) {
 		break;
 	case uart_ping:
 		ack_value = APP_ACK_SUCCESS;
-		uart_util_send_ack(p_packet, ack_value); //send the ack before pong message
+		uart_util_send_ack(p_packet, ack_value,UART_ACK_DELAY_US); //send the ack before pong message
 //		//here we shall wait the previous message to be sent, but if the buffers are enough long the two messages will fit
 		send_pong(p_packet);
 		return;	//do not send the ack twice
@@ -679,7 +681,7 @@ void uart_util_rx_handler(uart_pkt_t* p_packet) {
 		break;
 	}
 
-	uart_util_send_ack(p_packet, ack_value);
+	uart_util_send_ack(p_packet, ack_value,UART_ACK_DELAY_US);
 	return;
 }
 
