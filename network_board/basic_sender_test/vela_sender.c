@@ -102,9 +102,9 @@ void vela_sender_init() {
 
     simple_udp_register(&unicast_connection, UDP_PORT, NULL, UDP_PORT, receiver);
 
-//    process_start(&vela_sender_process, "vela sender process");
+    process_start(&vela_sender_process, "vela sender process");
     process_start(&trickle_protocol_process, "trickle protocol process");
-//    process_start(&keep_alive_process, "keep alive process");
+    process_start(&keep_alive_process, "keep alive process");
     return;
 }
 
