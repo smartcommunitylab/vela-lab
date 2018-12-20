@@ -3,7 +3,7 @@ import matplotlib.dates as matdates
 import numpy as np
 from datetime import datetime
 
-readfile = open("data.log", "r")
+readfile = open("app.log", "r")
 lines = readfile.readlines()
 readfile.close()
 
