@@ -19,7 +19,7 @@
 #ifdef DEBUG
 #undef DEBUG
 #endif
-#define DEBUG 1
+#define DEBUG 0
 #if DEBUG
     #ifdef CONTIKI
         #define PRINTF(...) printf(__VA_ARGS__)
