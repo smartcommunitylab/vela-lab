@@ -204,19 +204,12 @@ def decode_payload(seqid, size, packettype, pktnum):
 
 def log_contact_data(seqid):
     seq = messageSequenceList[seqid]
-    "timestamp,nodeid,lastPktnum,sequenceSize,datacounter,"
-    "datalist,latestTime"
-
-    "nodeid lastRSSI maxRSSI pktCounter"
-
     timestamp = seq.timestamp
     source = seq.nodeid
-    logstring = ""# "{0} Node {1} ".format(timestamp, source)
+    logstring = "{0} Node {1} ".format(timestamp, source)
     for x in range(len(seq.datalist)):
         logstring += "{:012X}".format(seq.datalist[x].nodeid) + '{:02X}'.format(seq.datalist[x].lastRSSI) + '{:02X}'.format(seq.datalist[x].maxRSSI) + '{:02X}'.format(seq.datalist[x].pktCounter)
-        print("{:012X}".format(seq.datalist[x].nodeid) + '{:02X}'.format(seq.datalist[x].lastRSSI) + '{:02X}'.format(seq.datalist[x].maxRSSI) + '{:02X}'.format(seq.datalist[x].pktCounter))
-        print(len(logstring))
-    print(logstring)
+
     contactLogger.warning(logstring)
 
 def get_sequence_index(nodeid):
