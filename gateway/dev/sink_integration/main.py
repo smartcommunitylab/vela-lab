@@ -171,8 +171,8 @@ def send_serial_msg(pkttype, ser_payload):
 	dataLogger.info("[SENDING] {0} ".format(packet))
 
 
-def decode_payload(seqid, size):
-    raw_data = "[Node {0}] ".format(messageSequenceList[seqid].nodeid)
+def decode_payload(seqid, size, packettype):
+    raw_data = "Node {0} ".format(messageSequenceList[seqid].nodeid) + "0x{:04X} ".format(packettype) + "0x"
     try:
         for x in range(round(size / SINGLE_REPORT_SIZE)):
             nid = int(ser.read(6).hex(), 16)
@@ -182,7 +182,7 @@ def decode_payload(seqid, size):
             contact = ContactData(nid, lastrssi, maxrssi, pktcounter)
             messageSequenceList[seqid].datalist.append(contact)
             messageSequenceList[seqid].datacounter += SINGLE_REPORT_SIZE
-            raw_data += "{0:0{1}x}".format(nid, 8) + '{:x}'.format(lastrssi) + '{:x}'.format(maxrssi) + '{:x}'.format(pktcounter)
+            raw_data += "{:012X}".format(nid, 8) + '{:02X}'.format(lastrssi) + '{:02X}'.format(maxrssi) + '{:02X}'.format(pktcounter)
     except ValueError:
         print("[DecodePayload] Payload size to decode is smaller than available bytes")
         appLogger.warning("[Node {0}] Requested to decode more bytes than available. Requested: {1}"
