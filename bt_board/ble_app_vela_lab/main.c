@@ -131,7 +131,7 @@ NRF_LOG_MODULE_REGISTER();
 
 #define APP_TIMER_MS(TICKS)  (uint32_t)(ROUNDED_DIV (((uint64_t)TICKS * ( ( (uint64_t)APP_TIMER_CONFIG_RTC_FREQUENCY + 1 ) * 1000 )) , (uint64_t)APP_TIMER_CLOCK_FREQ ))
 
-#define UART_ACK_DELAY_US               0
+#define UART_ACK_DELAY_US               2000
 
 APP_TIMER_DEF(m_periodic_timer_id);
 APP_TIMER_DEF(m_report_timer_id);
@@ -1025,7 +1025,7 @@ static void reset_node(node_t* p_node) {
 }
 
 static void reset_network(void) {
-	memset(m_network, 0x00, MAXIMUM_NETWORK_SIZE * sizeof(node_t));
+	//memset(m_network, 0x00, MAXIMUM_NETWORK_SIZE * sizeof(node_t));
 	for (uint8_t n = 0; n < MAXIMUM_NETWORK_SIZE; n++) {
 		reset_node(&m_network[n]);
 	}

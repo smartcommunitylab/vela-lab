@@ -16,6 +16,12 @@
 
 #include "sequential_procedures.h"
 
+#ifdef CONTIKI
+#include "contiki.h"
+#else
+#include "nrf_delay.h"
+#endif
+
 #ifdef DEBUG
 #undef DEBUG
 #endif
@@ -35,11 +41,20 @@
 #define PRINTF(...)
 #endif
 
+#define EXECUTE_ACTION_DELAY_US         2000
+
 static procedure_t* running_procedure=NULL;
 static uint8_t prev_action_return = 1;
 
 static uint8_t execute_action(void){
     static uint8_t ret;
+
+#ifdef CONTIKI
+    clock_delay_usec(EXECUTE_ACTION_DELAY_US);
+#else
+    nrf_delay_us(EXECUTE_ACTION_DELAY_US);
+#endif
+
     PRINTF("Stepping on procedure \"%s\": action number %u\n",running_procedure->name,running_procedure->i);
     if(running_procedure->procedure_length!=0){
         ret = (*running_procedure->action[running_procedure->i])();
