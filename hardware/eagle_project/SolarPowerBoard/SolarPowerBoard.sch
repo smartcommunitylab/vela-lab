@@ -5126,11 +5126,6 @@ Source: &lt;a href="https://www.susumu.co.jp/common/pdf/n_catalog_partition19_en
 <attribute name="MPN" value="LAUNCHXL-CC2650"/>
 <attribute name="OC_NEWARK" value="82Y0957"/>
 </part>
-<part name="R15" library="SolarPowerBoard" deviceset="SPARKFUN-RESISTORS_0.3OHM" device="" value="0">
-<attribute name="MF" value=""/>
-<attribute name="MPN" value="RLP73N2AR30JTD"/>
-<attribute name="OC_NEWARK" value="43AC3996"/>
-</part>
 <part name="SDA" library="SolarPowerBoard" deviceset="POWERSOL_JUMPER-SMT_3_0_SILK" device="" value="POWERSOL_JUMPER-SMT_3_0_SILK">
 <attribute name="MF" value=""/>
 <attribute name="MPN" value=""/>
@@ -5308,22 +5303,22 @@ Source: &lt;a href="https://www.susumu.co.jp/common/pdf/n_catalog_partition19_en
 <attribute name="MPN" value="RLP73N2AR30JTD"/>
 <attribute name="OC_NEWARK" value="43AC3996"/>
 </part>
-<part name="RGPIO1" library="SolarPowerBoard" deviceset="SPARKFUN-RESISTORS_0.3OHM" device="" value="1k">
+<part name="RGPIO1" library="SolarPowerBoard" deviceset="SPARKFUN-RESISTORS_0.3OHM" device="" value="DNM">
 <attribute name="MF" value=""/>
 <attribute name="MPN" value="RLP73N2AR30JTD"/>
 <attribute name="OC_NEWARK" value="43AC3996"/>
 </part>
-<part name="RGPIO2" library="SolarPowerBoard" deviceset="SPARKFUN-RESISTORS_0.3OHM" device="" value="1k">
+<part name="RGPIO2" library="SolarPowerBoard" deviceset="SPARKFUN-RESISTORS_0.3OHM" device="" value="DNM">
 <attribute name="MF" value=""/>
 <attribute name="MPN" value="RLP73N2AR30JTD"/>
 <attribute name="OC_NEWARK" value="43AC3996"/>
 </part>
-<part name="RGPIO3" library="SolarPowerBoard" deviceset="SPARKFUN-RESISTORS_0.3OHM" device="" value="1k">
+<part name="RGPIO3" library="SolarPowerBoard" deviceset="SPARKFUN-RESISTORS_0.3OHM" device="" value="DNM">
 <attribute name="MF" value=""/>
 <attribute name="MPN" value="RLP73N2AR30JTD"/>
 <attribute name="OC_NEWARK" value="43AC3996"/>
 </part>
-<part name="RGPIO4" library="SolarPowerBoard" deviceset="SPARKFUN-RESISTORS_0.3OHM" device="" value="1k">
+<part name="RGPIO4" library="SolarPowerBoard" deviceset="SPARKFUN-RESISTORS_0.3OHM" device="" value="DNM">
 <attribute name="MF" value=""/>
 <attribute name="MPN" value="RLP73N2AR30JTD"/>
 <attribute name="OC_NEWARK" value="43AC3996"/>
@@ -5464,6 +5459,11 @@ Source: &lt;a href="https://www.susumu.co.jp/common/pdf/n_catalog_partition19_en
 <attribute name="MPN" value="TPSP106M010R2000"/>
 <attribute name="OC_NEWARK" value="22K2788"/>
 </part>
+<part name="RES_SEL" library="SolarPowerBoard" deviceset="POWERSOL_JUMPER-SMT_3_0_SILK" device="">
+<attribute name="MF" value=""/>
+<attribute name="MPN" value=""/>
+<attribute name="OC_NEWARK" value="unknown"/>
+</part>
 </parts>
 <sheets>
 <sheet>
@@ -5570,13 +5570,6 @@ Source: &lt;a href="https://www.susumu.co.jp/common/pdf/n_catalog_partition19_en
 <attribute name="OC_NEWARK" x="-210.82" y="27.94" size="1.778" layer="96" display="off"/>
 <attribute name="MF" x="-210.82" y="27.94" size="1.778" layer="96" display="off"/>
 <attribute name="MPN" x="-210.82" y="27.94" size="1.778" layer="96" display="off"/>
-</instance>
-<instance part="R15" gate="G$1" x="-541.02" y="27.94" smashed="yes" rot="R180">
-<attribute name="OC_NEWARK" x="-541.02" y="27.94" size="1.778" layer="96" display="off"/>
-<attribute name="MF" x="-541.02" y="27.94" size="1.778" layer="96" display="off"/>
-<attribute name="MPN" x="-541.02" y="27.94" size="1.778" layer="96" display="off"/>
-<attribute name="NAME" x="-541.02" y="26.416" size="1.778" layer="95" font="vector" rot="R180" align="bottom-center"/>
-<attribute name="VALUE" x="-541.02" y="29.464" size="1.778" layer="96" font="vector" rot="R180" align="top-center"/>
 </instance>
 <instance part="SDA" gate="G$1" x="-353.06" y="27.94" smashed="yes" rot="R90">
 <attribute name="OC_NEWARK" x="-353.06" y="27.94" size="1.778" layer="96" display="off"/>
@@ -5844,33 +5837,33 @@ Source: &lt;a href="https://www.susumu.co.jp/common/pdf/n_catalog_partition19_en
 <attribute name="NAME" x="91.44" y="69.596" size="1.778" layer="95" font="vector" rot="R180" align="bottom-center"/>
 <attribute name="VALUE" x="91.44" y="72.644" size="1.778" layer="96" font="vector" rot="R180" align="top-center"/>
 </instance>
-<instance part="RGPIO1" gate="G$1" x="-152.4" y="38.1" smashed="yes" rot="R180">
-<attribute name="OC_NEWARK" x="-152.4" y="38.1" size="1.778" layer="96" rot="R180" display="off"/>
-<attribute name="MF" x="-152.4" y="38.1" size="1.778" layer="96" rot="R180" display="off"/>
-<attribute name="MPN" x="-152.4" y="38.1" size="1.778" layer="96" rot="R180" display="off"/>
-<attribute name="NAME" x="-152.4" y="36.576" size="1.778" layer="95" font="vector" rot="R180" align="bottom-center"/>
-<attribute name="VALUE" x="-152.4" y="39.624" size="1.778" layer="96" font="vector" rot="R180" align="top-center"/>
+<instance part="RGPIO1" gate="G$1" x="-151.892" y="38.1" smashed="yes" rot="R180">
+<attribute name="OC_NEWARK" x="-151.892" y="38.1" size="1.778" layer="96" rot="R180" display="off"/>
+<attribute name="MF" x="-151.892" y="38.1" size="1.778" layer="96" rot="R180" display="off"/>
+<attribute name="MPN" x="-151.892" y="38.1" size="1.778" layer="96" rot="R180" display="off"/>
+<attribute name="NAME" x="-147.32" y="41.402" size="1.778" layer="95" font="vector" rot="R180" align="bottom-center"/>
+<attribute name="VALUE" x="-155.448" y="39.624" size="1.778" layer="96" font="vector" rot="R180" align="top-center"/>
 </instance>
-<instance part="RGPIO2" gate="G$1" x="-152.4" y="35.56" smashed="yes" rot="R180">
-<attribute name="OC_NEWARK" x="-152.4" y="35.56" size="1.778" layer="96" rot="R180" display="off"/>
-<attribute name="MF" x="-152.4" y="35.56" size="1.778" layer="96" rot="R180" display="off"/>
-<attribute name="MPN" x="-152.4" y="35.56" size="1.778" layer="96" rot="R180" display="off"/>
-<attribute name="NAME" x="-152.4" y="34.036" size="1.778" layer="95" font="vector" rot="R180" align="bottom-center"/>
-<attribute name="VALUE" x="-152.4" y="37.084" size="1.778" layer="96" font="vector" rot="R180" align="top-center"/>
+<instance part="RGPIO2" gate="G$1" x="-151.892" y="35.56" smashed="yes" rot="R180">
+<attribute name="OC_NEWARK" x="-151.892" y="35.56" size="1.778" layer="96" rot="R180" display="off"/>
+<attribute name="MF" x="-151.892" y="35.56" size="1.778" layer="96" rot="R180" display="off"/>
+<attribute name="MPN" x="-151.892" y="35.56" size="1.778" layer="96" rot="R180" display="off"/>
+<attribute name="NAME" x="-147.32" y="38.354" size="1.778" layer="95" font="vector" rot="R180" align="bottom-center"/>
+<attribute name="VALUE" x="-155.194" y="36.83" size="1.778" layer="96" font="vector" rot="R180" align="top-center"/>
 </instance>
-<instance part="RGPIO3" gate="G$1" x="-152.4" y="33.02" smashed="yes" rot="R180">
-<attribute name="OC_NEWARK" x="-152.4" y="33.02" size="1.778" layer="96" rot="R180" display="off"/>
-<attribute name="MF" x="-152.4" y="33.02" size="1.778" layer="96" rot="R180" display="off"/>
-<attribute name="MPN" x="-152.4" y="33.02" size="1.778" layer="96" rot="R180" display="off"/>
-<attribute name="NAME" x="-152.4" y="31.496" size="1.778" layer="95" font="vector" rot="R180" align="bottom-center"/>
-<attribute name="VALUE" x="-152.4" y="34.544" size="1.778" layer="96" font="vector" rot="R180" align="top-center"/>
+<instance part="RGPIO3" gate="G$1" x="-152.908" y="33.02" smashed="yes" rot="R180">
+<attribute name="OC_NEWARK" x="-152.908" y="33.02" size="1.778" layer="96" rot="R180" display="off"/>
+<attribute name="MF" x="-152.908" y="33.02" size="1.778" layer="96" rot="R180" display="off"/>
+<attribute name="MPN" x="-152.908" y="33.02" size="1.778" layer="96" rot="R180" display="off"/>
+<attribute name="NAME" x="-148.59" y="36.068" size="1.778" layer="95" font="vector" rot="R180" align="bottom-center"/>
+<attribute name="VALUE" x="-155.956" y="34.29" size="1.778" layer="96" font="vector" rot="R180" align="top-center"/>
 </instance>
 <instance part="RGPIO4" gate="G$1" x="-152.4" y="30.48" smashed="yes" rot="R180">
 <attribute name="OC_NEWARK" x="-152.4" y="30.48" size="1.778" layer="96" rot="R180" display="off"/>
 <attribute name="MF" x="-152.4" y="30.48" size="1.778" layer="96" rot="R180" display="off"/>
 <attribute name="MPN" x="-152.4" y="30.48" size="1.778" layer="96" rot="R180" display="off"/>
-<attribute name="NAME" x="-152.4" y="28.956" size="1.778" layer="95" font="vector" rot="R180" align="bottom-center"/>
-<attribute name="VALUE" x="-152.4" y="32.004" size="1.778" layer="96" font="vector" rot="R180" align="top-center"/>
+<attribute name="NAME" x="-147.828" y="33.528" size="1.778" layer="95" font="vector" rot="R180" align="bottom-center"/>
+<attribute name="VALUE" x="-155.702" y="32.004" size="1.778" layer="96" font="vector" rot="R180" align="top-center"/>
 </instance>
 <instance part="RLED1" gate="G$1" x="193.04" y="104.14" smashed="yes" rot="R180">
 <attribute name="OC_NEWARK" x="193.04" y="104.14" size="1.778" layer="96" rot="R180" display="off"/>
@@ -6055,6 +6048,13 @@ Source: &lt;a href="https://www.susumu.co.jp/common/pdf/n_catalog_partition19_en
 <attribute name="MPN" x="45.72" y="165.1" size="1.778" layer="96" display="off"/>
 <attribute name="NAME" x="47.244" y="168.021" size="1.778" layer="95" font="vector"/>
 <attribute name="VALUE" x="47.244" y="162.941" size="1.778" layer="96" font="vector"/>
+</instance>
+<instance part="RES_SEL" gate="G$1" x="-317.5" y="5.08" smashed="yes" rot="MR180">
+<attribute name="OC_NEWARK" x="-317.5" y="5.08" size="1.778" layer="96" rot="MR270" display="off"/>
+<attribute name="MF" x="-317.5" y="5.08" size="1.778" layer="96" rot="MR270" display="off"/>
+<attribute name="MPN" x="-317.5" y="5.08" size="1.778" layer="96" rot="MR270" display="off"/>
+<attribute name="NAME" x="-330.2" y="2.159" size="1.778" layer="95" font="vector" rot="MR180"/>
+<attribute name="VALUE" x="-314.96" y="2.921" size="1.778" layer="96" font="vector" rot="MR180" align="top-left"/>
 </instance>
 </instances>
 <busses>
@@ -6718,12 +6718,6 @@ Source: &lt;a href="https://www.susumu.co.jp/common/pdf/n_catalog_partition19_en
 <pinref part="B1" gate="G$1" pin="VDD"/>
 </segment>
 <segment>
-<pinref part="B2" gate="G$1" pin="VDD"/>
-<wire x1="-513.08" y1="33.02" x2="-528.32" y2="33.02" width="0.1524" layer="91"/>
-<wire x1="-528.32" y1="33.02" x2="-553.72" y2="33.02" width="0.1524" layer="91"/>
-<label x="-548.64" y="33.02" size="1.778" layer="95"/>
-</segment>
-<segment>
 <wire x1="10.16" y1="-35.56" x2="-25.4" y2="-35.56" width="0.1524" layer="91"/>
 <pinref part="U5" gate="G$1" pin="FB"/>
 <wire x1="-25.4" y1="-35.56" x2="-48.26" y2="-35.56" width="0.1524" layer="91"/>
@@ -6743,6 +6737,13 @@ Source: &lt;a href="https://www.susumu.co.jp/common/pdf/n_catalog_partition19_en
 <pinref part="R4" gate="G$1" pin="1"/>
 <wire x1="-391.16" y1="12.7" x2="-391.16" y2="5.08" width="0.1524" layer="91"/>
 <label x="-391.922" y="4.318" size="1.778" layer="95" rot="R90"/>
+</segment>
+<segment>
+<pinref part="B2" gate="G$1" pin="VDD@2"/>
+<wire x1="-513.08" y1="25.4" x2="-535.94" y2="25.4" width="0.1524" layer="91"/>
+<wire x1="-535.94" y1="25.4" x2="-535.94" y2="22.86" width="0.1524" layer="91"/>
+<wire x1="-535.94" y1="22.86" x2="-574.04" y2="22.86" width="0.1524" layer="91"/>
+<label x="-568.96" y="22.86" size="1.778" layer="95"/>
 </segment>
 </net>
 <net name="PO.25(RX)-DIO3(TX)" class="0">
@@ -6798,16 +6799,16 @@ Source: &lt;a href="https://www.susumu.co.jp/common/pdf/n_catalog_partition19_en
 <pinref part="SCL" gate="G$1" pin="1"/>
 </segment>
 </net>
-<net name="DIO1-RESET" class="0">
+<net name="NRF_RESET" class="0">
 <segment>
-<pinref part="B1" gate="G$1" pin="DIO1-RESET"/>
-<wire x1="-243.84" y1="0" x2="-269.24" y2="0" width="0.1524" layer="91"/>
-<label x="-269.24" y="0" size="1.778" layer="95"/>
+<label x="-568.96" y="27.94" size="1.778" layer="95"/>
+<pinref part="B2" gate="G$1" pin="DIO1-RESET"/>
+<wire x1="-574.04" y1="27.94" x2="-513.08" y2="27.94" width="0.1524" layer="91"/>
 </segment>
 <segment>
-<pinref part="R15" gate="G$1" pin="2"/>
-<wire x1="-546.1" y1="27.94" x2="-574.04" y2="27.94" width="0.1524" layer="91"/>
-<label x="-568.96" y="27.94" size="1.778" layer="95"/>
+<pinref part="RES_SEL" gate="G$1" pin="2"/>
+<wire x1="-322.58" y1="5.08" x2="-337.82" y2="5.08" width="0.1524" layer="91"/>
+<label x="-327.66" y="7.62" size="1.778" layer="95" rot="R180"/>
 </segment>
 </net>
 <net name="N$38" class="0">
@@ -6827,13 +6828,6 @@ Source: &lt;a href="https://www.susumu.co.jp/common/pdf/n_catalog_partition19_en
 <pinref part="SCL" gate="G$1" pin="3"/>
 </segment>
 </net>
-<net name="N$40" class="0">
-<segment>
-<pinref part="B2" gate="G$1" pin="DIO1-RESET"/>
-<pinref part="R15" gate="G$1" pin="1"/>
-<wire x1="-535.94" y1="27.94" x2="-513.08" y2="27.94" width="0.1524" layer="91"/>
-</segment>
-</net>
 <net name="GPIO1" class="0">
 <segment>
 <pinref part="B2" gate="G$1" pin="PO.03"/>
@@ -6841,7 +6835,7 @@ Source: &lt;a href="https://www.susumu.co.jp/common/pdf/n_catalog_partition19_en
 <label x="-530.86" y="7.62" size="1.778" layer="95"/>
 </segment>
 <segment>
-<wire x1="-147.32" y1="38.1" x2="-134.62" y2="38.1" width="0.1524" layer="91"/>
+<wire x1="-146.812" y1="38.1" x2="-134.62" y2="38.1" width="0.1524" layer="91"/>
 <label x="-140.716" y="38.608" size="1.778" layer="95"/>
 <pinref part="RGPIO1" gate="G$1" pin="1"/>
 </segment>
@@ -6853,7 +6847,7 @@ Source: &lt;a href="https://www.susumu.co.jp/common/pdf/n_catalog_partition19_en
 <label x="-530.86" y="5.08" size="1.778" layer="95"/>
 </segment>
 <segment>
-<wire x1="-147.32" y1="35.56" x2="-134.62" y2="35.56" width="0.1524" layer="91"/>
+<wire x1="-146.812" y1="35.56" x2="-134.62" y2="35.56" width="0.1524" layer="91"/>
 <label x="-140.716" y="35.814" size="1.778" layer="95"/>
 <pinref part="RGPIO2" gate="G$1" pin="1"/>
 </segment>
@@ -6866,10 +6860,10 @@ Source: &lt;a href="https://www.susumu.co.jp/common/pdf/n_catalog_partition19_en
 </segment>
 <segment>
 <label x="-140.716" y="33.274" size="1.778" layer="95"/>
-<wire x1="-147.574" y1="33.02" x2="-147.32" y2="33.02" width="0.1524" layer="91"/>
+<wire x1="-147.574" y1="33.02" x2="-147.828" y2="33.02" width="0.1524" layer="91"/>
 <pinref part="RGPIO3" gate="G$1" pin="1"/>
-<wire x1="-147.32" y1="33.02" x2="-134.62" y2="33.02" width="0.1524" layer="91"/>
-<junction x="-147.32" y="33.02"/>
+<wire x1="-147.828" y1="33.02" x2="-134.62" y2="33.02" width="0.1524" layer="91"/>
+<junction x="-147.828" y="33.02"/>
 </segment>
 </net>
 <net name="GPIO4" class="0">
@@ -6933,8 +6927,8 @@ Source: &lt;a href="https://www.susumu.co.jp/common/pdf/n_catalog_partition19_en
 </segment>
 <segment>
 <pinref part="B1" gate="G$1" pin="DIO15"/>
-<wire x1="-172.72" y1="27.94" x2="-144.78" y2="27.94" width="0.1524" layer="91"/>
-<label x="-150.114" y="28.194" size="1.778" layer="95"/>
+<wire x1="-172.72" y1="27.94" x2="-119.38" y2="27.94" width="0.1524" layer="91"/>
+<label x="-129.794" y="28.194" size="1.778" layer="95"/>
 </segment>
 </net>
 <net name="N$45" class="0">
@@ -7278,21 +7272,21 @@ Source: &lt;a href="https://www.susumu.co.jp/common/pdf/n_catalog_partition19_en
 <net name="N$28" class="0">
 <segment>
 <pinref part="B1" gate="G$1" pin="MOSI"/>
-<wire x1="-157.48" y1="38.1" x2="-172.72" y2="38.1" width="0.1524" layer="91"/>
+<wire x1="-156.972" y1="38.1" x2="-172.72" y2="38.1" width="0.1524" layer="91"/>
 <pinref part="RGPIO1" gate="G$1" pin="2"/>
 </segment>
 </net>
 <net name="N$30" class="0">
 <segment>
 <pinref part="B1" gate="G$1" pin="MISO"/>
-<wire x1="-157.48" y1="35.56" x2="-172.72" y2="35.56" width="0.1524" layer="91"/>
+<wire x1="-156.972" y1="35.56" x2="-172.72" y2="35.56" width="0.1524" layer="91"/>
 <pinref part="RGPIO2" gate="G$1" pin="2"/>
 </segment>
 </net>
 <net name="N$33" class="0">
 <segment>
 <pinref part="B1" gate="G$1" pin="BTN1"/>
-<wire x1="-157.48" y1="33.02" x2="-172.72" y2="33.02" width="0.1524" layer="91"/>
+<wire x1="-157.988" y1="33.02" x2="-172.72" y2="33.02" width="0.1524" layer="91"/>
 <pinref part="RGPIO3" gate="G$1" pin="2"/>
 </segment>
 </net>
@@ -7362,6 +7356,30 @@ Source: &lt;a href="https://www.susumu.co.jp/common/pdf/n_catalog_partition19_en
 <pinref part="RLED1" gate="G$1" pin="2"/>
 <pinref part="U6" gate="A" pin="STAT"/>
 <wire x1="187.96" y1="104.14" x2="187.96" y2="114.3" width="0.1524" layer="91"/>
+</segment>
+</net>
+<net name="DIO1_RESERVED" class="0">
+<segment>
+<pinref part="B1" gate="G$1" pin="DIO1-RESET"/>
+<wire x1="-243.84" y1="0" x2="-269.24" y2="0" width="0.1524" layer="91"/>
+<label x="-266.7" y="-2.54" size="1.778" layer="95"/>
+</segment>
+<segment>
+<pinref part="RES_SEL" gate="G$1" pin="3"/>
+<wire x1="-317.5" y1="10.16" x2="-304.8" y2="10.16" width="0.1524" layer="91"/>
+<label x="-314.96" y="10.16" size="1.778" layer="95"/>
+</segment>
+</net>
+<net name="DIO22" class="0">
+<segment>
+<pinref part="B1" gate="G$1" pin="DIO22"/>
+<wire x1="-243.84" y1="40.64" x2="-292.1" y2="40.64" width="0.1524" layer="91"/>
+<label x="-289.56" y="40.64" size="1.778" layer="95"/>
+</segment>
+<segment>
+<pinref part="RES_SEL" gate="G$1" pin="1"/>
+<wire x1="-317.5" y1="0" x2="-304.8" y2="0" width="0.1524" layer="91"/>
+<label x="-314.96" y="-2.54" size="1.778" layer="95"/>
 </segment>
 </net>
 </nets>
