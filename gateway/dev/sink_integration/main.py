@@ -142,11 +142,16 @@ def handle_user_input():
             elif user_input == 7:
                 print("Turn on bt with params")
                 appLogger.debug("[SENDING] Enable Bluetooth with params")
+                SCAN_INTERVAL_MS = 10000
+                SCAN_WINDOW_MS = 5100
+                SCAN_TIMEOUT_S = 0
+                REPORT_TIMEOUT_S = 30
+
                 active_scan = 1
-                scan_interval = 3520
-                scan_window = 1920
-                timeout = 0
-                report_timeout_ms = 45000
+                scan_interval = int(SCAN_INTERVAL_MS*1000/625)
+                scan_window = int(SCAN_WINDOW_MS*1000/625)
+                timeout = int(SCAN_TIMEOUT_S)
+                report_timeout_ms = int(REPORT_TIMEOUT_S*1000)
                 bactive_scan = active_scan.to_bytes(1, byteorder="big", signed=False)
                 bscan_interval = scan_interval.to_bytes(2, byteorder="big", signed=False)
                 bscan_window = scan_window.to_bytes(2, byteorder="big", signed=False)
@@ -171,14 +176,15 @@ def send_serial_msg(pkttype, ser_payload):
     packet = payload_size.to_bytes(length=1, byteorder='big', signed=False) + pkttype.to_bytes(length=2, byteorder='big', signed=False)
 
     if ser_payload is not None:
-        #ser.write(ser_payload)
         packet=packet+ser_payload
 
-    packet=packet+SER_END_CHAR
+    ascii_packet=''.join('%02X'%i for i in packet)
 	
-    ser.write(packet)
+    #print("ascii_packet = " + ascii_packet)
 
-    dataLogger.info("GATEWAY 0x {0} ".format(packet.hex()))
+    ser.write(ascii_packet.encode('utf-8'))
+    ser.write(SER_END_CHAR)
+    dataLogger.info("GATEWAY 0x {0} ".format((packet+SER_END_CHAR).hex()))
 
 
 def decode_payload(seqid, size, packettype, pktnum):

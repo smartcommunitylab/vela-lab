@@ -28,6 +28,8 @@
 #include "dev/cc26xx-uart.h"
 #include "ti-lib.h"
 
+#define TO_BYTE(hex_data) ((hex_data <= '9') ? hex_data - '0': hex_data - 'A' + 10)
+
 static uip_ipaddr_t ipaddr;
 static uint8_t state;
 
@@ -236,9 +238,10 @@ PROCESS_THREAD(trickle_sender_process, ev, data)
     PROCESS_END();
 }
 
-static uint8_t payload_size, uart_line_size;
+static uint8_t payload_size;
+static uint16_t serial_line_len;
 static uint8_t* input;
-
+static uint8_t byte_array[SERIAL_LINE_CONF_BUFSIZE/2];
 
 PROCESS_THREAD(uart_reader_process, ev, data)
 {
@@ -252,25 +255,24 @@ PROCESS_THREAD(uart_reader_process, ev, data)
         if(ev == serial_line_event_message){
 
             input=(uint8_t*)data;
-            payload_size=input[0];
-            uart_line_size=payload_size+NET_MESS_MSGTYPE_LEN+NET_MESS_MSGLEN_LEN;
+            serial_line_len = strlen((char*)input);
 
-#ifdef ENABLE_UART_ECHO
-            static uint8_t in=0;
-            for(in=0;in<uart_line_size;in++){
-                printf("%02x",input[in]);
+            if(serial_line_len>2 && serial_line_len<SERIAL_LINE_CONF_BUFSIZE/2){
+                for(uint8_t ci=0;ci<serial_line_len/2;ci++){
+                    byte_array[ci] = ((0x0F & TO_BYTE(input[2*ci])) << 4) + ( 0x0F & TO_BYTE(input[2*ci + 1]));
+                }
+
+                payload_size=byte_array[0];
+
+                trickle_msg.pkttype = ((uint16_t) byte_array[1]) << 8;
+                trickle_msg.pkttype |= byte_array[2];
+                trickle_msg.pktnum++;
+                trickle_msg.payload.data_len=payload_size;
+                memcpy(trickle_msg.payload.p_data, &byte_array[NET_MESS_MSGTYPE_LEN+NET_MESS_MSGLEN_LEN], payload_size);
+
+                trickle_timer_reset_event(&tt);
+                leds_toggle(LEDS_RED);
             }
-            printf("\n");
-#endif
-
-            trickle_msg.pkttype = ((uint16_t) input[1]) << 8;
-            trickle_msg.pkttype |= input[2];
-            trickle_msg.pktnum++;
-            trickle_msg.payload.data_len=payload_size;
-            memcpy(trickle_msg.payload.p_data, &input[NET_MESS_MSGTYPE_LEN+NET_MESS_MSGLEN_LEN], payload_size);
-
-            trickle_timer_reset_event(&tt);
-            leds_toggle(LEDS_RED);
         }
     }
     PROCESS_END();
