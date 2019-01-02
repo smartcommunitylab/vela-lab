@@ -60,7 +60,7 @@ btToggleBool = True
 # Loggers
 LOG_LEVEL = logging.DEBUG
 
-formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s', datefmt='%Y/%m/%d %H:%M:%S:%f')
+formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s', datefmt='%Y/%m/%d %H:%M:%S')
 timestr = time.strftime("%Y%m%d-%H%M%S")
 
 
