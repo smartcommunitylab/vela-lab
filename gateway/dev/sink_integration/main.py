@@ -243,7 +243,6 @@ if ser.is_open:
     time.sleep(1)
 
 try:
-    ser.open()
     while 1:
         if ser.is_open:
             try:
@@ -436,32 +435,48 @@ try:
                             appLogger.warning("[Node {0}] Received unknown packettype: {1}".format(nodeid, hex(pkttype)))
                             dataLogger.info("Node {0} 0x {1} 0x {2}".format(nodeid, '{:02x}'.format(pkttype), '{:x}'.format(pktnum)))
 
-        currentTime = time.time()
-        if currentTime - previousTimeTimeout > timeoutInterval:
-            previousTimeTimeout = time.time()
-            deletedCounter = 0
-            for x in range(len(messageSequenceList)):
-                if currentTime - messageSequenceList[x - deletedCounter].latestTime > timeoutTime:
-                    # TODO send data before deleting element
-                    del messageSequenceList[x - deletedCounter]
-                    deletedCounter += 1
-                    print("Deleted seqid {0} because of timeout".format(x + deletedCounter))
-                    appLogger.debug("Node Sequence timed out")
+            currentTime = time.time()
+            if currentTime - previousTimeTimeout > timeoutInterval:
+                previousTimeTimeout = time.time()
+                deletedCounter = 0
+                for x in range(len(messageSequenceList)):
+                    if currentTime - messageSequenceList[x - deletedCounter].latestTime > timeoutTime:
+                        # TODO send data before deleting element
+                        del messageSequenceList[x - deletedCounter]
+                        deletedCounter += 1
+                        print("Deleted seqid {0} because of timeout".format(x + deletedCounter))
+                        appLogger.debug("Node Sequence timed out")
 
-        if currentTime - btPreviousTime > btToggleInterval:
-            ptype = 0
-            if btToggleBool:
-                print("Turning bt off")
-                #appLogger.debug("[SENDING] Disable Bluetooth")
-                ptype = PacketType.nordic_turn_bt_off
-                btToggleBool = False
-            else:
-                print("Turning bt on")
-                #appLogger.debug("[SENDING] Enable Bluetooth")
-                ptype = PacketType.nordic_turn_bt_on
-                btToggleBool = True
-            #send_serial_msg(ptype, None)
-            btPreviousTime = currentTime
+            if currentTime - btPreviousTime > btToggleInterval:
+                ptype = 0
+                if btToggleBool:
+                    print("Turning bt off")
+                    #appLogger.debug("[SENDING] Disable Bluetooth")
+                    ptype = PacketType.nordic_turn_bt_off
+                    btToggleBool = False
+                else:
+                    print("Turning bt on")
+                    #appLogger.debug("[SENDING] Enable Bluetooth")
+                    ptype = PacketType.nordic_turn_bt_on
+                    btToggleBool = True
+                #send_serial_msg(ptype, None)
+                btPreviousTime = currentTime
+
+
+        else: # !ser.is_open (serial port is not open)
+
+            print('Serial Port closed! Trying to open port:', ser.port)
+
+            try:
+                ser.open()
+            except Exception as e:
+                print("Serial Port open exception:", e)
+                appLogger.debug("Serial Port exception: %s", e)
+                time.sleep(5)
+                continue
+
+            print("Serial Port open!")
+            appLogger.debug("Serial Port open")
 
 
 except UnicodeDecodeError as e:
