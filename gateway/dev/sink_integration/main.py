@@ -145,7 +145,7 @@ def handle_user_input():
                 SCAN_INTERVAL_MS = 10000
                 SCAN_WINDOW_MS = 5100
                 SCAN_TIMEOUT_S = 0
-                REPORT_TIMEOUT_S = 30
+                REPORT_TIMEOUT_S = 45
 
                 active_scan = 1
                 scan_interval = int(SCAN_INTERVAL_MS*1000/625)
@@ -457,15 +457,15 @@ try:
                 ptype = 0
                 if btToggleBool:
                     print("Turning bt off")
-                    #appLogger.debug("[SENDING] Disable Bluetooth")
+                    appLogger.debug("[SENDING] Disable Bluetooth")
                     ptype = PacketType.nordic_turn_bt_off
                     btToggleBool = False
                 else:
                     print("Turning bt on")
-                    #appLogger.debug("[SENDING] Enable Bluetooth")
+                    appLogger.debug("[SENDING] Enable Bluetooth")
                     ptype = PacketType.nordic_turn_bt_on
                     btToggleBool = True
-                #send_serial_msg(ptype, None)
+                send_serial_msg(ptype, None)
                 btPreviousTime = currentTime
 
 
