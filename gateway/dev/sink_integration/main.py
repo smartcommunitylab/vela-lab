@@ -152,9 +152,9 @@ def handle_user_input():
                 print("Turn on bt with params")
                 appLogger.debug("[SENDING] Enable Bluetooth with params")
                 SCAN_INTERVAL_MS = 10000
-                SCAN_WINDOW_MS = 5100
+                SCAN_WINDOW_MS = 2500
                 SCAN_TIMEOUT_S = 0
-                REPORT_TIMEOUT_S = 30
+                REPORT_TIMEOUT_S = 45
 
                 active_scan = 1
                 scan_interval = int(SCAN_INTERVAL_MS*1000/625)
