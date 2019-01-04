@@ -691,7 +691,7 @@ void uart_util_ack_tx_done(void) {
 }
 
 void uart_util_ack_error(ack_wait_t* ack_wait_data) {
-    PRINTF("UART ack error!!!\n");
+    PRINTF("UART ack error for packet type: 0x%04x!!!\n",ack_wait_data->waiting_ack_for_pkt_type);
 	blink_led(ERROR_LED, LED_BLINK_TIMEOUT_MS);
 	m_tx_error = true;
 }
