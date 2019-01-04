@@ -345,10 +345,10 @@ static uint8_t send_reset(void) {
 
 static uint8_t request_periodic_report_to_nordic(void){
 	static uint8_t payload[4];
-	payload[0] = report_timeout_ms >> 24;
-	payload[1] = report_timeout_ms >> 16;
-	payload[2] = report_timeout_ms >> 8;
-	payload[3] = report_timeout_ms;
+	payload[0] = report_timeout_ms_arg >> 24;
+	payload[1] = report_timeout_ms_arg >> 16;
+	payload[2] = report_timeout_ms_arg >> 8;
+	payload[3] = report_timeout_ms_arg;
 
 
 	static uart_pkt_t packet;
@@ -576,6 +576,7 @@ PROCESS_THREAD(cc2650_uart_process, ev, data) {
         turn_bt_on_low = process_alloc_event();
         turn_bt_on_def = process_alloc_event();
         turn_bt_on_high = process_alloc_event();
+        reset_bt = process_alloc_event();
 
 		cc26xx_uart_set_input(serial_line_input_byte);
 
@@ -626,6 +627,10 @@ PROCESS_THREAD(cc2650_uart_process, ev, data) {
                     report_timeout_ms = DEFAULT_REPORT_TIMEOUT_MS;
                     start_procedure(&bluetooth_on);
                 }
+                if(ev == reset_bt){
+                    reset_nodric();
+                }
+
                 //next commands are deprecated on the gateway but still handled by the TI board
                 if(ev == turn_bt_on_low) {
                     scan_window = DEFAULT_SCAN_WINDOW / 2;     /**< Scan window between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
@@ -637,7 +642,6 @@ PROCESS_THREAD(cc2650_uart_process, ev, data) {
                     report_timeout_ms_arg = report_timeout_ms;
                     start_procedure(&bluetooth_on);
                 }
-
 			}
 		}
 	PROCESS_END();

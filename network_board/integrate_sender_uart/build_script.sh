@@ -4,7 +4,7 @@
 
 export CONTIKI_ROOT={absolute_path_to_contiki}
 
-export CONTIKI_ROOT=/home/bram/Documents/ContikiTest/contiki
+export CONTIKI_ROOT=/home/giova/workspaces/GIT/contiki
 
 ./copyForBuild.sh
 

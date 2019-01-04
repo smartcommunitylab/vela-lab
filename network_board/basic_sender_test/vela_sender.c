@@ -22,12 +22,14 @@
 #include <stdio.h>
 #include "network_messages.h"
 #include "lib/random.h"
+#include "vela_node.h"
 #ifdef BOARD_LAUNCHPAD_VELA
 #if BOARD_LAUNCHPAD_VELA==1
 #include "max-17260-sensor.h"
 #endif
 #endif
 
+#define VERY_LONG_TIMER_VALUE 14510024
 
 static struct etimer periodic_timer;
 
@@ -51,7 +53,7 @@ network_message_t trickle_msg;
 static struct etimer keep_alive_timer;
 static struct etimer delay_ping_timer;
 
-static uint8_t keep_alive_interval = KEEP_ALIVE_INTERVAL;
+static uint32_t keep_alive_interval = KEEP_ALIVE_INTERVAL;
 
 PROCESS(vela_sender_process, "vela sender process");
 PROCESS(trickle_protocol_process, "Trickle Protocol process");
@@ -164,7 +166,13 @@ tcpip_handler(void)
     	    PRINTF("\n");
     	}
         incoming = (network_message_t *) uip_appdata;
-    	PRINTF("Received new Trickle message, counter: %d, type: %X, payload: %d\n", incoming->pktnum, incoming->pkttype, incoming->payload.p_data[0]);
+    	PRINTF("Received new Trickle message, counter: %d, type: %X, payload: ", incoming->pktnum, incoming->pkttype);
+
+    	uint8_t asd=0;
+    	for(asd=0;asd<incoming->payload.data_len;asd++){
+    	    PRINTF("%02X", incoming->payload.p_data[asd]);
+    	}
+    	PRINTF("\n");
 
         if(trickle_msg.pktnum == incoming->pktnum) {
             trickle_timer_consistency(&tt);
@@ -178,16 +186,11 @@ tcpip_handler(void)
             if(incoming->pktnum > trickle_msg.pktnum || (trickle_msg.pktnum - incoming->pktnum > 10)){
                 memcpy(&trickle_msg, incoming, sizeof(network_message_t));
             	PRINTF("Received new message, type: %X\n", trickle_msg.pkttype);
-            	switch(trickle_msg.pkttype) {
+            	switch(incoming->pkttype) {
                 case network_request_ping: {
                     ;
                     PRINTF("Ping request\n");
-                    process_post(&cc2650_uart_process, event_ping_requested, &incoming->payload.p_data[0]);
-//                    network_message_t response;
-//                    response.pkttype = network_respond_ping;
-//					response.payload.data_len = 1;
-//					response.payload.p_data[0] = 233;
-//					send_to_sink(response);
+                    process_post(&cc2650_uart_process, event_ping_requested, incoming->payload.p_data);
                     break;
                 }
                 case nordic_turn_bt_off: {
@@ -220,13 +223,42 @@ tcpip_handler(void)
 					process_post(&cc2650_uart_process, turn_bt_on_high, NULL);
 					break;
 				}
-				case ti_set_keep_alive: {
-					;
-					PRINTF("Setting keep alive interval to %hhu\n", incoming->payload.p_data[0]);
-					keep_alive_interval = (uint8_t)incoming->payload.p_data[0];
-					etimer_set(&keep_alive_timer, keep_alive_interval * CLOCK_SECOND);
-					break;
-				}
+                case nordic_turn_bt_on_w_params: {
+                    ;
+                    PRINTF("Turning Bluetooth on...\n");
+                    process_post(&cc2650_uart_process, turn_bt_on_w_params, incoming->payload.p_data);
+                    break;
+                }
+                case ti_set_keep_alive: {
+                    ;
+                    PRINTF("Setting keep alive interval to %hhu\n", incoming->payload.p_data[0]);
+                    PROCESS_CONTEXT_BEGIN(&keep_alive_process);
+                    keep_alive_interval = incoming->payload.p_data[0];
+                    if(keep_alive_interval > 10){
+                        etimer_set(&keep_alive_timer, keep_alive_interval * CLOCK_SECOND);
+                    }else{
+                        etimer_set(&keep_alive_timer, VERY_LONG_TIMER_VALUE * CLOCK_SECOND);
+                        PRINTF("Not a valid interval, turning keep alive off\n");
+                    }
+                    PROCESS_CONTEXT_END(&keep_alive_process);
+                    break;
+                }
+                case ti_set_batt_info_int: {
+                    ;
+                    if(incoming->payload.p_data[0] != 0){
+                        PRINTF("Enabling battery info report with interval %u\n",incoming->payload.p_data[0]);
+                    }else{
+                        PRINTF("Disabling battery info report\n");
+                    }
+                    process_post(&vela_node_process, set_battery_info_interval, incoming->payload.p_data);
+                    break;
+                }
+                case nordic_reset: {
+                    ;
+                    PRINTF("Reseting nordic board\n");
+                    process_post(&cc2650_uart_process, reset_bt, NULL);
+                    break;
+                }
 				default:
                     break;
                 }
@@ -388,25 +420,32 @@ PROCESS_THREAD(keep_alive_process, ev, data)
     keep_alive_msg.payload.data_len = 4;
     while(1) {
     	PROCESS_WAIT_UNTIL(etimer_expired(&keep_alive_timer));
-    	etimer_set(&keep_alive_timer, keep_alive_interval * CLOCK_SECOND);
+
+    	if(keep_alive_interval > 10){
+    	    etimer_set(&keep_alive_timer, keep_alive_interval * CLOCK_SECOND);
+
 #ifdef BOARD_LAUNCHPAD_VELA
 #if BOARD_LAUNCHPAD_VELA==1
-    	REP_CAP_mAh = max_17260_sensor.value(MAX_17260_SENSOR_TYPE_REP_CAP);
-    	REP_SOC_permillis = max_17260_sensor.value(MAX_17260_SENSOR_TYPE_REP_SOC);
-    	keep_alive_msg.payload.p_data[0] = (uint8_t)REP_CAP_mAh >> 8;
-    	keep_alive_msg.payload.p_data[1] = (uint8_t)REP_CAP_mAh;
-    	keep_alive_msg.payload.p_data[2] = (uint8_t)REP_SOC_permillis >> 8;
-    	keep_alive_msg.payload.p_data[3] = (uint8_t)REP_SOC_permillis;
+            REP_CAP_mAh = max_17260_sensor.value(MAX_17260_SENSOR_TYPE_REP_CAP);
+            REP_SOC_permillis = max_17260_sensor.value(MAX_17260_SENSOR_TYPE_REP_SOC);
+            keep_alive_msg.payload.p_data[0] = (uint8_t)REP_CAP_mAh >> 8;
+            keep_alive_msg.payload.p_data[1] = (uint8_t)REP_CAP_mAh;
+            keep_alive_msg.payload.p_data[2] = (uint8_t)REP_SOC_permillis >> 8;
+            keep_alive_msg.payload.p_data[3] = (uint8_t)REP_SOC_permillis;
 #endif
 #else
-    	bat_data1++;
-    	bat_data2++;
-    	keep_alive_msg.payload.p_data[0] = (uint8_t)bat_data1 >> 8;
-    	keep_alive_msg.payload.p_data[1] = (uint8_t)bat_data1;
-    	keep_alive_msg.payload.p_data[2] = (uint8_t)bat_data2 >> 8;
-    	keep_alive_msg.payload.p_data[3] = (uint8_t)bat_data2;
+            bat_data1++;
+            bat_data2++;
+            keep_alive_msg.payload.p_data[0] = (uint8_t)bat_data1 >> 8;
+            keep_alive_msg.payload.p_data[1] = (uint8_t)bat_data1;
+            keep_alive_msg.payload.p_data[2] = (uint8_t)bat_data2 >> 8;
+            keep_alive_msg.payload.p_data[3] = (uint8_t)bat_data2;
 #endif
-    	send_to_sink(keep_alive_msg);
+            send_to_sink(keep_alive_msg);
+    	}else{
+            etimer_set(&keep_alive_timer, VERY_LONG_TIMER_VALUE * CLOCK_SECOND); //NOTE: the etimer seems to not reset the expired status, then once stopped the execution keeps looping inside the while(1). Setting it to an high value is a workaround
+    	}
+
     }
     PROCESS_END();
 }
