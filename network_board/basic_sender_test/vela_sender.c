@@ -176,7 +176,7 @@ tcpip_handler(void)
                          (unsigned long)(tt.ct.etimer.timer.start +
             tt.ct.etimer.timer.interval));
             if(incoming->pktnum > trickle_msg.pktnum || (trickle_msg.pktnum - incoming->pktnum > 10)){
-                trickle_msg = *incoming;
+                memcpy(&trickle_msg, incoming, sizeof(network_message_t));
             	PRINTF("Received new message, type: %X\n", trickle_msg.pkttype);
             	switch(trickle_msg.pkttype) {
                 case network_request_ping: {

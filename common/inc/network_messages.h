@@ -25,20 +25,22 @@
 #define NET_MESS_BUFF_SIZE      SERIAL_LINE_CONF_BUFSIZE
 
 typedef enum{
-	network_new_sequence = 0x0100,
-	network_active_sequence = 0x0101,
-	network_last_sequence = 0x0102,
-	network_request_ping = 0xF000,
-	network_respond_ping = 0xF001,
-	network_keep_alive = 0xF010,
-	network_bat_data = 0x0200,
-	ti_set_keep_alive = 0xF801,	
-	nordic_turn_bt_off = 0xF020,
-	nordic_turn_bt_on = 0xF021,
-	nordic_turn_bt_on_w_params = 0xF022,
-        nordic_turn_bt_on_low = 0xF023,
-        nordic_turn_bt_on_def = 0xF024,
-	nordic_turn_bt_on_high = 0xF025
+    network_new_sequence =          0x0100,
+    network_active_sequence =       0x0101,
+    network_last_sequence =         0x0102,
+    network_request_ping =          0xF000,
+    network_respond_ping =          0xF001,
+    network_keep_alive =            0xF010,
+    network_bat_data =              0x0200,
+    ti_set_keep_alive =             0xF801,
+    nordic_turn_bt_off =            0xF020,
+    nordic_turn_bt_on =             0xF021,
+    nordic_turn_bt_on_w_params =    0xF022,
+    nordic_turn_bt_on_low =         0xF023, //deprecated
+    nordic_turn_bt_on_def =         0xF024,
+    nordic_turn_bt_on_high =        0xF025, //deprecated
+    ti_set_batt_info_int =          0xF026,
+    nordic_reset =                  0xF027
 } pkttype_t;
 
 typedef struct
