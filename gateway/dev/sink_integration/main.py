@@ -93,27 +93,36 @@ contactLogger.addHandler(contactlog_handler)
 
 @unique
 class PacketType(IntEnum):
-    network_new_sequence = 0x0100
-    network_active_sequence = 0x0101
-    network_last_sequence = 0x0102
-    network_bat_data = 0x0200
-    network_request_ping = 0xF000
-    network_respond_ping = 0xF001
-    network_keep_alive = 0xF010
-    ti_set_keep_alive = 0xF801
-    nordic_turn_bt_off = 0xF020
-    nordic_turn_bt_on = 0xF021
-    nordic_turn_bt_on_w_params = 0xF022
-    nordic_turn_bt_on_low = 0xF023
-    nordic_turn_bt_on_def = 0xF024
-    nordic_turn_bt_on_high = 0xF025
-
+    network_new_sequence =          0x0100
+    network_active_sequence =       0x0101
+    network_last_sequence =         0x0102
+    network_bat_data =              0x0200
+    network_request_ping =          0xF000
+    network_respond_ping =          0xF001
+    network_keep_alive =            0xF010
+    ti_set_keep_alive =             0xF801
+    nordic_turn_bt_off =            0xF020
+    nordic_turn_bt_on =             0xF021
+    nordic_turn_bt_on_w_params =    0xF022
+    nordic_turn_bt_on_low =         0xF023  #deprecated
+    nordic_turn_bt_on_def =         0xF024
+    nordic_turn_bt_on_high =        0xF025  #deprecated
+    ti_set_batt_info_int =          0xF026
+    nordic_reset =                  0xF027
 
 def handle_user_input():
     while 1:
         try:
-            user_input = int(input("Select a configuration\n1 = request ping\n2 = enable bluetooth\n3 = disable bluetooth\n"
-                        "4 = bt low\n5 = bt_def\n6 = bt_high\n 7 = bt_with_params\n>7 = set keep alive interval in seconds\n"))
+            user_input = int(input( "Select a configuration\n"
+                                    "1 = request ping\n"
+                                    "2 = enable bluetooth\n"
+                                    "3 = disable bluetooth\n"
+                                    "4 = bt_def\n"
+                                    "5 = bt_with_params\n"
+                                    "6 = enable battery info\n"
+                                    "7 = disable battery info\n"
+                                    "8 = reset nordic\n"
+                                    ">8 = set keep alive interval in seconds\n"))
             if user_input == 1:
                 payload = 233
                 send_serial_msg(PacketType.network_request_ping, payload.to_bytes(1, byteorder="big", signed=False))
@@ -127,25 +136,25 @@ def handle_user_input():
                 send_serial_msg(PacketType.nordic_turn_bt_off, None)
                 print("Turning bt off")
                 appLogger.debug("[SENDING] Disable Bluetooth")
+            #elif user_input == 4:
+            #    send_serial_msg(PacketType.nordic_turn_bt_on_low, None)
+            #    print("Turning bt on low")
+            #    appLogger.debug("[SENDING] Enable Bluetooth LOW")
             elif user_input == 4:
-                send_serial_msg(PacketType.nordic_turn_bt_on_low, None)
-                print("Turning bt on low")
-                appLogger.debug("[SENDING] Enable Bluetooth LOW")
-            elif user_input == 5:
                 send_serial_msg(PacketType.nordic_turn_bt_on_def, None)
                 print("Turning bt on def")
                 appLogger.debug("[SENDING] Enable Bluetooth DEF")
-            elif user_input == 6:
-                send_serial_msg(PacketType.nordic_turn_bt_on_high, None)
-                print("Turning bt on high")
-                appLogger.debug("[SENDING] Enable Bluetooth HIGH")
-            elif user_input == 7:
+            #elif user_input == 6:
+            #    send_serial_msg(PacketType.nordic_turn_bt_on_high, None)
+            #    print("Turning bt on high")
+            #    appLogger.debug("[SENDING] Enable Bluetooth HIGH")
+            elif user_input == 5:
                 print("Turn on bt with params")
                 appLogger.debug("[SENDING] Enable Bluetooth with params")
                 SCAN_INTERVAL_MS = 10000
                 SCAN_WINDOW_MS = 5100
                 SCAN_TIMEOUT_S = 0
-                REPORT_TIMEOUT_S = 45
+                REPORT_TIMEOUT_S = 30
 
                 active_scan = 1
                 scan_interval = int(SCAN_INTERVAL_MS*1000/625)
@@ -159,7 +168,18 @@ def handle_user_input():
                 breport_timeout_ms = report_timeout_ms.to_bytes(4, byteorder="big", signed=False)
                 payload = bactive_scan + bscan_interval + bscan_window + btimeout + breport_timeout_ms
                 send_serial_msg(PacketType.nordic_turn_bt_on_w_params, payload)
-            elif user_input > 7:
+            elif user_input == 6:
+                bat_info_interval_s = 60
+                send_serial_msg(PacketType.ti_set_batt_info_int, bat_info_interval_s.to_bytes(1, byteorder="big", signed=False))
+                print("Enable battery info with interval: "+str(bat_info_interval_s))
+            elif user_input == 7:
+                bat_info_interval_s = 0
+                send_serial_msg(PacketType.ti_set_batt_info_int, bat_info_interval_s.to_bytes(1, byteorder="big", signed=False))
+                print("Disabling battery info")
+            elif user_input == 8:
+                send_serial_msg(PacketType.nordic_reset, None)
+                print("Reset bluetooth")
+            elif user_input > 8:
                 interval = user_input
                 send_serial_msg(PacketType.ti_set_keep_alive, interval.to_bytes(1, byteorder="big", signed=False))
                 print("Setting keep alive")
