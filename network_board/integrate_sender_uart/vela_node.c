@@ -14,13 +14,14 @@ channel check interval
 #include <string.h>
 #include "vela_uart.h"
 #include "vela_sender.h"
+#include "vela_node.h"
 #ifdef BOARD_LAUNCHPAD_VELA
 #if BOARD_LAUNCHPAD_VELA==1
 #include "max-17260-sensor.h"
 #endif
 #endif
 
-#define FUEL_GAUGE_POLLING_INTERVAL CLOCK_SECOND * 60
+#define FUEL_GAUGE_POLLING_INTERVAL_DEF 60
 
 #ifdef DEBUG
 #undef DEBUG
@@ -38,10 +39,12 @@ AUTOSTART_PROCESSES (&vela_node_process);
 
 static struct ctimer polling_timer;
 static uint8_t bat_data[12];
+
 #ifdef BOARD_LAUNCHPAD_VELA
 #if BOARD_LAUNCHPAD_VELA==1
 static uint16_t REP_CAP_mAh, REP_SOC_permillis, TTE_minutes, AVG_voltage_mV;
 static int16_t AVG_current_100uA, AVG_temp_10mDEG;
+static uint8_t fuel_gauge_polling_interval_s = FUEL_GAUGE_POLLING_INTERVAL_DEF;
 #endif
 #else
 static uint16_t t1 = 1;
@@ -120,14 +123,29 @@ static void poll_fuel_gauge(void *not_used)
 	bat_data[11] = (uint8_t)t6;
 
 #endif
-	ctimer_set(&polling_timer, FUEL_GAUGE_POLLING_INTERVAL, poll_fuel_gauge, NULL);
+
+    if(fuel_gauge_polling_interval_s >= 10){
+        ctimer_set(&polling_timer, fuel_gauge_polling_interval_s*CLOCK_SECOND, poll_fuel_gauge, NULL);
+    }
 	process_post(&vela_sender_process, event_bat_data_ready, bat_data);
+}
+
+static void set_fuel_gauge_interval(uint8_t interval_s){
+    ctimer_stop(&polling_timer);
+    if(interval_s >= 10){
+        fuel_gauge_polling_interval_s = interval_s;
+        ctimer_set(&polling_timer, fuel_gauge_polling_interval_s*CLOCK_SECOND, poll_fuel_gauge, NULL);
+    }
 }
 
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(vela_node_process, ev, data)
 {
+
 	PROCESS_BEGIN();
+//    event_data_ready = process_alloc_event();
+    set_battery_info_interval = process_alloc_event();
+
 	PRINTF("main: started\n");
 
 	// initialize and start the other threads
@@ -135,9 +153,21 @@ PROCESS_THREAD(vela_node_process, ev, data)
 	PRINTF("Uart initialized\n");
 
 	vela_sender_init();
-	event_bat_data_ready = process_alloc_event();
-	poll_fuel_gauge(0);
+
+    set_fuel_gauge_interval(FUEL_GAUGE_POLLING_INTERVAL_DEF);
 	// do something, probably related to the watchdog
+
+
+	while (1)
+    {
+        PROCESS_WAIT_EVENT()
+        ;
+
+        if (ev == set_battery_info_interval)
+        {
+            set_fuel_gauge_interval(((uint8_t*)data)[0]);
+        }
+    }
 
 	PROCESS_END();
 }

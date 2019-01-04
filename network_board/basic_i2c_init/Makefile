@@ -23,7 +23,7 @@ MODULES+=${COMMON_DIR_REL_PATH}/inc
 PROJECT_SOURCEFILES += vela_i2c.c
 PROJECT_SOURCEFILES += vela_sender.c
 
-BOARD=launchpad_vela/cc2650
+BOARD=launchpad_vela/cc1350
 BSL_FLAGS += -b 115200
 
 include $(CONTIKI)/Makefile.include
