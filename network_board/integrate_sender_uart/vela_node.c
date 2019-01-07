@@ -39,12 +39,12 @@ AUTOSTART_PROCESSES (&vela_node_process);
 
 static struct ctimer polling_timer;
 static uint8_t bat_data[12];
+static uint8_t fuel_gauge_polling_interval_s = FUEL_GAUGE_POLLING_INTERVAL_DEF;
 
 #ifdef BOARD_LAUNCHPAD_VELA
 #if BOARD_LAUNCHPAD_VELA==1
 static uint16_t REP_CAP_mAh, REP_SOC_permillis, TTE_minutes, AVG_voltage_mV;
 static int16_t AVG_current_100uA, AVG_temp_10mDEG;
-static uint8_t fuel_gauge_polling_interval_s = FUEL_GAUGE_POLLING_INTERVAL_DEF;
 #endif
 #else
 static uint16_t t1 = 1;
