@@ -3,9 +3,10 @@ import matplotlib.dates as matdates
 from recordtype import recordtype
 from datetime import datetime
 import struct
+import numpy as np
 
 readfile = open("contact.log", "r")
-lines = readfile.readlines()
+lines = readfile.read().splitlines()
 readfile.close()
 
 Node = recordtype("Nodes", "nodeid, timestamps, ids, lastRSSIs, maxRSSIs, pktCounters")
@@ -23,8 +24,8 @@ for x in range(len(lines)):
     for x in range(len(nodes)):
         if nodes[x].nodeid == node_id:
             node_index =  x
-    if x == -1:
-        nodes.append(Node(node_id, [], []))
+    if node_index == -1:
+        nodes.append(Node(node_id, [], [], [], [], []))
         x = len(nodes) - 1
 
 
@@ -32,7 +33,6 @@ for x in range(len(lines)):
     index = 0
     contacts = list()
     contactdata = temp[4]
-    print(contactdata[index:index + 1])
     while index < len(contactdata) - 1:
         id = contactdata[index:index+12]
         index += 12
@@ -52,11 +52,10 @@ unique_nodes = list(set(nodes[0].ids))
 print(unique_nodes)
 unique_copies = list()
 
-for x in range(len(unique_nodes)):
+for x in range(len(unique_nodes)-1):
     print("NEW LOOP")
     copy = Node(nodes[0].nodeid, nodes[0].timestamps.copy(), nodes[0].ids.copy(), nodes[0].lastRSSIs.copy(), nodes[0].maxRSSIs.copy(), nodes[0].pktCounters.copy())
     indexes_to_delete = list()
-
 
     for j in range(len(copy.ids)):
         if copy.ids[j] != unique_nodes[x]:
@@ -74,24 +73,23 @@ for x in range(len(unique_nodes)):
     unique_copies.append(copy)
     indexes_to_delete.clear()
 
-
-
 print(nodes[0])
 ax1 = plt.subplot(1,1,1)
 plt.title("Node 2 - detected endnodes")
-NUM_COLORS = len(unique_nodes)
+NUM_COLORS = len(nodes[0].ids)
 
-cm = plt.get_cmap('gist_rainbow')
 fig = plt.figure()
 ax = fig.add_subplot(111)
-ax.set_prop_cycle('color', [cm(1.*i/NUM_COLORS) for i in range(NUM_COLORS)])
-for x in range(len(unique_copies)):
-    dates = matdates.date2num(unique_copies[x].timestamps)
-    plt.plot_date(dates, unique_copies[x].lastRSSIs, '-', label=str(unique_nodes[x]))
+ax.set_prop_cycle('color',plt.cm.Spectral(np.linspace(0,1,30)))
+# ax.set_prop_cycle('color', [cm(1.*i/NUM_COLORS) for i in range(NUM_COLORS)])
+for x in range(len(unique_copies)-1):
+    dates = matdates.date2num(unique_copies[4].timestamps)
+    plt.plot_date(dates, unique_copies[4].maxRSSIs, '-o', label=str(unique_copies[4].ids[0]))
+
 plt.legend(loc=3, bbox_to_anchor=(1, -0.1))
 plt.xlabel('Time (day, time)')
-plt.ylabel('Capacity (mAh)')
+plt.ylabel('RSSI')
 fig = plt.gcf()
 plt.gcf().autofmt_xdate()
-fig.set_size_inches(10, 5)
+fig.set_size_inches(15, 8)
 plt.show()
