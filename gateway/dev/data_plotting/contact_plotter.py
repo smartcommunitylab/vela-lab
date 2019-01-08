@@ -4,7 +4,6 @@ from recordtype import recordtype
 from datetime import datetime
 import struct
 import numpy as np
-
 readfile = open("contact.log", "r")
 lines = readfile.read().splitlines()
 readfile.close()
@@ -21,9 +20,9 @@ for x in range(len(lines)):
     node_index = -1
     if len(nodes) == 0:
         nodes.append(Node(node_id, [], [], [], [], []))
-    for x in range(len(nodes)):
-        if nodes[x].nodeid == node_id:
-            node_index =  x
+    for j in range(len(nodes)):
+        if nodes[j].nodeid == node_id:
+            node_index =  j
     if node_index == -1:
         nodes.append(Node(node_id, [], [], [], [], []))
         x = len(nodes) - 1
@@ -33,7 +32,7 @@ for x in range(len(lines)):
     index = 0
     contacts = list()
     contactdata = temp[4]
-    while index < len(contactdata) - 1:
+    while index < len(contactdata):
         id = contactdata[index:index+12]
         index += 12
         lastRSSI = struct.unpack('>b', bytearray.fromhex(contactdata[index:index + 2]))[0]
@@ -49,47 +48,81 @@ for x in range(len(lines)):
         nodes[node_index].pktCounters.append(pktCounter)
 
 unique_nodes = list(set(nodes[0].ids))
+unique_nodes.extend(list(set(nodes[1].ids)))
+unique_nodes.extend(list(set(nodes[2].ids)))
+unique_nodes.extend(list(set(nodes[3].ids)))
+
+indexes_to_filter_out = list()
+# Every ID that is true in the if statement below will be removed from the list in the next for loop and not be plotted
+# Use this as a filter
+# To plot all beacons comment out the indexes_to_filter_out.append statement
+for x in range(len(unique_nodes)):
+    if "0000000000" not in unique_nodes[x] or ("4" not in unique_nodes[x] and "5" not in unique_nodes[x]):
+        indexes_to_filter_out.append(x)
+
+delcount = 0
+for x in range(len(indexes_to_filter_out)):
+    del unique_nodes[indexes_to_filter_out[x] - delcount]
+    delcount += 1
+
+
 print(unique_nodes)
 unique_copies = list()
 
-for x in range(len(unique_nodes)-1):
-    print("NEW LOOP")
-    copy = Node(nodes[0].nodeid, nodes[0].timestamps.copy(), nodes[0].ids.copy(), nodes[0].lastRSSIs.copy(), nodes[0].maxRSSIs.copy(), nodes[0].pktCounters.copy())
-    indexes_to_delete = list()
+count = 0
+ax1 = None
+plines = []
+for y in range(len(nodes)):
+    count += 1
+    for x in range(len(unique_nodes)-1):
+        print("NEW LOOP")
+        copy = Node(nodes[y].nodeid, nodes[y].timestamps.copy(), nodes[y].ids.copy(), nodes[y].lastRSSIs.copy(), nodes[y].maxRSSIs.copy(), nodes[y].pktCounters.copy())
+        indexes_to_delete = list()
 
-    for j in range(len(copy.ids)):
-        if copy.ids[j] != unique_nodes[x]:
-            indexes_to_delete.append(j)
+        for j in range(len(copy.ids)):
+            if copy.ids[j] != unique_nodes[x]:
+                indexes_to_delete.append(j)
 
-    delCount = 0
-    for j in range(len(indexes_to_delete)):
-        del copy.timestamps[indexes_to_delete[j] - delCount]
-        del copy.ids[indexes_to_delete[j] - delCount]
-        del copy.lastRSSIs[indexes_to_delete[j] - delCount]
-        del copy.maxRSSIs[indexes_to_delete[j] - delCount]
-        del copy.pktCounters[indexes_to_delete[j] - delCount]
-        delCount += 1
-    print(copy)
-    unique_copies.append(copy)
-    indexes_to_delete.clear()
+        delCount = 0
+        for j in range(len(indexes_to_delete)):
+            del copy.timestamps[indexes_to_delete[j] - delCount]
+            del copy.ids[indexes_to_delete[j] - delCount]
+            del copy.lastRSSIs[indexes_to_delete[j] - delCount]
+            del copy.maxRSSIs[indexes_to_delete[j] - delCount]
+            del copy.pktCounters[indexes_to_delete[j] - delCount]
+            delCount += 1
+        print(copy)
+        if len(copy.ids) > 0:
+            unique_copies.append(copy)
+        indexes_to_delete.clear()
 
-print(nodes[0])
-ax1 = plt.subplot(1,1,1)
-plt.title("Node 2 - detected endnodes")
-NUM_COLORS = len(nodes[0].ids)
+    print(nodes[y])
+    NUM_COLORS = len(nodes[y].ids)
 
-fig = plt.figure()
-ax = fig.add_subplot(111)
-ax.set_prop_cycle('color',plt.cm.Spectral(np.linspace(0,1,30)))
-# ax.set_prop_cycle('color', [cm(1.*i/NUM_COLORS) for i in range(NUM_COLORS)])
-for x in range(len(unique_copies)-1):
-    dates = matdates.date2num(unique_copies[4].timestamps)
-    plt.plot_date(dates, unique_copies[4].maxRSSIs, '-o', label=str(unique_copies[4].ids[0]))
 
-plt.legend(loc=3, bbox_to_anchor=(1, -0.1))
-plt.xlabel('Time (day, time)')
-plt.ylabel('RSSI')
+    # fig = plt.figure()
+    if ax1 is None:
+        ax = plt.subplot(2, 2, y + 1)
+        ax1 = ax
+    else:
+        ax = plt.subplot(2, 2, y + 1, sharey=ax1, sharex=ax1)
+
+    ax.set_prop_cycle('color',plt.cm.Spectral(np.linspace(0,1,30)))
+    # ax.set_prop_cycle('color', [cm(1.*i/NUM_COLORS) for i in range(NUM_COLORS)])
+    for x in range(len(unique_copies)-1):
+        dates = matdates.date2num(unique_copies[x].timestamps)
+        plines.append(ax.plot_date(dates, unique_copies[x].maxRSSIs, '-o', label=str(unique_copies[x].ids[0])))
+
+    # plt.legend(loc=3, bbox_to_anchor=(1, 0))
+    ax.set_title("Node {0} - detected endnodes".format(nodes[y].nodeid))
+
+    plt.xlabel('Time (day, time)')
+    plt.ylabel('RSSI')
+    unique_copies.clear()
+
 fig = plt.gcf()
 plt.gcf().autofmt_xdate()
-fig.set_size_inches(15, 8)
+fig.set_size_inches(15, 9)
+
 plt.show()
+fig.savefig('samplefigure', bbox_extra_artists=(lgd,text), bbox_inches='tight')
