@@ -35,7 +35,7 @@ static struct etimer periodic_timer;
 
 static struct simple_udp_connection unicast_connection;
 static uint8_t message_number = 1;
-static uint8_t buf[MAX_REPORT_DATA_SIZE + 10];
+static uint8_t buf[MAX_PACKET_SIZE + 10];
 static uip_ipaddr_t *addr;
 
 #ifdef DEBUG
@@ -295,27 +295,27 @@ PROCESS_THREAD(vela_sender_process, ev, data) {
             offset=0; // offset from the begining of the buffer to send next
             sizeToSend = (int)eventData->data_len; // amount of data in the buffer not yet sent
             while ( sizeToSend > 0 ) {
-                if (sizeToSend > MAX_REPORT_DATA_SIZE) {
+                if (sizeToSend > MAX_PACKET_SIZE) {
                     if(offset==0) {
                     	  chunk.payload.p_data[0] = (uint8_t)(sizeToSend >> 8);
                     	  chunk.payload.p_data[1] = (uint8_t)sizeToSend;
                     	  chunk.pkttype = network_new_sequence;
-                    	  chunk.payload.data_len = MAX_REPORT_DATA_SIZE + 2;
-                    	  memcpy(&chunk.payload.p_data[2], &eventData->p_data[0], MAX_REPORT_DATA_SIZE);
+                    	  chunk.payload.data_len = MAX_PACKET_SIZE + 2 - SINGLE_NODE_REPORT_SIZE; //One report less in package with header file else it wont fit
+                    	  memcpy(&chunk.payload.p_data[2], &eventData->p_data[0], chunk.payload.data_len - 2);
                     	  ret = send_to_sink(chunk);
                     	  if(ret==0){
-                    		  sizeToSend -= MAX_REPORT_DATA_SIZE;
-                    	      offset += MAX_REPORT_DATA_SIZE;
+                    		  sizeToSend -= MAX_PACKET_SIZE - SINGLE_NODE_REPORT_SIZE;
+                    	      offset = MAX_PACKET_SIZE - SINGLE_NODE_REPORT_SIZE;
                     	  }
                     }
                     else {
                         chunk.pkttype = network_active_sequence;
-                        chunk.payload.data_len = MAX_REPORT_DATA_SIZE;
+                        chunk.payload.data_len = MAX_PACKET_SIZE;
                         memcpy(chunk.payload.p_data, &eventData->p_data[offset], chunk.payload.data_len);
                         ret = send_to_sink(chunk);
                         if(ret==0){
-                            sizeToSend -= MAX_REPORT_DATA_SIZE;
-                            offset += MAX_REPORT_DATA_SIZE;
+                            sizeToSend -= MAX_PACKET_SIZE;
+                            offset += MAX_PACKET_SIZE;
                         }
                     }
                     etimer_set(&periodic_timer, TIME_BETWEEN_SENDS);
@@ -339,7 +339,9 @@ PROCESS_THREAD(vela_sender_process, ev, data) {
 						chunk.payload.data_len = sizeToSend;
 						memcpy(chunk.payload.p_data, &eventData->p_data[offset], sizeToSend);
 						send_to_sink(chunk);
-						sizeToSend = 0;
+						if (ret == 0) {
+						    sizeToSend = 0;
+						}
 					}
                 }
             }

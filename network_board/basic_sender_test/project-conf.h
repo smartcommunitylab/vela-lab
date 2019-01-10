@@ -39,7 +39,7 @@
 
 #define KEEP_ALIVE_PACKET "A"
 
-#define MAX_REPORTS_PER_PACKET 5
+#define MAX_REPORTS_PER_PACKET 6
 #define MAX_REPORT_DATA_SIZE MAX_REPORTS_PER_PACKET * SINGLE_NODE_REPORT_SIZE // 5 * 9
 
 //-------------------------------------------------------------------------------

@@ -17,8 +17,8 @@
 /* ContikiMAC channel check rate given in Hz, specifying the number of channel checks per second*/
 /* NETSTACK_RDC_CONF_CHANNEL_CHECK_RATE must be a power of two (i.e. 1, 2, 4, 8, 16, 32, 64, ...)*/
 #define NETSTACK_CONF_RDC     contikimac_driver
-//#undef  NETSTACK_CONF_RDC_CHANNEL_CHECK_RATE
-//#define NETSTACK_CONF_RDC_CHANNEL_CHECK_RATE 2
+#undef  NETSTACK_CONF_RDC_CHANNEL_CHECK_RATE
+#define NETSTACK_CONF_RDC_CHANNEL_CHECK_RATE 16
 /*---------------------------------------------------------------------------*/
 #undef  UDP_PORT
 #define UDP_PORT 							1234
@@ -40,20 +40,13 @@
 #define TIMEOUT_NODE 1200*CLOCK_SECOND
 #define KEEP_ALIVE_PACKET "A"
 
-#define MAX_REPORTS_PER_PACKET 5
-#define MAX_REPORT_DATA_SIZE MAX_REPORTS_PER_PACKET * SINGLE_NODE_REPORT_SIZE // 5 * 9
-
 //#define SEND_INTERVAL	  					(15 * CLOCK_SECOND)
 /*---------------------------------------------------------------------------*/
 /* Trickle defines */
-#define TRICKLE_IMIN               10 * CLOCK_SECOND   /* ticks */
+#define TRICKLE_IMIN               60 * CLOCK_SECOND   /* ticks */
 #define TRICKLE_IMAX               6   /* doublings of IMIN, so τmax = IMIN*(2^IMAX) */
 #define REDUNDANCY_CONST   2   /*  aka k*/
 #define TRICKLE_PROTO_PORT 30001
-
-/* Remove these 2 defines when trickle will be properly implemented */
-#define NEW_SETTING_INTERVAL  120 * CLOCK_SECOND
-#define NEW_TOKEN_PROB      2
 
 //DIO INTERVALS
 /*
