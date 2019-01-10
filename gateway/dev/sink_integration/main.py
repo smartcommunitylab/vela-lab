@@ -11,14 +11,14 @@ import readchar
 START_CHAR = '2a'
 START_BUF = '2a2a2a'  # this is not really a buffer
 BAUD_RATE = 1000000
-SERIAL_PORT = "/dev/ttyACM0"
+SERIAL_PORT = "/dev/ttyUSB0"
 
 endchar = 0x0a
 SER_END_CHAR = endchar.to_bytes(1, byteorder='big', signed=False)
 
 SINGLE_REPORT_SIZE = 9
 MAX_ONGOING_SEQUENCES = 10
-MAX_PACKET_PAYLOAD = 45
+MAX_PACKET_PAYLOAD = 54
 
 MAX_BEACONS = 100
 
@@ -154,7 +154,7 @@ def handle_user_input():
                 SCAN_INTERVAL_MS = 10000
                 SCAN_WINDOW_MS = 2500
                 SCAN_TIMEOUT_S = 0
-                REPORT_TIMEOUT_S = 45
+                REPORT_TIMEOUT_S = 20
 
                 active_scan = 1
                 scan_interval = int(SCAN_INTERVAL_MS*1000/625)
@@ -321,6 +321,7 @@ try:
                                     # TODO send received data instead of deleting it all
                                     appLogger.info("[Node {0}] Received new sequence packet "
                                                    "while old sequence has not been completed".format(nodeid))
+                                    log_contact_data(seqid)
                                     del messageSequenceList[seqid]
 
                             messageSequenceList.append(MessageSequence(datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S'),
@@ -328,8 +329,8 @@ try:
                             seqid = len(messageSequenceList) - 1
                             messageSequenceList[seqid].sequenceSize += datalen
 
-                            if messageSequenceList[seqid].sequenceSize >= MAX_PACKET_PAYLOAD:
-                                decode_payload(seqid, MAX_PACKET_PAYLOAD, PacketType.network_new_sequence, pktnum)
+                            if messageSequenceList[seqid].sequenceSize > MAX_PACKET_PAYLOAD - SINGLE_REPORT_SIZE:
+                                decode_payload(seqid, MAX_PACKET_PAYLOAD - SINGLE_REPORT_SIZE, PacketType.network_new_sequence, pktnum)
 
                             else:
                                 decode_payload(seqid, datalen, PacketType.network_new_sequence, pktnum)
@@ -404,8 +405,10 @@ try:
 
                             else:
                                 remainingDataSize = messageSequenceList[seqid].sequenceSize - messageSequenceList[seqid].datacounter
-                                decode_payload(seqid, remainingDataSize, PacketType.network_last_sequence, pktnum)
-
+                                if remainingDataSize > MAX_PACKET_PAYLOAD:
+                                    decode_payload(seqid, MAX_PACKET_PAYLOAD, PacketType.network_last_sequence, pktnum)
+                                else:
+                                    decode_payload(seqid, remainingDataSize, PacketType.network_last_sequence, pktnum)
                                 if messageSequenceList[seqid].sequenceSize != messageSequenceList[seqid].datacounter:
                                     print("ERROR: Messagesequence ended, but datacounter is not equal to sequencesize")
                                 print("Nodeid: ", str(messageSequenceList[seqid].nodeid), " sequencesize: ",
@@ -476,16 +479,16 @@ try:
             if currentTime - btPreviousTime > btToggleInterval:
                 ptype = 0
                 if btToggleBool:
-                    print("Turning bt off")
-                    appLogger.debug("[SENDING] Disable Bluetooth")
+                    # print("Turning bt off")
+                    # appLogger.debug("[SENDING] Disable Bluetooth")
                     ptype = PacketType.nordic_turn_bt_off
-                    btToggleBool = False
+                    # btToggleBool = False
                 else:
                     print("Turning bt on")
                     appLogger.debug("[SENDING] Enable Bluetooth")
                     ptype = PacketType.nordic_turn_bt_on
                     btToggleBool = True
-                send_serial_msg(ptype, None)
+                # send_serial_msg(ptype, None)
                 btPreviousTime = currentTime
 
 
