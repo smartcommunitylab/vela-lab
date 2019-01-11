@@ -111,10 +111,10 @@ for y in range(len(nodes)):
     # ax.set_prop_cycle('color', [cm(1.*i/NUM_COLORS) for i in range(NUM_COLORS)])
     for x in range(len(unique_copies)-1):
         dates = matdates.date2num(unique_copies[x].timestamps)
-        plines.append(ax.plot_date(dates, unique_copies[x].maxRSSIs, '-o', label=str(unique_copies[x].ids[0])))
+        plines.append(ax.plot_date(dates, unique_copies[x].maxRSSIs, '.-', label=str(unique_copies[x].ids[0])))
 
     # plt.legend(loc=3, bbox_to_anchor=(1, 0))
-    ax.set_title("Node {0} - detected endnodes".format(nodes[y].nodeid))
+    ax.set_title("Node {0} - detected beacons".format(nodes[y].nodeid))
 
     plt.xlabel('Time (day, time)')
     plt.ylabel('RSSI')

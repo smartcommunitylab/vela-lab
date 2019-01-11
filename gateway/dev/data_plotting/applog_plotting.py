@@ -11,7 +11,7 @@ splitlines = list()
 packetnumbers = list()
 packetnumbertimes = list()
 for x in range(len(lines)):
-    if 'INFO' in lines[x] and '[New message]' not in lines[x] and "[Node 135]" in lines[x]:
+    if 'INFO' in lines[x] and '[New message]' not in lines[x] and "nodeid 132" in lines[x]:
         line = lines[x].replace(',', '|', 1)
         line_list = line.split('|')
         t_info = line_list[0]
@@ -19,7 +19,7 @@ for x in range(len(lines)):
         line_list[0] = "{0} {1}".format(l_t_info[0], l_t_info[1])
         splitlines.append(line_list)
 
-    elif '[New message]' in lines[x] and "nodeid 135" in lines[x]:
+    elif '[New message]' in lines[x] and "nodeid 132" in lines[x]:
         line_list = lines[x].split()
         timestr = "{0} {1}".format(line_list[0], line_list[1])
         dt = datetime.strptime(timestr, "%Y/%m/%d %H:%M:%S")
