@@ -21,3 +21,7 @@ The folder integrate_sender_uart contains the code that will be uploaded to the 
 
 Warning: Editing these files should be done in their original folder. If you change these files in integrate_sender_uart all progress will be lost when the build script is called. 
 
+The following problems have been encountered in the past:
+-RPL_DEFAULT_ROUTE_INFINITE_LIFETIME: setting this to 0 can cause the nodes to lose connection to the sink frequently.
+-NETSTACK_CONF_RDC_CHANNEL_CHECK_RATE: setting this to 1 can cause the nodes to reboot periodically (cause unknown).
+-Seemingly random reboots that were fixed by changing all variables to static when possible.
