@@ -200,7 +200,7 @@ static uint8_t start_procedure(procedure_t *m_procedure){
     return sequential_procedure_start(m_procedure, uart_util_is_waiting_ack()); //if we are waiting an ack start use the delayed start
 }
 
-#define RESET_PIN_IOID			IOID_1
+#define RESET_PIN_IOID			BOARD_IOID_DIO22
 void reset_nodric(void){
 	GPIO_clearDio(RESET_PIN_IOID);
 	clock_wait(CLOCK_SECOND/10);
