@@ -30,7 +30,7 @@
 #include "network_messages.h"
 #include "sequential_procedures.h"
 
-#define NORDIC_WATCHDOG_ENABLED						1
+#define NORDIC_WATCHDOG_ENABLED						0
 
 #ifdef DEBUG
 #undef DEBUG
@@ -628,6 +628,9 @@ PROCESS_THREAD(cc2650_uart_process, ev, data) {
                     start_procedure(&bluetooth_on);
                 }
                 if(ev == reset_bt){
+#if NORDIC_WATCHDOG_ENABLED
+                    ctimer_stop(&m_nordic_watchdog_timer);
+#endif
                     reset_nodric();
                 }
 
