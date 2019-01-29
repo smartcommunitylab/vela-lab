@@ -30,7 +30,7 @@
 #include "network_messages.h"
 #include "sequential_procedures.h"
 
-#define NORDIC_WATCHDOG_ENABLED						1
+#define NORDIC_WATCHDOG_ENABLED						0
 
 #ifdef DEBUG
 #undef DEBUG
@@ -200,7 +200,7 @@ static uint8_t start_procedure(procedure_t *m_procedure){
     return sequential_procedure_start(m_procedure, uart_util_is_waiting_ack()); //if we are waiting an ack start use the delayed start
 }
 
-#define RESET_PIN_IOID			IOID_1
+#define RESET_PIN_IOID			BOARD_IOID_DIO22
 void reset_nodric(void){
 	GPIO_clearDio(RESET_PIN_IOID);
 	clock_wait(CLOCK_SECOND/10);
@@ -628,6 +628,9 @@ PROCESS_THREAD(cc2650_uart_process, ev, data) {
                     start_procedure(&bluetooth_on);
                 }
                 if(ev == reset_bt){
+#if NORDIC_WATCHDOG_ENABLED
+                    ctimer_stop(&m_nordic_watchdog_timer);
+#endif
                     reset_nodric();
                 }
 
