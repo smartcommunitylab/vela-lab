@@ -7,11 +7,24 @@ from enum import IntEnum, unique
 from datetime import timedelta
 import _thread
 import readchar
+import os
+import sys
 
 START_CHAR = '2a'
 START_BUF = '2a2a2a'  # this is not really a buffer
 BAUD_RATE = 1000000
-SERIAL_PORT = "/dev/ttyUSB0"
+SERIAL_PORT = "/dev/ttyS0"
+
+logfolderpath = os.path.dirname(os.path.realpath(__file__))+'/log/'
+if not os.path.exists(logfolderpath):
+    try:
+        os.mkdir(logfolderpath)
+        print("Log directory not found.")
+        print(logfolderpath ,  " Created ")
+    except Exception as e:
+        print("Can't get the access to the log folder ("+logfolderpath+".")
+        print("Exception: " + str(e))
+    	
 
 endchar = 0x0a
 SER_END_CHAR = endchar.to_bytes(1, byteorder='big', signed=False)
@@ -63,10 +76,10 @@ LOG_LEVEL = logging.DEBUG
 formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s', datefmt='%Y/%m/%d %H:%M:%S')
 timestr = time.strftime("%Y%m%d-%H%M%S")
 
-
 nameAppLog = "appLogger"
 filenameAppLog = timestr + "-app.log"
-handler = logging.FileHandler(filenameAppLog)
+fullpathAppLog = logfolderpath+filenameAppLog
+handler = logging.FileHandler(fullpathAppLog)
 handler.setFormatter(formatter)
 appLogger = logging.getLogger(nameAppLog)
 appLogger.setLevel(LOG_LEVEL)
@@ -74,7 +87,8 @@ appLogger.addHandler(handler)
 
 nameDataLog = "dataLogger"
 filenameDataLog = timestr + "-data.log"
-datalog_handler = logging.FileHandler(filenameDataLog)
+fullpathDataLog = logfolderpath+filenameDataLog
+datalog_handler = logging.FileHandler(fullpathDataLog)
 datalog_handler.setFormatter(formatter)
 dataLogger = logging.getLogger(nameDataLog)
 dataLogger.setLevel(LOG_LEVEL)
@@ -82,7 +96,8 @@ dataLogger.addHandler(datalog_handler)
 
 nameContactLog = "contactLogger"
 filenameContactLog = timestr + "-contact.log"
-contactlog_handler = logging.FileHandler(filenameContactLog)
+fullpathContactLog = logfolderpath+filenameContactLog
+contactlog_handler = logging.FileHandler(fullpathContactLog)
 contact_formatter = logging.Formatter('%(message)s')
 contactlog_handler.setFormatter(contact_formatter)
 contactLogger = logging.getLogger(nameContactLog)
@@ -260,8 +275,10 @@ def check_for_packetdrop(nodeid, pktnum):
 
 
 print("Starting...")
+print("Logs are in: "+logfolderpath)
 
 _thread.start_new_thread(handle_user_input, ())
+
 
 if ser.is_open:
     print("Serial Port already open!", ser.port, "open before initialization... closing first")
@@ -518,6 +535,7 @@ except KeyboardInterrupt:
     print("Total header packets dropped: ", headerDropCounter)
     print("Packet delivery rate: ", 100 * (deliverCounter / (deliverCounter + dropCounter)))
     print("Messages defragmented: ", defragmentationCounter)
+    print("Logs are in: "+logfolderpath)
 
     appLogger.info("-----Packet delivery stats summary-----")
     appLogger.info("Total packets delivered: {0}".format(deliverCounter))
