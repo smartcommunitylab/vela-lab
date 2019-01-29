@@ -484,8 +484,8 @@ try:
                     ptype = PacketType.nordic_turn_bt_off
                     # btToggleBool = False
                 else:
-                    print("Turning bt on")
-                    appLogger.debug("[SENDING] Enable Bluetooth")
+                    # print("Turning bt on")
+                    # appLogger.debug("[SENDING] Enable Bluetooth")
                     ptype = PacketType.nordic_turn_bt_on
                     btToggleBool = True
                 # send_serial_msg(ptype, None)
