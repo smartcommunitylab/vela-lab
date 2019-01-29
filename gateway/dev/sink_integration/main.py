@@ -471,10 +471,11 @@ try:
 
                         elif PacketType.network_keep_alive == pkttype:
                             cap = int.from_bytes(ser.read(2), byteorder="big", signed=False)
-                            soc = int.from_bytes(ser.read(2), byteorder="big", signed=False)
-                            print("Received keep alive packet from node ", nodeid, "with cap & soc: ", cap, " ", soc)
-                            appLogger.info("[Node {0}] Received keep alive message with capacity: {1} and SoC: {2}".format(nodeid, cap, soc))
-                            dataLogger.info("Node {0} 0x {1} 0x {2} 0x {3}{4}".format(nodeid, '{:02x}'.format(pkttype), '{:x}'.format(pktnum), '{:02x}'.format(cap), '{:02x}'.format(soc)))
+                            voltage = int.from_bytes(ser.read(2), byteorder="big", signed=False)
+                            trickle_count = int.from_bytes(ser.read(1), byteorder="big", signed=False)
+                            print("Received keep alive packet from node ", nodeid, "with cap & voltage: ", cap, " ", voltage, " trickle count: ",trickle_count)
+                            appLogger.info("[Node {0}] Received keep alive message with capacity: {1} and voltage: {2} trickle_count {3}".format(nodeid, cap, voltage,trickle_count))
+                            dataLogger.info("Node {0} 0x {1} 0x {2} 0x {3}{4} {5}".format(nodeid, '{:02x}'.format(pkttype), '{:x}'.format(pktnum), '{:02x}'.format(cap), '{:02x}'.format(voltage),trickle_count))
 
                         else:
                             print("Unknown packettype: ", pkttype)
