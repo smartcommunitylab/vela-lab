@@ -30,7 +30,7 @@
 #include "network_messages.h"
 #include "sequential_procedures.h"
 
-#define NORDIC_WATCHDOG_ENABLED						0
+#define NORDIC_WATCHDOG_ENABLED						1
 
 #ifdef DEBUG
 #undef DEBUG
@@ -83,7 +83,8 @@ static uint8_t active_scan = DEFAULT_ACTIVE_SCAN;     //boolean
 static uint16_t scan_interval = DEFAULT_SCAN_INTERVAL;       /**< Scan interval between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
 static uint16_t scan_window = DEFAULT_SCAN_WINDOW;     /**< Scan window between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
 static uint16_t timeout = DEFAULT_TIMEOUT;            /**< Scan timeout between 0x0001 and 0xFFFF in seconds, 0x0000 disables timeout. */
-static uint32_t report_timeout_ms = DEFAULT_REPORT_TIMEOUT_MS, report_timeout_ms_arg = DEFAULT_REPORT_TIMEOUT_MS;
+static uint32_t report_timeout_ms = 0, report_timeout_ms_arg = 0;
+static uint8_t bt_scan_state = 0;
 
 static uint32_t report_ready(data_t *p_data);
 static uint32_t report_rx_handler(uart_pkt_t* p_packet, report_type_t m_report_type );
@@ -96,6 +97,7 @@ static void nordic_watchdog_handler(void *ptr);
 void reset_nodric(void);
 
 static uint8_t send_ping(void);
+static uint8_t send_set_bt_scan(void);
 static uint8_t send_set_bt_scan_on(void);
 static uint8_t send_set_bt_scan_off(void);
 static uint8_t send_set_bt_scan_params(void);
@@ -111,6 +113,7 @@ extern void uart_util_ack_error(ack_wait_t* ack_wait_data);
 PROCEDURE(bluetooth_on, &send_set_bt_scan_params, &send_set_bt_scan_on, &request_periodic_report_to_nordic);
 PROCEDURE(bluetooth_off, &send_set_bt_scan_off, &stop_periodic_report_to_nordic);
 PROCEDURE(ready,&send_ready);
+PROCEDURE(ready_plus_last_bt_conf,&send_ready,&send_set_bt_scan_params, &send_set_bt_scan, &request_periodic_report_to_nordic);
 
 //ALM -- called to start this as a contiki THREAD
 void vela_uart_init() {
@@ -270,41 +273,40 @@ static uint8_t send_pong(uart_pkt_t* p_packet) {
     return 0;
 }
 
-static uint8_t send_set_bt_scan_on(void) {
-	static uart_pkt_t pong_packet;
-	static uint8_t payload[1];
-	pong_packet.payload.p_data = payload;
-	pong_packet.payload.data_len = 1;
-	pong_packet.type = uart_set_bt_scan_state;
+static uint8_t send_set_bt_scan(void) {
+    static uart_pkt_t packet;
+    static uint8_t payload[1];
+    packet.payload.p_data = payload;
+    packet.payload.data_len = 1;
+    packet.type = uart_set_bt_scan_state;
 
-	payload[0] = 1;
+    payload[0] = bt_scan_state;
 
-	uart_util_send_pkt(&pong_packet);
-
-	return 0;
-}
-
-static uint8_t send_set_bt_scan_off(void) {
-	PRINTF("Turning bt off\n");
-	static uart_pkt_t pong_packet;
-	static uint8_t payload[1];
-	pong_packet.payload.p_data = payload;
-	pong_packet.payload.data_len = 1;
-	pong_packet.type = uart_set_bt_scan_state;
-
-	payload[0] = 0;
-
-	uart_util_send_pkt(&pong_packet);
+    uart_util_send_pkt(&packet);
 
     return 0;
 }
 
+
+static uint8_t send_set_bt_scan_on(void) {
+    bt_scan_state=1;
+
+	return send_set_bt_scan();
+}
+
+static uint8_t send_set_bt_scan_off(void) {
+	PRINTF("Turning bt off\n");
+	bt_scan_state=0;
+
+    return send_set_bt_scan();
+}
+
 static uint8_t send_set_bt_scan_params(void) {
-	static uart_pkt_t pong_packet;
+	static uart_pkt_t packet;
 	static uint8_t payload[7];
-	pong_packet.payload.p_data = payload;
-	pong_packet.payload.data_len = 7;
-	pong_packet.type = uart_set_bt_scan_params;
+	packet.payload.p_data = payload;
+	packet.payload.data_len = 7;
+	packet.type = uart_set_bt_scan_params;
 
 	payload[0] = active_scan; //active_scan
 	payload[1] = scan_interval >> 8;
@@ -314,7 +316,7 @@ static uint8_t send_set_bt_scan_params(void) {
 	payload[5] = timeout >> 8;
 	payload[6] = timeout;
 
-	uart_util_send_pkt(&pong_packet);
+	uart_util_send_pkt(&packet);
 
     return 0;
 }
@@ -323,12 +325,12 @@ static uint8_t send_ready(void) {
 
 	static char version_string[] = STRINGIFY(VERSION_STRING);
 
-	static uart_pkt_t pong_packet;
-	pong_packet.payload.p_data = (uint8_t*)version_string;
-	pong_packet.payload.data_len = strlen(version_string);
-	pong_packet.type = uart_evt_ready;
+	static uart_pkt_t packet;
+	packet.payload.p_data = (uint8_t*)version_string;
+	packet.payload.data_len = strlen(version_string);
+	packet.type = uart_evt_ready;
 
-	uart_util_send_pkt(&pong_packet);
+	uart_util_send_pkt(&packet);
 
     return 0;
 }
@@ -416,7 +418,7 @@ static uint32_t pre_ack_uart_rx_handler(uart_pkt_t* p_packet) {
         break;
     case uart_evt_ready:
         ack_value = APP_ACK_SUCCESS;
-//        return;  //ready message may not send ack
+//        return;
         break;
     case uart_req_reset:
         ack_value = APP_ERROR_NOT_IMPLEMENTED;
@@ -500,7 +502,8 @@ static void post_ack_uart_rx_handler(uart_pkt_t* p_packet) {
         break;
     case uart_evt_ready:
         is_nordic_ready=true;
-        start_procedure(&ready);
+//        start_procedure(&ready);
+        start_procedure(&ready_plus_last_bt_conf); //this procedure doesn't work with too many printf enabled
         break;
     case uart_req_reset:
     case uart_req_bt_state:
@@ -608,6 +611,11 @@ PROCESS_THREAD(cc2650_uart_process, ev, data) {
                     start_procedure(&bluetooth_off);
                 }
                 if(ev == turn_bt_on) {
+                    if(report_timeout_ms == 0){   //turn_bt_on is sent before any call to turn_bt_on_w_params. Load default value
+                        scan_window = DEFAULT_SCAN_WINDOW;
+                        scan_interval = DEFAULT_SCAN_INTERVAL;
+                        report_timeout_ms = DEFAULT_REPORT_TIMEOUT_MS;
+                    }
                     report_timeout_ms_arg = report_timeout_ms;
                     start_procedure(&bluetooth_on);
                 }
@@ -624,6 +632,7 @@ PROCESS_THREAD(cc2650_uart_process, ev, data) {
                 }
                 if(ev == turn_bt_on_def) {
                     scan_window = DEFAULT_SCAN_WINDOW;     /**< Scan window between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
+                    scan_interval = DEFAULT_SCAN_INTERVAL;     /**< Scan window between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
                     report_timeout_ms_arg = DEFAULT_REPORT_TIMEOUT_MS;
                     report_timeout_ms = DEFAULT_REPORT_TIMEOUT_MS;
                     start_procedure(&bluetooth_on);
