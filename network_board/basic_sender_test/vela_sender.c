@@ -405,11 +405,11 @@ PROCESS_THREAD(trickle_protocol_process, ev, data)
 #ifdef BOARD_LAUNCHPAD_VELA
 #if BOARD_LAUNCHPAD_VELA==1
     	static uint16_t REP_CAP_mAh;
-    	static uint16_t REP_SOC_permillis;
+    	static uint16_t AVG_voltage_mV;
 #endif
 #else
-    	static uint16_t bat_data1 = 0;
-    	static uint16_t bat_data2 = 1;
+    	static uint16_t bat_data1;
+    	static uint16_t bat_data2;
 #endif
 static network_message_t keep_alive_msg;
 
@@ -419,7 +419,7 @@ PROCESS_THREAD(keep_alive_process, ev, data)
     etimer_set(&keep_alive_timer, keep_alive_interval * CLOCK_SECOND);
 
     keep_alive_msg.pkttype = network_keep_alive;
-    keep_alive_msg.payload.data_len = 4;
+    keep_alive_msg.payload.data_len = 5;
     while(1) {
     	PROCESS_WAIT_UNTIL(etimer_expired(&keep_alive_timer));
 
@@ -429,19 +429,21 @@ PROCESS_THREAD(keep_alive_process, ev, data)
 #ifdef BOARD_LAUNCHPAD_VELA
 #if BOARD_LAUNCHPAD_VELA==1
             REP_CAP_mAh = max_17260_sensor.value(MAX_17260_SENSOR_TYPE_REP_CAP);
-            REP_SOC_permillis = max_17260_sensor.value(MAX_17260_SENSOR_TYPE_REP_SOC);
+            AVG_voltage_mV =  max_17260_sensor.value(MAX_17260_SENSOR_TYPE_AVG_V);
             keep_alive_msg.payload.p_data[0] = (uint8_t)REP_CAP_mAh >> 8;
             keep_alive_msg.payload.p_data[1] = (uint8_t)REP_CAP_mAh;
-            keep_alive_msg.payload.p_data[2] = (uint8_t)REP_SOC_permillis >> 8;
-            keep_alive_msg.payload.p_data[3] = (uint8_t)REP_SOC_permillis;
+            keep_alive_msg.payload.p_data[2] = (uint8_t)AVG_voltage_mV >> 8;
+            keep_alive_msg.payload.p_data[3] = (uint8_t)AVG_voltage_mV;
+            keep_alive_msg.payload.p_data[4] = trickle_msg.pktnum;
 #endif
 #else
-            bat_data1++;
-            bat_data2++;
+            bat_data1=0;
+            bat_data2=0;
             keep_alive_msg.payload.p_data[0] = (uint8_t)bat_data1 >> 8;
             keep_alive_msg.payload.p_data[1] = (uint8_t)bat_data1;
             keep_alive_msg.payload.p_data[2] = (uint8_t)bat_data2 >> 8;
             keep_alive_msg.payload.p_data[3] = (uint8_t)bat_data2;
+            keep_alive_msg.payload.p_data[4] = trickle_msg.pktnum;
 #endif
             send_to_sink(keep_alive_msg);
     	}else{
