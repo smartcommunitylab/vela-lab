@@ -1016,12 +1016,13 @@ static node_t* update_node(const ble_gap_evt_t *p_conn_evt, const ble_gap_evt_ad
 	return p_node;
 }
 
-static void reset_node(node_t* p_node) {
+static void reset_node(node_t* p_node) { //TODO: check this, many of the fields of node_t are not reset...It may be better to use memset? In this case the code should be carefully checked to avoid problems such as it could happen in is_position_free(..) if the node reset is performed with memset(p_node, 0x00, sizeof(node_t)); (is_position_free would be zero everytime)
 	memset(&p_node->bd_address, 0x00, sizeof(ble_gap_addr_t));
 	p_node->conn_handle = BLE_CONN_HANDLE_INVALID;
 	p_node->local_role = BLE_GAP_ROLE_INVALID;
 	p_node->max_rssi = INT8_MIN;
 	p_node->first_contact_ticks = 0;
+	p_node->beacon_msg_count = 0;
 }
 
 static void reset_network(void) {
