@@ -185,9 +185,10 @@ static void nordic_watchdog_handler(void *ptr){
 	nordic_watchdog_value++;
 
 	if(nordic_watchdog_value > 3){
-	    PRINTF("Nordic didn't respond, I'm resetting myself!\n");
-		while(1){ //Stay here. The reset of the mcu will be triggered by the watchdog timer initialized into contiki-main.c
-		}
+	    PRINTF("Nordic didn't respond, resetting it!\n");
+	    reset_nodric();
+//		while(1){ //Stay here. The reset of the mcu will be triggered by the watchdog timer initialized into contiki-main.c
+//		}
 	}else{
 		if(nordic_watchdog_timeout_ms != 0){
 			ctimer_set(&m_nordic_watchdog_timer, (nordic_watchdog_timeout_ms*CLOCK_SECOND)/1000, nordic_watchdog_handler, NULL);
