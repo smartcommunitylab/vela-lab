@@ -591,6 +591,8 @@ PROCESS_THREAD(cc2650_uart_process, ev, data) {
 		uart_util_initialize();
 
 		reset_nodric();
+		//TODO: if the ready message isn't received within a timeout the reset should be redone till the message is received.
+		//Once the ready message is received the boot is completed
 
 		PRINTF("Nordic board reset, waiting ready message\n");
 
@@ -602,7 +604,7 @@ PROCESS_THREAD(cc2650_uart_process, ev, data) {
 				process_uart_rx_data((uint8_t*)data);
 			}
 
-			if(is_nordic_ready && !sequential_procedure_is_running()){  //accept events only after the nordic is ready
+			if(!sequential_procedure_is_running()){
                 if (ev == event_ping_requested) {
                     uint8_t* payload = (uint8_t*)data;
                     send_ping_payload(*payload);
