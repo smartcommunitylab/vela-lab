@@ -74,7 +74,7 @@ btToggleInterval = 1800
 btToggleBool = True
 
 NODE_TIMEOUT_S = 15
-NETWORK_PERIODIC_CHECK_INTERVAL = 0.5
+NETWORK_PERIODIC_CHECK_INTERVAL = 2
 
 # Loggers
 printVerbosity = 10
@@ -117,7 +117,8 @@ class Network(object):
     def __init__(self):
         self.__nodes = []
         threading.Timer(NETWORK_PERIODIC_CHECK_INTERVAL,self.__periodicNetworkCheck).start()
-        self.__lastPrintBuffer = deque()
+        self.__consoleBuffer = deque()
+        self.__lastNetworkPrint=float(time.time())
 
     def getNode(self, label):
         for n in self.__nodes:
@@ -143,22 +144,28 @@ class Network(object):
         for n in self.__nodes:
             if n.getLastMessageElapsedTime() > NODE_TIMEOUT_S:
                 if printVerbosity > 2:
-                    self.addPrint("Node "+ n.label +" timed out. Elasped time: %.2f" %n.getLastMessageElapsedTime() +" Removing it from the network.")
+                    self.addPrint("Node "+ n.name +" timed out. Elasped time: %.2f" %n.getLastMessageElapsedTime() +" Removing it from the network.")
                 self.removeNode(n)
 
         self.printNetworkStatus()
 
     def printNetworkStatus(self):
+
+        if(float(time.time()) - self.__lastNetworkPrint < 0.1): #this is to avoid too fast call to this function
+            return
+        
+        __lastNetworkPrint = float(time.time())    
+
         cls()
         netSize = len(self.__nodes)
         print("|------------------------------------------------------------------------------|")
         print("|------------------|            Network size %3s            |------------------|" %str(netSize))
         print("|------------------------------------------------------------------------------|")
-        print("|  Node ID   |   Battery Volage [v]  |   Last seen [s] ago  |   Trickle Count  |")
-        print("|            |                       |                      |                  |")
+        print("|  Node ID  |  Batt Volt [v]  |  Last seen [s] ago  |  Tkl Count  |  # BT rep  |")
+        print("|           |                 |                     |             |            |")
         for n in self.__nodes:
             n.printNodeInfo()
-        print("|            |                       |                      |                  |")
+        print("|           |                 |                     |             |            |")
         print("|------------------------------------------------------------------------------|\n|")
         print("|    AVAILABLE COMMANDS:")
         print("| key    command\n|")
@@ -178,10 +185,10 @@ class Network(object):
 
         terminalSize = shutil.get_terminal_size(([80,20]))
 
-        while( len(self.__lastPrintBuffer) > (terminalSize[1] - (27 + len(self.__nodes)))):
-            self.__lastPrintBuffer.popleft()
+        while( len(self.__consoleBuffer) > (terminalSize[1] - (27 + len(self.__nodes))) and self.__consoleBuffer):
+            self.__consoleBuffer.popleft()
 
-        for l in self.__lastPrintBuffer:
+        for l in self.__consoleBuffer:
             print(l)   
 
     def processKeepAliveMessage(self, label, trickleCount):
@@ -197,18 +204,23 @@ class Network(object):
         if n != None:
             n.updateBatteryVoltage(batteryVoltage)
 
+    def processBTReportMessage(self, label):
+        n = self.getNode(label)
+        if n != None:
+            n.BTReportHandler()
+
     def addPrint(self, text):        
         terminalSize = shutil.get_terminal_size(([80,20]))
         if(len(text) > terminalSize[0]):
             if(len(text) > 2*terminalSize[0]):  #clip the text if it is longer than 2 lines...
                 text=text[:2*terminalSize[0]]
-            self.__lastPrintBuffer.append(text[:terminalSize[0]])
-            self.__lastPrintBuffer.append(text[terminalSize[0]:])
+            self.__consoleBuffer.append(text[:terminalSize[0]])
+            self.__consoleBuffer.append(text[terminalSize[0]:])
         else:
-            self.__lastPrintBuffer.append(text)
+            self.__consoleBuffer.append(text)
 
         self.printNetworkStatus()
-        #for l in self.__lastPrintBuffer:
+        #for l in self.__consoleBuffer:
         #    print(l)
     
 class Node(object):
@@ -226,6 +238,7 @@ class Node(object):
         self.lastTrickleCount = trickleCount
         self.lastMessageTime = float(time.time())
         self.batteryVoltage = -1
+        self.amountOfBTReports = 0
 
     def updateTrickleCount(self,trickleCount):
         with self.lock:
@@ -237,13 +250,25 @@ class Node(object):
             self.batteryVoltage = batteryVoltage
             self.lastMessageTime = float(time.time())
 
+    def updateBatteryVoltage(self, batteryVoltage):
+        with self.lock:
+            self.batteryVoltage = batteryVoltage
+            self.lastMessageTime = float(time.time())
+
+    def BTReportHandler(self):
+        with self.lock:
+            self.amountOfBTReports = self.amountOfBTReports + 1
+
     def getLastMessageElapsedTime(self):
         now = float(time.time())
         return now-self.lastMessageTime
 
     def printNodeInfo(self):
-        print("|  %3s       |   %1.2f                |   %3.0f                |   %3d            |" % (str(self.name), self.batteryVoltage, self.getLastMessageElapsedTime(), self.lastTrickleCount)) #+" V, last message %.2f" %self.getLastMessageElapsedTime()+" s ago, Trickle count: %d" %self.lastTrickleCount)
-
+        if(self.batteryVoltage>0):
+            print("|  %3s      |  %1.2f           |  %3.0f                |  %3d        |  %4d      |" % (str(self.name), self.batteryVoltage, self.getLastMessageElapsedTime(), self.lastTrickleCount, self.amountOfBTReports))
+        else:
+            print("|  %3s      |  %1.2f          |  %3.0f                |  %3d        |  %4d      |" % (str(self.name), self.batteryVoltage, self.getLastMessageElapsedTime(), self.lastTrickleCount, self.amountOfBTReports))
+        
 @unique
 class PacketType(IntEnum):
     network_new_sequence =          0x0100
@@ -568,10 +593,11 @@ try:
 
                                 if printVerbosity > 1:
                                     net.addPrint("Nodeid: "+ str(messageSequenceList[seqid].nodeid)+ " sequencesize: "+ str(messageSequenceList[seqid].sequenceSize)+ " ContactData elements: "+ str(len(messageSequenceList[seqid].datalist)))
-                                appLogger.warning("[Node {0}] Messagesequence ended, but datacounter is not equal to sequencesize -  datacounter: {1}"
+                                appLogger.warning("[Node {0}] Messagesequence ended, but datacounter is not equal to sequencesize -  datacounter: {1}" #WHY IS THIS WARNING HERE?????
                                                    " ContactData elements: {2}".format(nodeid, messageSequenceList[seqid].datacounter,
                                                                                        len(messageSequenceList[seqid].datalist)))
                                 log_contact_data(seqid)
+                                net.processBTReportMessage(str(messageSequenceList[seqid].nodeid))
                                 del messageSequenceList[seqid]
 
                         elif PacketType.network_bat_data == pkttype:
