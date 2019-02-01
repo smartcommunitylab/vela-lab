@@ -16,7 +16,7 @@ import shutil
 START_CHAR = '2a'
 START_BUF = '2a2a2a'  # this is not really a buffer
 BAUD_RATE = 1000000
-SERIAL_PORT = "/dev/ttyUSB0"
+SERIAL_PORT = "/dev/ttyS0"
 
 logfolderpath = os.path.dirname(os.path.realpath(__file__))+'/log/'
 if not os.path.exists(logfolderpath):
@@ -73,8 +73,9 @@ btPreviousTime = 0
 btToggleInterval = 1800
 btToggleBool = True
 
-NODE_TIMEOUT_S = 15
+NODE_TIMEOUT_S = 60
 NETWORK_PERIODIC_CHECK_INTERVAL = 2
+CLEAR_CONSOLE = True
 
 # Loggers
 printVerbosity = 10
@@ -118,6 +119,7 @@ class Network(object):
         self.__nodes = []
         threading.Timer(NETWORK_PERIODIC_CHECK_INTERVAL,self.__periodicNetworkCheck).start()
         self.__consoleBuffer = deque()
+        self.console_queue_lock = threading.Lock()
         self.__lastNetworkPrint=float(time.time())
 
     def getNode(self, label):
@@ -156,7 +158,8 @@ class Network(object):
         
         __lastNetworkPrint = float(time.time())    
 
-        cls()
+        if CLEAR_CONSOLE:
+            cls()
         netSize = len(self.__nodes)
         print("|------------------------------------------------------------------------------|")
         print("|------------------|            Network size %3s            |------------------|" %str(netSize))
@@ -186,10 +189,12 @@ class Network(object):
         terminalSize = shutil.get_terminal_size(([80,20]))
 
         while( len(self.__consoleBuffer) > (terminalSize[1] - (27 + len(self.__nodes))) and self.__consoleBuffer):
-            self.__consoleBuffer.popleft()
+            with self.console_queue_lock:
+                self.__consoleBuffer.popleft()
 
-        for l in self.__consoleBuffer:
-            print(l)   
+        with self.console_queue_lock:
+            for l in self.__consoleBuffer:
+                print(l)   
 
     def processKeepAliveMessage(self, label, trickleCount):
         n = self.getNode(label)
@@ -214,10 +219,12 @@ class Network(object):
         if(len(text) > terminalSize[0]):
             if(len(text) > 2*terminalSize[0]):  #clip the text if it is longer than 2 lines...
                 text=text[:2*terminalSize[0]]
-            self.__consoleBuffer.append(text[:terminalSize[0]])
-            self.__consoleBuffer.append(text[terminalSize[0]:])
+            with self.console_queue_lock:
+                self.__consoleBuffer.append(text[:terminalSize[0]])
+                self.__consoleBuffer.append(text[terminalSize[0]:])
         else:
-            self.__consoleBuffer.append(text)
+            with self.console_queue_lock:
+                self.__consoleBuffer.append(text)
 
         self.printNetworkStatus()
         #for l in self.__consoleBuffer:
@@ -523,7 +530,7 @@ try:
                             seqid = get_sequence_index(nodeid)
                             if seqid == -1:
                                 if printVerbosity > 1:
-                                    net.addPrint("First part of sequence dropped, creating incomplete sequence at index "+ str(len(messageSequenceList)) +" from pktnum "+ pktnum)
+                                    net.addPrint("First part of sequence dropped, creating incomplete sequence at index "+ str(len(messageSequenceList)) +" from pktnum "+ str(pktnum))
                                 messageSequenceList.append(
                                     MessageSequence(datetime.datetime.fromtimestamp(time.time()).
                                                     strftime('%Y-%m-%d %H:%M:%S'), nodeid,
