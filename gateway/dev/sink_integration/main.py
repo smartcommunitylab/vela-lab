@@ -73,7 +73,7 @@ btPreviousTime = 0
 btToggleInterval = 1800
 btToggleBool = True
 
-NODE_TIMEOUT_S = 60
+NODE_TIMEOUT_S = 120
 NETWORK_PERIODIC_CHECK_INTERVAL = 2
 CLEAR_CONSOLE = True
 
@@ -143,13 +143,15 @@ class Network(object):
     def __periodicNetworkCheck(self):
         #net.addPrint("Periodic check...")
         threading.Timer(NETWORK_PERIODIC_CHECK_INTERVAL,self.__periodicNetworkCheck).start()
+        nodes_removed = False;
         for n in self.__nodes:
             if n.getLastMessageElapsedTime() > NODE_TIMEOUT_S:
                 if printVerbosity > 2:
                     self.addPrint("Node "+ n.name +" timed out. Elasped time: %.2f" %n.getLastMessageElapsedTime() +" Removing it from the network.")
                 self.removeNode(n)
-
-        self.printNetworkStatus()
+                nodes_removed = True
+        if nodes_removed:
+            self.printNetworkStatus()
 
     def printNetworkStatus(self):
 
@@ -158,9 +160,11 @@ class Network(object):
         
         __lastNetworkPrint = float(time.time())    
 
+        netSize = len(self.__nodes)
+
         if CLEAR_CONSOLE:
             cls()
-        netSize = len(self.__nodes)
+
         print("|------------------------------------------------------------------------------|")
         print("|------------------|            Network size %3s            |------------------|" %str(netSize))
         print("|------------------------------------------------------------------------------|")
@@ -208,10 +212,18 @@ class Network(object):
         n = self.getNode(label)
         if n != None:
             n.updateBatteryVoltage(batteryVoltage)
+        else:
+            n=Node(label, 0)
+            self.addNode(n)
+            n.updateBatteryVoltage(batteryVoltage)
 
     def processBTReportMessage(self, label):
         n = self.getNode(label)
         if n != None:
+            n.BTReportHandler()
+        else:
+            n=Node(label, 0)
+            self.addNode(n)
             n.BTReportHandler()
 
     def addPrint(self, text):        
@@ -272,9 +284,9 @@ class Node(object):
 
     def printNodeInfo(self):
         if(self.batteryVoltage>0):
-            print("|  %3s      |  %1.2f           |  %3.0f                |  %3d        |  %4d      |" % (str(self.name), self.batteryVoltage, self.getLastMessageElapsedTime(), self.lastTrickleCount, self.amountOfBTReports))
+            print("|  %3s      |  %1.2f           |  %3.0f                |  %3d        |  %5d     |" % (str(self.name), self.batteryVoltage, self.getLastMessageElapsedTime(), self.lastTrickleCount, self.amountOfBTReports))
         else:
-            print("|  %3s      |  %1.2f          |  %3.0f                |  %3d        |  %4d      |" % (str(self.name), self.batteryVoltage, self.getLastMessageElapsedTime(), self.lastTrickleCount, self.amountOfBTReports))
+            print("|  %3s      |  %1.2f          |  %3.0f                |  %3d        |  %5d     |" % (str(self.name), self.batteryVoltage, self.getLastMessageElapsedTime(), self.lastTrickleCount, self.amountOfBTReports))
         
 @unique
 class PacketType(IntEnum):
