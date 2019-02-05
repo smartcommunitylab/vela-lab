@@ -38,6 +38,8 @@ MAX_PACKET_PAYLOAD = 54
 
 MAX_BEACONS = 100
 
+MAX_TRICKLE_C_VALUE = 256
+
 ser = serial.Serial()
 ser.port = SERIAL_PORT
 ser.baudrate = BAUD_RATE
@@ -121,6 +123,10 @@ class Network(object):
         self.__consoleBuffer = deque()
         self.console_queue_lock = threading.Lock()
         self.__lastNetworkPrint=float(time.time())
+        self.__netMaxTrickle=0
+        self.__netMinTrickle=MAX_TRICKLE_C_VALUE
+        self.__expTrickle=0
+        self.__trickleQueue = deque()
 
     def getNode(self, label):
         for n in self.__nodes:
@@ -131,6 +137,8 @@ class Network(object):
 
     def addNode(self,n):
         self.__nodes.append(n)
+        if len(self.__nodes) == 1:
+            self.__expTrickle=n.lastTrickleCount
 
     def removeNode(self,label):
         n = self.getNode(label)
@@ -140,22 +148,52 @@ class Network(object):
     def removeNode(self,n):
         self.__nodes.remove(n)
 
+    def __trickleCheck(self):
+        for n in self.__nodes:
+            #with n.lock:
+            #self.addPrint("Node "+ n.name + "lastTrickleCount: " + str(n.lastTrickleCount))
+            self.__netMaxTrickle = n.lastTrickleCount
+            self.__netMinTrickle = n.lastTrickleCount
+            if n.lastTrickleCount > self.__netMaxTrickle or ( n.lastTrickleCount == 0 and self.__netMaxTrickle>=(MAX_TRICKLE_C_VALUE-1) ):
+                self.__netMaxTrickle = n.lastTrickleCount
+            if n.lastTrickleCount < self.__netMinTrickle or ( n.lastTrickleCount >= (MAX_TRICKLE_C_VALUE-1) and self.__netMinTrickle==0 ):
+                self.__netMinTrickle = n.lastTrickleCount #todo: it seems that this does't work. The __netMinTrickle goes up before all the nodes have sent their new values, sometimes it is __netMaxTrickle that doesn't update as soon the first new value arrives..
+
+        if self.__netMinTrickle == self.__netMaxTrickle and self.__netMaxTrickle == self.__expTrickle:
+            return True
+        else:
+            return False
+
+    def sendNewTrickle(self, message):
+        if self.__trickleCheck():
+            self.__expTrickle = (self.__netMaxTrickle + 1)%MAX_TRICKLE_C_VALUE
+            send_serial_msg(message)
+            self.addPrint("Trickle message: 0x {0} sent".format((message).hex()))
+        else:
+            self.__trickleQueue.append(message)
+            self.addPrint("Trickle message: 0x {0} queued".format((message).hex()))
+
     def __periodicNetworkCheck(self):
         #net.addPrint("Periodic check...")
         threading.Timer(NETWORK_PERIODIC_CHECK_INTERVAL,self.__periodicNetworkCheck).start()
         nodes_removed = False;
         for n in self.__nodes:
+            #self.addPrint("Node "+ n.name)
             if n.getLastMessageElapsedTime() > NODE_TIMEOUT_S:
                 if printVerbosity > 2:
                     self.addPrint("Node "+ n.name +" timed out. Elasped time: %.2f" %n.getLastMessageElapsedTime() +" Removing it from the network.")
                 self.removeNode(n)
                 nodes_removed = True
+
+        #self.__trickleCheck()
+
         if nodes_removed:
+            self.__trickleCheck()
             self.printNetworkStatus()
 
     def printNetworkStatus(self):
 
-        if(float(time.time()) - self.__lastNetworkPrint < 0.1): #this is to avoid too fast call to this function
+        if(float(time.time()) - self.__lastNetworkPrint < 0.2): #this is to avoid too fast call to this function
             return
         
         __lastNetworkPrint = float(time.time())    
@@ -167,6 +205,7 @@ class Network(object):
 
         print("|------------------------------------------------------------------------------|")
         print("|------------------|            Network size %3s            |------------------|" %str(netSize))
+        print("|------------| Trickle: min %3d; max %3d; exp %3d; queue size %2d |-------------|" %(self.__netMinTrickle, self.__netMaxTrickle, self.__expTrickle, len(self.__trickleQueue)))
         print("|------------------------------------------------------------------------------|")
         print("|  Node ID  |  Batt Volt [v]  |  Last seen [s] ago  |  Tkl Count  |  # BT rep  |")
         print("|           |                 |                     |             |            |")
@@ -189,7 +228,6 @@ class Network(object):
         print("|------------------|            CONSOLE                     |------------------|")
         print("|------------------------------------------------------------------------------|\n")
 
-
         terminalSize = shutil.get_terminal_size(([80,20]))
 
         while( len(self.__consoleBuffer) > (terminalSize[1] - (27 + len(self.__nodes))) and self.__consoleBuffer):
@@ -200,31 +238,43 @@ class Network(object):
             for l in self.__consoleBuffer:
                 print(l)   
 
-    def processKeepAliveMessage(self, label, trickleCount):
+    def processKeepAliveMessage(self, label, trickleCount, batteryVoltage):
         n = self.getNode(label)
         if n != None:
             n.updateTrickleCount(trickleCount)
+            n.updateBatteryVoltage(batteryVoltage)
         else:
             n=Node(label, trickleCount)
+            n.updateBatteryVoltage(batteryVoltage)
             self.addNode(n)
+        
+        if len(self.__trickleQueue) != 0:
+            if self.__trickleCheck():
+                self.__expTrickle = (self.__netMaxTrickle + 1)%MAX_TRICKLE_C_VALUE
+                message=self.__trickleQueue.popleft()
+                send_serial_msg(message)
+                self.addPrint("Trickle message: 0x {0} automatically sent".format((message).hex()))
+        else:
+            self.__trickleCheck()
+        self.printNetworkStatus()
 
     def processBatteryDataMessage(self, label, batteryVoltage):
         n = self.getNode(label)
         if n != None:
             n.updateBatteryVoltage(batteryVoltage)
-        else:
-            n=Node(label, 0)
-            self.addNode(n)
-            n.updateBatteryVoltage(batteryVoltage)
+        #else:
+        #    n=Node(label, 0)
+        #    self.addNode(n)
+        #    n.updateBatteryVoltage(batteryVoltage)
 
     def processBTReportMessage(self, label):
         n = self.getNode(label)
         if n != None:
             n.BTReportHandler()
-        else:
-            n=Node(label, 0)
-            self.addNode(n)
-            n.BTReportHandler()
+        #else:
+        #    n=Node(label, 0)
+        #    self.addNode(n)
+        #    n.BTReportHandler()
 
     def addPrint(self, text):        
         terminalSize = shutil.get_terminal_size(([80,20]))
@@ -269,14 +319,10 @@ class Node(object):
             self.batteryVoltage = batteryVoltage
             self.lastMessageTime = float(time.time())
 
-    def updateBatteryVoltage(self, batteryVoltage):
-        with self.lock:
-            self.batteryVoltage = batteryVoltage
-            self.lastMessageTime = float(time.time())
-
     def BTReportHandler(self):
         with self.lock:
             self.amountOfBTReports = self.amountOfBTReports + 1
+            self.lastMessageTime = float(time.time())
 
     def getLastMessageElapsedTime(self):
         now = float(time.time())
@@ -316,34 +362,32 @@ def handle_user_input():
             user_input = int(input())
             if user_input == 1:
                 payload = 233
-                send_serial_msg(PacketType.network_request_ping, payload.to_bytes(1, byteorder="big", signed=False))
                 net.addPrint("Sent ping request")
                 appLogger.debug("[SENDING] Requesting ping")
+                net.sendNewTrickle(build_outgoing_serial_message(PacketType.network_request_ping, payload.to_bytes(1, byteorder="big", signed=False)))
             elif user_input == 2:
-                send_serial_msg(PacketType.nordic_turn_bt_on, None)
                 net.addPrint("Turning bt on")
                 appLogger.debug("[SENDING] Enable Bluetooth")
+                net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_turn_bt_on, None))
             elif user_input == 3:
-                send_serial_msg(PacketType.nordic_turn_bt_off, None)
                 net.addPrint("Turning bt off")
                 appLogger.debug("[SENDING] Disable Bluetooth")
+                net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_turn_bt_off, None))
             #elif user_input == 4:
-            #    send_serial_msg(PacketType.nordic_turn_bt_on_low, None)
             #    net.addPrint("Turning bt on low")
             #    appLogger.debug("[SENDING] Enable Bluetooth LOW")
+            #    net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_turn_bt_on_low, None))
             elif user_input == 4:
-                send_serial_msg(PacketType.nordic_turn_bt_on_def, None)
                 net.addPrint("Turning bt on def")
                 appLogger.debug("[SENDING] Enable Bluetooth DEF")
+                net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_turn_bt_on_def, None))
             #elif user_input == 6:
-            #    send_serial_msg(PacketType.nordic_turn_bt_on_high, None)
             #    net.addPrint("Turning bt on high")
             #    appLogger.debug("[SENDING] Enable Bluetooth HIGH")
+            #    net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_turn_bt_on_high, None))
             elif user_input == 5:
-                net.addPrint("Turn on bt with params")
-                appLogger.debug("[SENDING] Enable Bluetooth with params")
                 SCAN_INTERVAL_MS = 10000
-                SCAN_WINDOW_MS = 2500
+                SCAN_WINDOW_MS = 3500
                 SCAN_TIMEOUT_S = 0
                 REPORT_TIMEOUT_S = 20
 
@@ -358,27 +402,28 @@ def handle_user_input():
                 btimeout = timeout.to_bytes(2, byteorder="big", signed=False)
                 breport_timeout_ms = report_timeout_ms.to_bytes(4, byteorder="big", signed=False)
                 payload = bactive_scan + bscan_interval + bscan_window + btimeout + breport_timeout_ms
-                send_serial_msg(PacketType.nordic_turn_bt_on_w_params, payload)
+                net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_turn_bt_on_w_params, payload))
+                net.addPrint("Turn on bt with params")
+                appLogger.debug("[SENDING] Enable Bluetooth with params")
             elif user_input == 6:
-                bat_info_interval_s = 11
-                send_serial_msg(PacketType.ti_set_batt_info_int, bat_info_interval_s.to_bytes(1, byteorder="big", signed=False))
+                bat_info_interval_s = 15
                 net.addPrint("Enable battery info with interval: "+str(bat_info_interval_s))
+                net.sendNewTrickle(build_outgoing_serial_message(PacketType.ti_set_batt_info_int, bat_info_interval_s.to_bytes(1, byteorder="big", signed=False)))
             elif user_input == 7:
                 bat_info_interval_s = 0
-                send_serial_msg(PacketType.ti_set_batt_info_int, bat_info_interval_s.to_bytes(1, byteorder="big", signed=False))
                 net.addPrint("Disabling battery info")
+                net.sendNewTrickle(build_outgoing_serial_message(PacketType.ti_set_batt_info_int, bat_info_interval_s.to_bytes(1, byteorder="big", signed=False)))
             elif user_input == 8:
-                send_serial_msg(PacketType.nordic_reset, None)
                 net.addPrint("Reset bluetooth")
+                net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_reset, None))
             elif user_input > 8:
                 interval = user_input
-                send_serial_msg(PacketType.ti_set_keep_alive, interval.to_bytes(1, byteorder="big", signed=False))
                 net.addPrint("Setting keep alive")
+                net.sendNewTrickle(build_outgoing_serial_message(PacketType.ti_set_keep_alive, interval.to_bytes(1, byteorder="big", signed=False)))
         except ValueError:
             net.addPrint("read failed")
 
-
-def send_serial_msg(pkttype, ser_payload):
+def build_outgoing_serial_message(pkttype, ser_payload):
     payload_size = 0
 
     if ser_payload is not None:
@@ -390,12 +435,13 @@ def send_serial_msg(pkttype, ser_payload):
         packet=packet+ser_payload
 
     ascii_packet=''.join('%02X'%i for i in packet)
-	
-    #net.addPrint("ascii_packet = " + ascii_packet)
 
-    ser.write(ascii_packet.encode('utf-8'))
+    return ascii_packet.encode('utf-8')
+
+def send_serial_msg(message):
+    ser.write(message)
     ser.write(SER_END_CHAR)
-    dataLogger.info("GATEWAY 0x {0} ".format((packet+SER_END_CHAR).hex()))
+    dataLogger.info("GATEWAY 0x {0} ".format((message+SER_END_CHAR).hex()))
 
 
 def decode_payload(seqid, size, packettype, pktnum):
@@ -656,14 +702,14 @@ try:
 
                         elif PacketType.network_keep_alive == pkttype:
                             cap = int.from_bytes(ser.read(2), byteorder="big", signed=False)
-                            voltage = int.from_bytes(ser.read(2), byteorder="big", signed=False)
+                            batAvgVoltage = int.from_bytes(ser.read(2), byteorder="big", signed=False)
                             trickle_count = int.from_bytes(ser.read(1), byteorder="big", signed=False)
                             
-                            net.processKeepAliveMessage(str(nodeid), trickle_count)
+                            net.processKeepAliveMessage(str(nodeid), trickle_count, float(batAvgVoltage)/1000)
                             if printVerbosity > 1:
-                                net.addPrint("Received keep alive packet from node "+ str(nodeid) +"with cap & voltage: "+ str(cap) +" "+ str(voltage) +" trickle count: "+ str(trickle_count))
-                            appLogger.info("[Node {0}] Received keep alive message with capacity: {1} and voltage: {2} trickle_count {3}".format(nodeid, cap, voltage,trickle_count))
-                            dataLogger.info("Node {0} 0x {1} 0x {2} 0x {3}{4} {5}".format(nodeid, '{:02x}'.format(pkttype), '{:x}'.format(pktnum), '{:02x}'.format(cap), '{:02x}'.format(voltage),trickle_count))
+                                net.addPrint("Received keep alive packet from node "+ str(nodeid) +" with cap & voltage: "+ str(cap) +" "+ str(batAvgVoltage) +" trickle count: "+ str(trickle_count))
+                            appLogger.info("[Node {0}] Received keep alive message with capacity: {1} and voltage: {2} trickle_count {3}".format(nodeid, cap, batAvgVoltage,trickle_count))
+                            dataLogger.info("Node {0} 0x {1} 0x {2} 0x {3}{4} {5}".format(nodeid, '{:02x}'.format(pkttype), '{:x}'.format(pktnum), '{:02x}'.format(cap), '{:02x}'.format(batAvgVoltage),trickle_count))
 
                         else:
                             net.addPrint("Unknown packettype: "+ str(pkttype))
