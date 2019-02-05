@@ -26,7 +26,7 @@ channel check interval
 #ifdef DEBUG
 #undef DEBUG
 #endif
-#define DEBUG 1
+#define DEBUG 0
 #if DEBUG
 #define PRINTF(...) printf(__VA_ARGS__)
 #else
@@ -154,7 +154,7 @@ PROCESS_THREAD(vela_node_process, ev, data)
 
 	vela_sender_init();
 
-    set_fuel_gauge_interval(FUEL_GAUGE_POLLING_INTERVAL_DEF);
+    //set_fuel_gauge_interval(FUEL_GAUGE_POLLING_INTERVAL_DEF); //by default battery info are off
 	// do something, probably related to the watchdog
 
 
