@@ -15,8 +15,8 @@ import shutil
 
 START_CHAR = '2a'
 START_BUF = '2a2a2a'  # this is not really a buffer
-BAUD_RATE = 921600 #1000000
-SERIAL_PORT = "/dev/ttyACM0" #"/dev/ttyS0"
+BAUD_RATE = 1000000 #921600 #1000000
+SERIAL_PORT = "/dev/ttyS0" #"/dev/ttyS0"
 
 logfolderpath = os.path.dirname(os.path.realpath(__file__))+'/log/'
 if not os.path.exists(logfolderpath):
@@ -126,6 +126,7 @@ class Network(object):
         self.__netMaxTrickle=0
         self.__netMinTrickle=MAX_TRICKLE_C_VALUE
         self.__expTrickle=0
+        self.__uartErrors=0
         self.__trickleQueue = deque()
 
     def getNode(self, label):
@@ -209,7 +210,7 @@ class Network(object):
             cls()
 
         print("|------------------------------------------------------------------------------|")
-        print("|------------------|            Network size %3s            |------------------|" %str(netSize))
+        print("|--------------------------|  Network size %3s errors: %4s |------------------|" %(str(netSize), self.__uartErrors))
         print("|------------| Trickle: min %3d; max %3d; exp %3d; queue size %2d |-------------|" %(self.__netMinTrickle, self.__netMaxTrickle, self.__expTrickle, len(self.__trickleQueue)))
         print("|------------------------------------------------------------------------------|")
         print("|  Node ID  |  Batt Volt [v]  |  Last seen [s] ago  |  Tkl Count  |  # BT rep  |")
@@ -280,6 +281,9 @@ class Network(object):
         #    n=Node(label, 0)
         #    self.addNode(n)
         #    n.BTReportHandler()
+
+    def processUARTError(self):
+        self.__uartErrors=self.__uartErrors+1
 
     def addPrint(self, text):        
         terminalSize = shutil.get_terminal_size(([80,20]))
@@ -520,6 +524,9 @@ if ser.is_open:
     ser.close()
     time.sleep(1)
 
+startCharErr=False
+startBuffErr=False
+
 try:
     while 1:
         if ser.is_open:
@@ -538,6 +545,11 @@ try:
                 if start == START_CHAR:
                     start = ser.read(3).hex()
                     if start == START_BUF:
+                        if startCharErr or startBuffErr:
+                            net.processUARTError()
+                            startCharErr=False
+                            startBuffErr=False
+                            
                         deliverCounter += 1
                         # TODO change the way pktnum's are being tracked
                         nodeid = int.from_bytes(ser.read(1), "little", signed=False)
@@ -731,8 +743,10 @@ try:
                             appLogger.warning("[Node {0}] Received unknown packettype: {1}".format(nodeid, hex(pkttype)))
                             dataLogger.info("Node {0} 0x {1} 0x {2}".format(nodeid, '{:02x}'.format(pkttype), '{:x}'.format(pktnum)))
                     else:  #start == START_BUF
+                        startBuffErr=True
                         net.addPrint("Unknown START_BUF: "+ start)
                 else:   #start == START_CHAR
+                        startCharErr=True
                         net.addPrint("Unknown START_CHAR: "+ start)
                     
             currentTime = time.time()
