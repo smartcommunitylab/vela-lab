@@ -164,14 +164,19 @@ class Network(object):
         else:
             return False
 
-    def sendNewTrickle(self, message):
-        if self.__trickleCheck():
-            self.__expTrickle = (self.__netMaxTrickle + 1)%MAX_TRICKLE_C_VALUE
+    def sendNewTrickle(self, message,forced=False):
+        if forced:
+            self.__trickleQueue.clear()
             send_serial_msg(message)
-            self.addPrint("Trickle message: 0x {0} sent".format((message).hex()))
+            self.addPrint("Trickle message: 0x {0} force send".format((message).hex()))
         else:
-            self.__trickleQueue.append(message)
-            self.addPrint("Trickle message: 0x {0} queued".format((message).hex()))
+            if self.__trickleCheck():
+                self.__expTrickle = (self.__netMaxTrickle + 1)%MAX_TRICKLE_C_VALUE
+                send_serial_msg(message)
+                self.addPrint("Trickle message: 0x {0} sent".format((message).hex()))
+            else:
+                self.__trickleQueue.append(message)
+                self.addPrint("Trickle message: 0x {0} queued".format((message).hex()))
 
     def __periodicNetworkCheck(self):
         #net.addPrint("Periodic check...")
@@ -359,37 +364,45 @@ def cls():
 def handle_user_input():
     while 1:
         try:
-            user_input = int(input())
+            input_str = input()
+            #net.addPrint("user_input "+ input_str + " len "+ str(len(input_str)))
+            if len(input_str)>=2 and input_str[0] == 'f':
+                forced=True
+                user_input = int(input_str[1:])
+            else:
+                forced=False
+                user_input = int(input_str)
+
             if user_input == 1:
                 payload = 233
                 net.addPrint("Sent ping request")
                 appLogger.debug("[SENDING] Requesting ping")
-                net.sendNewTrickle(build_outgoing_serial_message(PacketType.network_request_ping, payload.to_bytes(1, byteorder="big", signed=False)))
+                net.sendNewTrickle(build_outgoing_serial_message(PacketType.network_request_ping, payload.to_bytes(1, byteorder="big", signed=False)),forced)
             elif user_input == 2:
                 net.addPrint("Turning bt on")
                 appLogger.debug("[SENDING] Enable Bluetooth")
-                net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_turn_bt_on, None))
+                net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_turn_bt_on, None),forced)
             elif user_input == 3:
                 net.addPrint("Turning bt off")
                 appLogger.debug("[SENDING] Disable Bluetooth")
-                net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_turn_bt_off, None))
+                net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_turn_bt_off, None),forced)
             #elif user_input == 4:
             #    net.addPrint("Turning bt on low")
             #    appLogger.debug("[SENDING] Enable Bluetooth LOW")
-            #    net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_turn_bt_on_low, None))
+            #    net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_turn_bt_on_low, None),forced)
             elif user_input == 4:
                 net.addPrint("Turning bt on def")
                 appLogger.debug("[SENDING] Enable Bluetooth DEF")
-                net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_turn_bt_on_def, None))
+                net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_turn_bt_on_def, None),forced)
             #elif user_input == 6:
             #    net.addPrint("Turning bt on high")
             #    appLogger.debug("[SENDING] Enable Bluetooth HIGH")
-            #    net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_turn_bt_on_high, None))
+            #    net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_turn_bt_on_high, None),forced)
             elif user_input == 5:
-                SCAN_INTERVAL_MS = 10000
+                SCAN_INTERVAL_MS = 5000
                 SCAN_WINDOW_MS = 3500
                 SCAN_TIMEOUT_S = 0
-                REPORT_TIMEOUT_S = 20
+                REPORT_TIMEOUT_S = 15
 
                 active_scan = 1
                 scan_interval = int(SCAN_INTERVAL_MS*1000/625)
@@ -402,24 +415,24 @@ def handle_user_input():
                 btimeout = timeout.to_bytes(2, byteorder="big", signed=False)
                 breport_timeout_ms = report_timeout_ms.to_bytes(4, byteorder="big", signed=False)
                 payload = bactive_scan + bscan_interval + bscan_window + btimeout + breport_timeout_ms
-                net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_turn_bt_on_w_params, payload))
+                net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_turn_bt_on_w_params, payload),forced)
                 net.addPrint("Turn on bt with params")
                 appLogger.debug("[SENDING] Enable Bluetooth with params")
             elif user_input == 6:
-                bat_info_interval_s = 15
+                bat_info_interval_s = 60
                 net.addPrint("Enable battery info with interval: "+str(bat_info_interval_s))
-                net.sendNewTrickle(build_outgoing_serial_message(PacketType.ti_set_batt_info_int, bat_info_interval_s.to_bytes(1, byteorder="big", signed=False)))
+                net.sendNewTrickle(build_outgoing_serial_message(PacketType.ti_set_batt_info_int, bat_info_interval_s.to_bytes(1, byteorder="big", signed=False)),forced)
             elif user_input == 7:
                 bat_info_interval_s = 0
                 net.addPrint("Disabling battery info")
-                net.sendNewTrickle(build_outgoing_serial_message(PacketType.ti_set_batt_info_int, bat_info_interval_s.to_bytes(1, byteorder="big", signed=False)))
+                net.sendNewTrickle(build_outgoing_serial_message(PacketType.ti_set_batt_info_int, bat_info_interval_s.to_bytes(1, byteorder="big", signed=False)),forced)
             elif user_input == 8:
                 net.addPrint("Reset bluetooth")
-                net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_reset, None))
+                net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_reset, None),forced)
             elif user_input > 8:
                 interval = user_input
                 net.addPrint("Setting keep alive")
-                net.sendNewTrickle(build_outgoing_serial_message(PacketType.ti_set_keep_alive, interval.to_bytes(1, byteorder="big", signed=False)))
+                net.sendNewTrickle(build_outgoing_serial_message(PacketType.ti_set_keep_alive, interval.to_bytes(1, byteorder="big", signed=False)),forced)
         except ValueError:
             net.addPrint("read failed")
 
@@ -581,7 +594,9 @@ try:
                                 if printVerbosity > 1:
                                     net.addPrint("Single packet sequence completed")
                                 appLogger.debug("[Node {0}] Single packet sequence complete".format(nodeid))
-                                log_contact_data(seqid)
+                                log_contact_data(seqid)                                
+                                net.processBTReportMessage(str(nodeid))
+
                                 del messageSequenceList[seqid]
 
                         elif PacketType.network_active_sequence == pkttype:
