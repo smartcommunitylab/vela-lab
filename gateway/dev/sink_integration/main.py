@@ -15,8 +15,8 @@ import shutil
 
 START_CHAR = '2a'
 START_BUF = '2a2a2a'  # this is not really a buffer
-BAUD_RATE = 1000000
-SERIAL_PORT = "/dev/ttyS0"
+BAUD_RATE = 921600 #1000000
+SERIAL_PORT = "/dev/ttyACM0" #"/dev/ttyS0"
 
 logfolderpath = os.path.dirname(os.path.realpath(__file__))+'/log/'
 if not os.path.exists(logfolderpath):
@@ -730,7 +730,11 @@ try:
                             net.addPrint("Unknown packettype: "+ str(pkttype))
                             appLogger.warning("[Node {0}] Received unknown packettype: {1}".format(nodeid, hex(pkttype)))
                             dataLogger.info("Node {0} 0x {1} 0x {2}".format(nodeid, '{:02x}'.format(pkttype), '{:x}'.format(pktnum)))
-
+                    else:  #start == START_BUF
+                        net.addPrint("Unknown START_BUF: "+ start)
+                else:   #start == START_CHAR
+                        net.addPrint("Unknown START_CHAR: "+ start)
+                    
             currentTime = time.time()
             if currentTime - previousTimeTimeout > timeoutInterval:
                 previousTimeTimeout = time.time()
