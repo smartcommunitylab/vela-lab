@@ -51,7 +51,7 @@ static struct etimer trickle_et;
 network_message_t trickle_msg;
 
 static struct etimer keep_alive_timer;
-static struct etimer delay_ping_timer;
+static struct etimer rand_delay_timer;
 
 static uint32_t keep_alive_interval = KEEP_ALIVE_INTERVAL;
 
@@ -134,6 +134,7 @@ static uint8_t send_to_sink(network_message_t n_msg) {
             PRINT6ADDR(rpl_get_parent_ipaddr(dag->preferred_parent));
             PRINTF("\n");
         }
+
         simple_udp_sendto(&unicast_connection, buf, n_msg.payload.data_len+3, addr);
         leds_on(LEDS_RED);
         return 0;
@@ -151,6 +152,14 @@ trickle_tx(void *ptr, uint8_t suppress)
     uip_ipaddr_copy(&trickle_conn->ripaddr, &t_ipaddr);
     uip_udp_packet_send(trickle_conn, &trickle_msg, sizeof(trickle_msg)-sizeof(trickle_msg.payload.p_data)+trickle_msg.payload.data_len);
     uip_create_unspecified(&trickle_conn->ripaddr);
+}
+
+#define MAX_RANDOM_DELAY_S 0.5f
+static void node_delay(void){
+//    uint32_t delayTime=(MAX_RANDOM_DELAY_S*CLOCK_SECOND*(node_id & (0x00FF)))/256;
+    uint32_t delayTime=(random_rand()*MAX_RANDOM_DELAY_S*CLOCK_SECOND)/0xFFFF;
+    PRINTF("node_id 0x%4X, PACKET Delay %d\n",node_id, delayTime);
+    clock_wait(delayTime);
 }
 
 static network_message_t *incoming;
@@ -183,6 +192,9 @@ tcpip_handler(void)
                          (unsigned long)clock_time(),
                          (unsigned long)(tt.ct.etimer.timer.start +
             tt.ct.etimer.timer.interval));
+
+            node_delay(); //add a small delay to reduce any occurance of collision
+
             if(incoming->pktnum > trickle_msg.pktnum || (trickle_msg.pktnum - incoming->pktnum > 10)){
                 memcpy(&trickle_msg, incoming, sizeof(network_message_t));
             	PRINTF("Received new message, type: %X\n", trickle_msg.pkttype);
@@ -234,7 +246,7 @@ tcpip_handler(void)
                     PRINTF("Setting keep alive interval to %hhu\n", incoming->payload.p_data[0]);
                     PROCESS_CONTEXT_BEGIN(&keep_alive_process);
                     keep_alive_interval = incoming->payload.p_data[0];
-                    if(keep_alive_interval > 10){
+                    if(keep_alive_interval > 9){
                         etimer_set(&keep_alive_timer, keep_alive_interval * CLOCK_SECOND);
                     }else{
                         etimer_set(&keep_alive_timer, VERY_LONG_TIMER_VALUE * CLOCK_SECOND);
@@ -352,8 +364,8 @@ PROCESS_THREAD(vela_sender_process, ev, data) {
             response.pkttype = network_respond_ping;
             response.payload.data_len = 1;
             response.payload.p_data[0] = temp[0];
-            etimer_set(&delay_ping_timer, random_rand() % (2 * CLOCK_SECOND));
-            PROCESS_WAIT_UNTIL(etimer_expired(&delay_ping_timer));
+            //etimer_set(&rand_delay_timer, random_rand() % (2 * CLOCK_SECOND));
+            //PROCESS_WAIT_UNTIL(etimer_expired(&rand_delay_timer));
             send_to_sink(response);
         }
         if(ev == event_bat_data_ready) {
