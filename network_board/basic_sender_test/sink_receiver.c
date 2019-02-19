@@ -28,7 +28,9 @@
 #include "dev/cc26xx-uart.h"
 #include "ti-lib.h"
 
-#define TO_BYTE(hex_data) ((hex_data <= '9') ? hex_data - '0': hex_data - 'A' + 10)
+#define TO_BYTE(hex_data) (((hex_data ) <= '9') ? ((hex_data)  - '0') : ((hex_data)  - 'A' + 10))
+#define TO_HEX(byte_data) (((byte_data) <=  9 ) ? ((byte_data) + '0') : ((byte_data) + 'A' - 10)) //NOTE THAT THIS PROPERLY WORKS ONLY ON 4 BITS!!!
+#define UART_PKT_START_SYMBOL           '\x02'      //start of text - this is the same as in uart_util.h
 
 static uip_ipaddr_t ipaddr;
 static uint8_t state;
@@ -78,6 +80,13 @@ void sink_receiver_init() {
     process_start(&uart_reader_process, "Uart reader process");
 }
 /*---------------------------------------------------------------------------*/
+static void sendCharAsHexString(uint8_t c){
+    uint8_t hc = TO_HEX((c>>4)&0x0F);
+    cc26xx_uart_write_byte( hc );
+    hc = TO_HEX(c & 0x0F) ;
+    cc26xx_uart_write_byte( hc );
+}
+
 static void
 receiver(struct simple_udp_connection *c,
          const uip_ipaddr_t *sender_addr,  // 4 byte address
@@ -88,14 +97,12 @@ receiver(struct simple_udp_connection *c,
          uint16_t datalen) {
     leds_toggle(LEDS_GREEN);
 
-    int i;
-    for (i=0;i<4;i++){
-        cc26xx_uart_write_byte(42);
+    cc26xx_uart_write_byte(UART_PKT_START_SYMBOL);
+    sendCharAsHexString(sender_addr->u8[15]);
+    for (uint16_t i=0;i<datalen;i++){
+        sendCharAsHexString(data[i]);
     }
-    cc26xx_uart_write_byte(sender_addr->u8[15]);
-    for (i=0;i<datalen;i++){
-        cc26xx_uart_write_byte(data[i]);
-    }
+    cc26xx_uart_write_byte('\n');
 }
 /*---------------------------------------------------------------------------*/
 

@@ -12,11 +12,12 @@ import sys
 import threading
 from collections import deque
 import shutil
+import binascii
 
-START_CHAR = '2a'
-START_BUF = '2a2a2a'  # this is not really a buffer
+START_CHAR = '02'
+#START_BUF = '2a2a2a'  # this is not really a buffer
 BAUD_RATE = 1000000 #921600 #1000000
-SERIAL_PORT = "/dev/ttyS0" #"/dev/ttyS0"
+SERIAL_PORT = "/dev/ttyACM0" #"/dev/ttyS0"
 
 logfolderpath = os.path.dirname(os.path.realpath(__file__))+'/log/'
 if not os.path.exists(logfolderpath):
@@ -43,7 +44,7 @@ MAX_TRICKLE_C_VALUE = 256
 ser = serial.Serial()
 ser.port = SERIAL_PORT
 ser.baudrate = BAUD_RATE
-ser.timeout = 1
+ser.timeout = 100
 
 MessageSequence = recordtype("MessageSequence", "timestamp,nodeid,lastPktnum,sequenceSize,datacounter,"
                                                 "datalist,latestTime")
@@ -114,6 +115,16 @@ contactlog_handler.setFormatter(contact_formatter)
 contactLogger = logging.getLogger(nameContactLog)
 contactLogger.setLevel(LOG_LEVEL)
 contactLogger.addHandler(contactlog_handler)
+
+nameErrorLog = "errorLogger"
+filenameErrorLog = timestr + "-errorLogger.log"
+fullpathErrorLog = logfolderpath+filenameErrorLog
+errorlog_handler = logging.FileHandler(fullpathErrorLog)
+errorlog_formatter= logging.Formatter('%(message)s')
+errorlog_handler.setFormatter(errorlog_formatter)
+errorLogger = logging.getLogger(nameErrorLog)
+errorLogger.setLevel(LOG_LEVEL)
+errorLogger.addHandler(errorlog_handler)
 
 class Network(object):
 
@@ -423,7 +434,7 @@ def handle_user_input():
                 net.addPrint("Turn on bt with params")
                 appLogger.debug("[SENDING] Enable Bluetooth with params")
             elif user_input == 6:
-                bat_info_interval_s = 60
+                bat_info_interval_s = 15
                 net.addPrint("Enable battery info with interval: "+str(bat_info_interval_s))
                 net.sendNewTrickle(build_outgoing_serial_message(PacketType.ti_set_batt_info_int, bat_info_interval_s.to_bytes(1, byteorder="big", signed=False)),forced)
             elif user_input == 7:
@@ -461,20 +472,28 @@ def send_serial_msg(message):
     dataLogger.info("GATEWAY 0x {0} ".format((message+SER_END_CHAR).hex()))
 
 
-def decode_payload(seqid, size, packettype, pktnum):
+def decode_payload(payload, seqid, size, packettype, pktnum):
     raw_data = "Node {0} ".format(messageSequenceList[seqid].nodeid) + "0x {:04X} ".format(packettype) + "0x {:02X}".format(pktnum) + " 0x "
+    cur=0
     try:
         for x in range(round(size / SINGLE_REPORT_SIZE)):
-            nid = int(ser.read(6).hex(), 16)
-            lastrssi = int(ser.read(1).hex(), 16)
-            maxrssi = int(ser.read(1).hex(), 16)
-            pktcounter = int(ser.read(1).hex(), 16)
+            nid = int(payload[cur:cur+12], 16) #int(ser.read(6).hex(), 16)
+            cur=cur+12
+            lastrssi = int(payload[cur:cur+2], 16) #int(ser.read(1).hex(), 16)
+            cur=cur+2
+            maxrssi = int(payload[cur:cur+2], 16) #int(ser.read(1).hex(), 16)
+            cur=cur+2
+            pktcounter = int(payload[cur:cur+2], 16) #int(ser.read(1).hex(), 16)
+            cur=cur+2
+            #net.addPrint("id = {:012X}".format(nid, 8))
             contact = ContactData(nid, lastrssi, maxrssi, pktcounter)
             messageSequenceList[seqid].datalist.append(contact)
             messageSequenceList[seqid].datacounter += SINGLE_REPORT_SIZE
             raw_data += "{:012X}".format(nid, 8) + '{:02X}'.format(lastrssi) + '{:02X}'.format(maxrssi) + '{:02X}'.format(pktcounter)
+            
     except ValueError:
-        net.addPrint("[DecodePayload] Payload size to decode is smaller than available bytes")
+        net.addPrint("[Node {0}] Requested to decode more bytes than available. Requested: {1}"
+                          .format(messageSequenceList[seqid].nodeid, size))
         appLogger.warning("[Node {0}] Requested to decode more bytes than available. Requested: {1}"
                           .format(messageSequenceList[seqid].nodeid, size))
     finally:
@@ -512,6 +531,8 @@ def check_for_packetdrop(nodeid, pktnum):
             return
     nodeDropInfoList.append(NodeDropInfo(nodeid, pktnum))
 
+def to_byte(hex_text):
+    return binascii.unhexlify(hex_text)
 
 _thread.start_new_thread(handle_user_input, ())
 net = Network()
@@ -525,7 +546,8 @@ if ser.is_open:
     time.sleep(1)
 
 startCharErr=False
-startBuffErr=False
+#startBuffErr=False
+otherkindofErr=False
 
 try:
     while 1:
@@ -539,51 +561,65 @@ try:
                 ser.close()
                 time.sleep(1)
                 continue
+            
+            try:
 
-            if bytesWaiting > 0:
-                start = ser.read(1).hex()
-                if start == START_CHAR:
-                    start = ser.read(3).hex()
-                    if start == START_BUF:
-                        if startCharErr or startBuffErr:
+                if bytesWaiting > 0:
+                    rawline = ser.readline() #can block if no timeout is provided when the port is open
+
+                    start = rawline[0:1].hex()
+                    if start == START_CHAR:
+                        if startCharErr or otherkindofErr:
                             net.processUARTError()
                             startCharErr=False
-                            startBuffErr=False
-                            
+                            otherkindofErr=False
+
+                        line = to_byte(rawline[1:-1])
+                        cursor=0
                         deliverCounter += 1
                         # TODO change the way pktnum's are being tracked
-                        nodeid = int.from_bytes(ser.read(1), "little", signed=False)
-                        pkttype = int(ser.read(2).hex(), 16)
-                        pktnum = int.from_bytes(ser.read(1), "little", signed=False)
+                        nodeid = int.from_bytes(line[cursor:cursor+1], "little", signed=False) #int.from_bytes(ser.read(1), "little", signed=False)
+                        cursor+=1
+                        pkttype = int(line[cursor:cursor+2].hex(),16) #int(ser.read(2).hex(), 16)
+                        cursor+=2
+                        pktnum = int.from_bytes(line[cursor:cursor+1], "little", signed=False) #int.from_bytes(ser.read(1), "little", signed=False)
+                        cursor+=1
+
                         if printVerbosity > 0:
                             net.addPrint("[New message] nodeid " + str(nodeid) + ", pkttype " + hex(pkttype) + ", pktnum " + str(pktnum))
                         appLogger.info("[New message] nodeid {0}, pkttype {1} pktnum {2}".format(nodeid, hex(pkttype), pktnum))
+                        
                         check_for_packetdrop(nodeid, pktnum)
+                        #TODO: add here the check for duplicates. Any duplicate should be discarded HERE!!!                        
 
                         if PacketType.network_new_sequence == pkttype:
-                            datalen = int(ser.read(2).hex(), 16)
+                            datalen = int(line[cursor:cursor+2].hex(), 16) #int(ser.read(2).hex(), 16)
+                            cursor+=2
+                            payload = line[cursor:].hex()
+                            cursor = len(line)
                             if datalen % SINGLE_REPORT_SIZE != 0:
                                 if printVerbosity > 1:
-                                    net.addPrint("Invalid datalength: "+ str(datalen))
+                                    net.addPrint("[WARNING] Invalid datalength: "+ str(datalen))
                                 appLogger.warning("[Node {0}] invalid sequencelength: {1}".format(nodeid, datalen))
                             seqid = get_sequence_index(nodeid)
+                            #at this point, since we just received 'network_new_sequence', there should not be any sequence associated with this nodeid                         
                             if seqid != -1:
-                                if messageSequenceList[seqid].lastPktnum == pktnum:
+                                if messageSequenceList[seqid].lastPktnum == pktnum: #in this case we just received the 'network_new_sequence' packet twice, shall I discard duplicates before this?
                                     if printVerbosity > 1:
-                                        net.addPrint("Duplicate packet from node "+ str(nodeid)+ " with pktnum "+ str(pktnum))
+                                        net.addPrint("[WARNING] Duplicate packet from node "+ str(nodeid)+ " with pktnum "+ str(pktnum))
                                     appLogger.info("[Node {0}] duplicate packet, pktnum: {1}".format(nodeid, pktnum))
                                     # remove duplicate packet data from uart buffer
-                                    remainingDataSize = messageSequenceList[seqid].sequenceSize - messageSequenceList[seqid].datacounter
-                                    if remainingDataSize >= MAX_PACKET_PAYLOAD:
-                                        dataLogger.info("Node {0} 0x {1} 0x {2} 0x {3}".format(nodeid, '{:04x}'.format(pkttype), '{:02x}'.format(pktnum),
-                                                                                      '{:x}'.format(int(ser.read(MAX_PACKET_PAYLOAD).hex(), 16))))
-                                    else:
-                                        dataLogger.info("Node {0} 0x {1} 0x {2} 0x {3}".format(nodeid, '{:04x}'.format(pkttype), '{:02x}'.format(pktnum),
-                                                                                      '{:x}'.format(int(ser.read(remainingDataSize).hex(), 16))))
+                                    #remainingDataSize = messageSequenceList[seqid].sequenceSize - messageSequenceList[seqid].datacounter
+                                    #if remainingDataSize >= MAX_PACKET_PAYLOAD:
+                                    #    payload=line[10:10+MAX_PACKET_PAYLOAD].hex()
+                                    #else:
+                                    #    payload=line[10:10+remainingDataSize].hex()
+                                    dataLogger.info("Node {0} 0x {1} 0x {2} 0x {3}".format(nodeid, '{:04x}'.format(pkttype), '{:02x}'.format(pktnum),
+                                                                                  '{:x}'.format(int(payload, 16))))
                                     continue
-                                else:
+                                else:   #in this case the 'network_new_sequence' arrived before 'network_last_sequence'.
                                     if printVerbosity > 1:
-                                        net.addPrint("Previous sequence has not been completed yet")
+                                        net.addPrint("[WARNING] Previous sequence has not been completed yet")
                                     # TODO what to do now? For now, assume last packet was dropped
                                     # TODO send received data instead of deleting it all
                                     appLogger.info("[Node {0}] Received new sequence packet "
@@ -596,26 +632,27 @@ try:
                             seqid = len(messageSequenceList) - 1
                             messageSequenceList[seqid].sequenceSize += datalen
 
-                            if messageSequenceList[seqid].sequenceSize > MAX_PACKET_PAYLOAD - SINGLE_REPORT_SIZE:
-                                decode_payload(seqid, MAX_PACKET_PAYLOAD - SINGLE_REPORT_SIZE, PacketType.network_new_sequence, pktnum)
-
-                            else:
-                                decode_payload(seqid, datalen, PacketType.network_new_sequence, pktnum)
+                            if messageSequenceList[seqid].sequenceSize > MAX_PACKET_PAYLOAD - SINGLE_REPORT_SIZE: #this is the normal behaviour
+                                decode_payload(payload, seqid, MAX_PACKET_PAYLOAD - SINGLE_REPORT_SIZE, PacketType.network_new_sequence, pktnum)
+                            else:   #this is when the sequence is made by only one packet.
+                                decode_payload(payload, seqid, datalen, PacketType.network_new_sequence, pktnum)
 
                                 # TODO Only 1 packet in this sequence, so upload this packet already
                                 if printVerbosity > 1:
-                                    net.addPrint("Single packet sequence completed")
+                                    net.addPrint("[INFO] Single packet sequence completed")
                                 appLogger.debug("[Node {0}] Single packet sequence complete".format(nodeid))
                                 log_contact_data(seqid)                                
                                 net.processBTReportMessage(str(nodeid))
 
                                 del messageSequenceList[seqid]
-
+                            
                         elif PacketType.network_active_sequence == pkttype:
-                            seqid = get_sequence_index(nodeid)
-                            if seqid == -1:
+                            seqid = get_sequence_index(nodeid)                            
+                            payload = line[cursor:].hex()
+                            cursor = len(line)
+                            if seqid == -1: #this is when we received 'network_active_sequence' before receiving a valid 'network_new_sequence'
                                 if printVerbosity > 1:
-                                    net.addPrint("First part of sequence dropped, creating incomplete sequence at index "+ str(len(messageSequenceList)) +" from pktnum "+ str(pktnum))
+                                    net.addPrint("[WARNING] First part of sequence dropped, creating incomplete sequence at index "+ str(len(messageSequenceList)) +" from pktnum "+ str(pktnum))
                                 messageSequenceList.append(
                                     MessageSequence(datetime.datetime.fromtimestamp(time.time()).
                                                     strftime('%Y-%m-%d %H:%M:%S'), nodeid,
@@ -623,34 +660,37 @@ try:
                                 seqid = len(messageSequenceList) - 1
                                 headerDropCounter += 1
 
-                            elif messageSequenceList[seqid].lastPktnum == pktnum:
+                            elif messageSequenceList[seqid].lastPktnum == pktnum: #in this case we just received the same 'network_active_sequence' packet twice,
                                 if printVerbosity > 1:
-                                    net.addPrint("Duplicate packet from node "+ str(nodeid) +" with pktnum "+ str(pktnum))
+                                    net.addPrint("[WARNING] Duplicate packet from node "+ str(nodeid) +" with pktnum "+ str(pktnum))
                                 # remove duplicate packet data from uart buffer
-                                remainingDataSize = messageSequenceList[seqid].sequenceSize - messageSequenceList[seqid].datacounter
-                                if remainingDataSize >= MAX_PACKET_PAYLOAD:
-                                    ser.read(MAX_PACKET_PAYLOAD)
-                                else:
-                                    ser.read(remainingDataSize)
-                                    continue
+                                #remainingDataSize = messageSequenceList[seqid].sequenceSize - messageSequenceList[seqid].datacounter
+                                #if remainingDataSize >= MAX_PACKET_PAYLOAD:
+                                    #ser.read(MAX_PACKET_PAYLOAD) #TODO:if it is a duplicate no need to store it, but it MUST be a duplicate
+                                #else:
+                                    #ser.read(remainingDataSize)
+                                #    continue
 
                             messageSequenceList[seqid].lastPktnum = pktnum
                             messageSequenceList[seqid].latestTime = time.time()
-                            decode_payload(seqid, MAX_PACKET_PAYLOAD, PacketType.network_active_sequence, pktnum)
+                            decode_payload(payload,seqid, MAX_PACKET_PAYLOAD, PacketType.network_active_sequence, pktnum)
 
                         elif PacketType.network_last_sequence == pkttype:
                             # TODO upload data before deleting element from list                            
-                            if printVerbosity > 1:
-                                net.addPrint("Full message defragmented")
+                            #if printVerbosity > 1:
+                            #    net.addPrint("[INFO] Full message received")
                             seqid = get_sequence_index(nodeid)
-                            if seqid == -1:
+                            payload = line[cursor:].hex()
+                            cursor = len(line)
+                            if seqid == -1: #this is when we receive 'network_last_sequence' before receiving a valid 'network_new_sequence' 
                                 messageSequenceList.append(MessageSequence(datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S'), nodeid,
                                                                            pktnum, 0, 0, [], time.time()))
                                 seqid = len(messageSequenceList) - 1
-                                decode_payload(seqid, MAX_PACKET_PAYLOAD, PacketType.network_last_sequence, pktnum)
+                                
+                                decode_payload(payload,seqid, MAX_PACKET_PAYLOAD, PacketType.network_last_sequence, pktnum)
                                 if printVerbosity > 1:
-                                    net.addPrint("Message defragmented but header files were never received")
-                                    net.addPrint("Nodeid: "+ str(messageSequenceList[seqid].nodeid) +" datacounter: "+
+                                    net.addPrint("[WARNING] Message defragmented but header files were never received")
+                                    net.addPrint("[INFO] Nodeid: "+ str(messageSequenceList[seqid].nodeid) +" datacounter: "+
                                           str(messageSequenceList[seqid].datacounter)+ " ContactData elements: "+
                                           str(len(messageSequenceList[seqid].datalist)))
                                 headerDropCounter += 1
@@ -661,11 +701,11 @@ try:
                                 log_contact_data(seqid)
                                 del messageSequenceList[seqid]
 
-                            elif messageSequenceList[seqid].sequenceSize == -1:
-                                decode_payload(seqid, MAX_PACKET_PAYLOAD, PacketType.network_last_sequence, pktnum)
+                            elif messageSequenceList[seqid].sequenceSize == -1: #what is this???
+                                decode_payload(payload,seqid, MAX_PACKET_PAYLOAD, PacketType.network_last_sequence, pktnum)
                                 if printVerbosity > 1:
-                                    net.addPrint("Message defragmented but header files were never received")
-                                    net.addPrint("Nodeid: "+ str(messageSequenceList[seqid].nodeid) +" datacounter: "+ str(messageSequenceList[seqid].datacounter)+ " ContactData elements: "+ str(len(messageSequenceList[seqid].datalist)))
+                                    net.addPrint("[WARNING] Message defragmented but header files were never received")
+                                    net.addPrint("[INFO] Nodeid: "+ str(messageSequenceList[seqid].nodeid) +" datacounter: "+ str(messageSequenceList[seqid].datacounter)+ " ContactData elements: "+ str(len(messageSequenceList[seqid].datalist)))
                                 appLogger.info("[Node {0}] Message defragmented but header files were never received"
                                                 " -  datacounter: {1} ContactData elements: "
                                                .format(nodeid, messageSequenceList[seqid].datacounter,
@@ -675,16 +715,17 @@ try:
 
                             else:
                                 remainingDataSize = messageSequenceList[seqid].sequenceSize - messageSequenceList[seqid].datacounter
-                                if remainingDataSize > MAX_PACKET_PAYLOAD:
-                                    decode_payload(seqid, MAX_PACKET_PAYLOAD, PacketType.network_last_sequence, pktnum)
+                                if remainingDataSize > MAX_PACKET_PAYLOAD: #when is this supposed to happen???
+                                    decode_payload(payload,seqid, MAX_PACKET_PAYLOAD, PacketType.network_last_sequence, pktnum)
                                 else:
-                                    decode_payload(seqid, remainingDataSize, PacketType.network_last_sequence, pktnum)
+                                    decode_payload(payload,seqid, remainingDataSize, PacketType.network_last_sequence, pktnum)
+
                                 if messageSequenceList[seqid].sequenceSize != messageSequenceList[seqid].datacounter:
                                     if printVerbosity > 1:
                                         net.addPrint("ERROR: Messagesequence ended, but datacounter is not equal to sequencesize")
 
                                 if printVerbosity > 1:
-                                    net.addPrint("Nodeid: "+ str(messageSequenceList[seqid].nodeid)+ " sequencesize: "+ str(messageSequenceList[seqid].sequenceSize)+ " ContactData elements: "+ str(len(messageSequenceList[seqid].datalist)))
+                                    net.addPrint("[INFO] Nodeid: "+ str(messageSequenceList[seqid].nodeid)+ " sequencesize: "+ str(messageSequenceList[seqid].sequenceSize)+ " ContactData elements: "+ str(len(messageSequenceList[seqid].datalist)))
                                 appLogger.warning("[Node {0}] Messagesequence ended, but datacounter is not equal to sequencesize -  datacounter: {1}" #WHY IS THIS WARNING HERE?????
                                                    " ContactData elements: {2}".format(nodeid, messageSequenceList[seqid].datacounter,
                                                                                        len(messageSequenceList[seqid].datalist)))
@@ -693,13 +734,19 @@ try:
                                 del messageSequenceList[seqid]
 
                         elif PacketType.network_bat_data == pkttype:
-                            batCapacity = int.from_bytes(ser.read(2), byteorder="big", signed=False)
-                            batSoC = int.from_bytes(ser.read(2), byteorder="big", signed=False) / 10
-                            bytesELT = ser.read(2)
+                            batCapacity = int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False) #int.from_bytes(ser.read(2), byteorder="big", signed=False)
+                            cursor+=2
+                            batSoC = int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False) / 10 #int.from_bytes(ser.read(2), byteorder="big", signed=False) / 10
+                            cursor+=2
+                            bytesELT = line[cursor:cursor+2] #ser.read(2)
+                            cursor+=2
                             batELT = str(timedelta(minutes=int.from_bytes(bytesELT, byteorder="big", signed=False)))[:-3] # Convert minutes to hours and minutes
-                            batAvgConsumption = int.from_bytes(ser.read(2), byteorder="big", signed=True) / 10
-                            batAvgVoltage = int.from_bytes(ser.read(2), byteorder="big", signed=False)
-                            batAvgTemp = int.from_bytes(ser.read(2), byteorder="big", signed=True) / 100
+                            batAvgConsumption = int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=True) / 10 #int.from_bytes(ser.read(2), byteorder="big", signed=True) / 10
+                            cursor+=2
+                            batAvgVoltage = int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False) #int.from_bytes(ser.read(2), byteorder="big", signed=False)
+                            cursor+=2
+                            batAvgTemp = int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=True) / 100 #int.from_bytes(ser.read(2), byteorder="big", signed=True) / 100
+                            cursor+=2
 
                             net.processBatteryDataMessage(str(nodeid), float(batAvgVoltage)/1000)                            
                             
@@ -716,7 +763,8 @@ try:
                                                                                          '{:02x}'.format(int(batAvgVoltage)), '{:02x}'.format(100 * int(batAvgTemp))))
 
                         elif PacketType.network_respond_ping == pkttype:
-                            payload = int(ser.read(1).hex(), 16)
+                            payload = int(line[cursor:cursor+2].hex(), 16) #int(ser.read(1).hex(), 16)
+                            cursor+=2
                             dataLogger.info("Node {0} 0x {1} 0x {2} 0x {3}".format(nodeid, '{:04x}'.format(pkttype), '{:02x}'.format(pktnum), '{:x}'.format(payload)))
                             if payload == 233:
                                 net.addPrint("Node id "+ str(nodeid) +" pinged succesfully!")
@@ -728,9 +776,12 @@ try:
                                 appLogger.info("[Node {0}] pinged wrong payload: ".format(nodeid, payload))
 
                         elif PacketType.network_keep_alive == pkttype:
-                            cap = int.from_bytes(ser.read(2), byteorder="big", signed=False)
-                            batAvgVoltage = int.from_bytes(ser.read(2), byteorder="big", signed=False)
-                            trickle_count = int.from_bytes(ser.read(1), byteorder="big", signed=False)
+                            cap = int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False) #int.from_bytes(ser.read(2), byteorder="big", signed=False)
+                            cursor+=2
+                            batAvgVoltage = int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False) #int.from_bytes(ser.read(2), byteorder="big", signed=False)
+                            cursor+=2
+                            trickle_count = int.from_bytes(line[cursor:cursor+1], byteorder="big", signed=False) #int.from_bytes(ser.read(1), byteorder="big", signed=False)
+                            cursor+=1
                             
                             net.processKeepAliveMessage(str(nodeid), trickle_count, float(batAvgVoltage)/1000)
                             if printVerbosity > 1:
@@ -742,13 +793,16 @@ try:
                             net.addPrint("Unknown packettype: "+ str(pkttype))
                             appLogger.warning("[Node {0}] Received unknown packettype: {1}".format(nodeid, hex(pkttype)))
                             dataLogger.info("Node {0} 0x {1} 0x {2}".format(nodeid, '{:02x}'.format(pkttype), '{:x}'.format(pktnum)))
-                    else:  #start == START_BUF
-                        startBuffErr=True
-                        net.addPrint("Unknown START_BUF: "+ start)
-                else:   #start == START_CHAR
-                        startCharErr=True
-                        net.addPrint("Unknown START_CHAR: "+ start)
-                    
+
+                    else:   #start == START_CHAR
+                            startCharErr=True
+                            net.addPrint("Unknown START_CHAR: "+ start)
+                            errorLogger.info("%s" %str(start))
+
+            except Exception as e:
+                otherkindofErr=True
+                net.addPrint("Unknown error during line decoding. Exception: %s" % str(e))
+            
             currentTime = time.time()
             if currentTime - previousTimeTimeout > timeoutInterval:
                 previousTimeTimeout = time.time()
