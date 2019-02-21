@@ -76,7 +76,7 @@ btPreviousTime = 0
 btToggleInterval = 1800
 btToggleBool = True
 
-NODE_TIMEOUT_S = 120
+NODE_TIMEOUT_S = 180
 NETWORK_PERIODIC_CHECK_INTERVAL = 2
 CLEAR_CONSOLE = True
 
@@ -139,6 +139,7 @@ class Network(object):
         self.__expTrickle=0
         self.__uartErrors=0
         self.__trickleQueue = deque()
+        self.showHelp=False
 
     def getNode(self, label):
         for n in self.__nodes:
@@ -225,29 +226,37 @@ class Network(object):
         print("|------------| Trickle: min %3d; max %3d; exp %3d; queue size %2d |-------------|" %(self.__netMinTrickle, self.__netMaxTrickle, self.__expTrickle, len(self.__trickleQueue)))
         print("|------------------------------------------------------------------------------|")
         print("|  Node ID  |  Batt Volt [v]  |  Last seen [s] ago  |  Tkl Count  |  # BT rep  |")
-        print("|           |                 |                     |             |            |")
+        #print("|           |                 |                     |             |            |")
         for n in self.__nodes:
             n.printNodeInfo()
-        print("|           |                 |                     |             |            |")
-        print("|------------------------------------------------------------------------------|\n|")
-        print("|    AVAILABLE COMMANDS:")
-        print("| key    command\n|")
-        print("| 1      request ping\n"
-              "| 2      enable bluetooth\n"
-              "| 3      disable bluetooth\n"
-              "| 4      bt_def\n"
-              "| 5      bt_with_params\n"
-              "| 6      enable battery info\n"
-              "| 7      disable battery info\n"
-              "| 8      reset nordic\n"
-              "| >8     set keep alive interval in seconds\n|")
+        #print("|           |                 |                     |             |            |")
+        print("|------------------------------------------------------------------------------|")
+        if self.showHelp:
+            print("|    AVAILABLE COMMANDS:")
+            print("| key    command\n|")
+            print("| 1      request ping\n"
+                  "| 2      enable bluetooth\n"
+                  "| 3      disable bluetooth\n"
+                  "| 4      bt_def\n"
+                  "| 5      bt_with_params\n"
+                  "| 6      enable battery info\n"
+                  "| 7      disable battery info\n"
+                  "| 8      reset nordic\n"
+                  "| 9      set time between sends\n"
+                  "| >9     set keep alive interval in seconds")
+        else:
+            print("|    h      : Show available commands                                          |")
         print("|------------------------------------------------------------------------------|")
         print("|------------------|            CONSOLE                     |------------------|")
-        print("|------------------------------------------------------------------------------|\n")
+        print("|------------------------------------------------------------------------------|")
 
         terminalSize = shutil.get_terminal_size(([80,20]))
+        if net.showHelp:
+            availableLines = terminalSize[1] - (23 + len(self.__nodes))
+        else:
+            availableLines = terminalSize[1] - (11 + len(self.__nodes))
 
-        while( len(self.__consoleBuffer) > (terminalSize[1] - (27 + len(self.__nodes))) and self.__consoleBuffer):
+        while( (len(self.__consoleBuffer) > availableLines) and self.__consoleBuffer):
             with self.console_queue_lock:
                 self.__consoleBuffer.popleft()
 
@@ -360,10 +369,10 @@ class PacketType(IntEnum):
     network_active_sequence =       0x0101
     network_last_sequence =         0x0102
     network_bat_data =              0x0200
+    network_set_time_between_send = 0x0601
     network_request_ping =          0xF000
     network_respond_ping =          0xF001
     network_keep_alive =            0xF010
-    ti_set_keep_alive =             0xF801
     nordic_turn_bt_off =            0xF020
     nordic_turn_bt_on =             0xF021
     nordic_turn_bt_on_w_params =    0xF022
@@ -372,6 +381,7 @@ class PacketType(IntEnum):
     nordic_turn_bt_on_high =        0xF025  #deprecated
     ti_set_batt_info_int =          0xF026
     nordic_reset =                  0xF027
+    ti_set_keep_alive =             0xF801
 
 def cls():
     os.system('cls' if os.name=='nt' else 'clear')
@@ -385,8 +395,15 @@ def handle_user_input():
                 forced=True
                 user_input = int(input_str[1:])
             else:
-                forced=False
-                user_input = int(input_str)
+                if input_str=='h':
+                    if net.showHelp:
+                        net.showHelp=False
+                    else:
+                        net.showHelp=True
+                    continue
+                else:
+                    forced=False
+                    user_input = int(input_str)
 
             if user_input == 1:
                 payload = 233
@@ -414,8 +431,8 @@ def handle_user_input():
             #    appLogger.debug("[SENDING] Enable Bluetooth HIGH")
             #    net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_turn_bt_on_high, None),forced)
             elif user_input == 5:
-                SCAN_INTERVAL_MS = 5000
-                SCAN_WINDOW_MS = 3500
+                SCAN_INTERVAL_MS = 9000
+                SCAN_WINDOW_MS = 1500
                 SCAN_TIMEOUT_S = 0
                 REPORT_TIMEOUT_S = 15
 
@@ -444,7 +461,12 @@ def handle_user_input():
             elif user_input == 8:
                 net.addPrint("Reset bluetooth")
                 net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_reset, None),forced)
-            elif user_input > 8:
+            elif user_input == 9:
+                time_between_send_ms = 1000
+                time_between_send = time_between_send_ms.to_bytes(2, byteorder="big", signed=False)
+                net.addPrint("Set time between sends to "+ str(time_between_send_ms) + " ms")
+                net.sendNewTrickle(build_outgoing_serial_message(PacketType.network_set_time_between_send, time_between_send),forced)
+            elif user_input > 9:
                 interval = user_input
                 net.addPrint("Setting keep alive")
                 net.sendNewTrickle(build_outgoing_serial_message(PacketType.ti_set_keep_alive, interval.to_bytes(1, byteorder="big", signed=False)),forced)
@@ -796,12 +818,13 @@ try:
 
                     else:   #start == START_CHAR
                             startCharErr=True
-                            net.addPrint("Unknown START_CHAR: "+ start)
-                            errorLogger.info("%s" %str(start))
+                            net.addPrint("Unknown START_CHAR: "+ start + ". The line was: "+str(rawline))
+                            errorLogger.info("%s" %(str(rawline)))
 
             except Exception as e:
                 otherkindofErr=True
-                net.addPrint("Unknown error during line decoding. Exception: %s" % str(e))
+                net.addPrint("Unknown error during line decoding. Exception: %s. Line was: %s" %( str(e), str(rawline)))
+                errorLogger.info("%s" %(str(rawline)))
             
             currentTime = time.time()
             if currentTime - previousTimeTimeout > timeoutInterval:
