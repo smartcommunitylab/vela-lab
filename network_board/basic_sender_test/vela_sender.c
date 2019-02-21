@@ -29,7 +29,8 @@
 #endif
 #endif
 
-#define VERY_LONG_TIMER_VALUE 14510024
+#define VERY_LONG_TIMER_VALUE   14510024
+#define MAX_RANDOM_DELAY_S      0.5f
 
 static struct etimer periodic_timer;
 
@@ -51,9 +52,11 @@ static struct etimer trickle_et;
 network_message_t trickle_msg;
 
 static struct etimer keep_alive_timer;
-static struct etimer rand_delay_timer;
+//static struct etimer rand_delay_timer;
 
 static uint32_t keep_alive_interval = KEEP_ALIVE_INTERVAL;
+
+static uint32_t time_between_sends = TIME_BETWEEN_SENDS_DEFAULT_S*CLOCK_SECOND;
 
 PROCESS(vela_sender_process, "vela sender process");
 PROCESS(trickle_protocol_process, "Trickle Protocol process");
@@ -154,12 +157,17 @@ trickle_tx(void *ptr, uint8_t suppress)
     uip_create_unspecified(&trickle_conn->ripaddr);
 }
 
-#define MAX_RANDOM_DELAY_S 0.5f
 static void node_delay(void){
 //    uint32_t delayTime=(MAX_RANDOM_DELAY_S*CLOCK_SECOND*(node_id & (0x00FF)))/256;
     uint32_t delayTime=(random_rand()*MAX_RANDOM_DELAY_S*CLOCK_SECOND)/0xFFFF;
     PRINTF("node_id 0x%4X, PACKET Delay %d\n",node_id, delayTime);
     clock_wait(delayTime);
+    //Commented the more appropriate wait implementation. It doesn't work because of some problems with context switch
+    //clock_wait() is enough since it is only unatantum
+//    PROCESS_CONTEXT_BEGIN(trickle_protocol_process);
+//    etimer_set(&rand_delay_timer, delayTime);
+//    PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&rand_delay_timer));
+//    PROCESS_CONTEXT_END(trickle_protocol_process);
 }
 
 static network_message_t *incoming;
@@ -265,6 +273,12 @@ tcpip_handler(void)
                     process_post(&vela_node_process, set_battery_info_interval, incoming->payload.p_data);
                     break;
                 }
+                case network_set_time_between_sends: {
+                    uint16_t time_between_sends_ms = (incoming->payload.p_data[0]<<8) | incoming->payload.p_data[1];
+                    time_between_sends = time_between_sends_ms*(CLOCK_SECOND/1000.0);
+                    PRINTF("Setting Time Between Sends to %d ms, %d ticks\n",time_between_sends_ms,time_between_sends);
+                    break;
+                }
                 case nordic_reset: {
                     ;
                     PRINTF("Reseting nordic board\n");
@@ -281,7 +295,7 @@ tcpip_handler(void)
 }
 
 static network_message_t response;
-static struct etimer pause_timer;
+//static struct etimer pause_timer;
 static data_t* eventData;
 static int offset = 0;
 static int sizeToSend = 0;
@@ -292,7 +306,7 @@ static network_message_t bat_message;
 
 PROCESS_THREAD(vela_sender_process, ev, data) {
     PROCESS_BEGIN();
-    etimer_set(&pause_timer, TIME_BETWEEN_SENDS);
+    //etimer_set(&pause_timer, TIME_BETWEEN_SENDS_DEFAULT);   //what's this?
 
     event_buffer_empty = process_alloc_event();
     //event_bat_data_ready = process_alloc_event();
@@ -330,7 +344,7 @@ PROCESS_THREAD(vela_sender_process, ev, data) {
                             offset += MAX_PACKET_SIZE;
                         }
                     }
-                    etimer_set(&periodic_timer, TIME_BETWEEN_SENDS);
+                    etimer_set(&periodic_timer, time_between_sends);
                     PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
                 }
                 else {
@@ -364,8 +378,6 @@ PROCESS_THREAD(vela_sender_process, ev, data) {
             response.pkttype = network_respond_ping;
             response.payload.data_len = 1;
             response.payload.p_data[0] = temp[0];
-            //etimer_set(&rand_delay_timer, random_rand() % (2 * CLOCK_SECOND));
-            //PROCESS_WAIT_UNTIL(etimer_expired(&rand_delay_timer));
             send_to_sink(response);
         }
         if(ev == event_bat_data_ready) {
