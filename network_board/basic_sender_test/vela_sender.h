@@ -9,7 +9,7 @@ PROCESS_NAME (vela_sender_process);
 #define MAX_RPL_SEND_SIZE 			5 * SINGLE_NODE_REPORT_SIZE  // needs to be a multiple of SINGLE_NODE_REPORT_SIZE
 //Time  between sends is decided as follows: 73.49ms * (1 + 2 * max_hops) * safety_margin
 //In this case a safety margin of 2 has been used
-#define TIME_BETWEEN_SENDS		    2.056 * CLOCK_SECOND
+#define TIME_BETWEEN_SENDS_DEFAULT_S  0.5//2.056 * CLOCK_SECOND
 //#define HEADER_SIZE                 4
 #define MAX_PACKET_BUF              54      // biggest packet size before fragmentation occurs
 #define KEEP_ALIVE_PORT 30000
