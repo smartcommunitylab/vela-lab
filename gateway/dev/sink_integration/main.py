@@ -224,8 +224,8 @@ class Network(object):
         print("|--------------------------|  Network size %3s errors: %4s |------------------|" %(str(netSize), self.__uartErrors))
         print("|------------| Trickle: min %3d; max %3d; exp %3d; queue size %2d |-------------|" %(self.__netMinTrickle, self.__netMaxTrickle, self.__expTrickle, len(self.__trickleQueue)))
         print("|------------------------------------------------------------------------------|")
-        print("| NodeID | Battery                          | Last         | Trick    | #BT    |")
-        print("|        | Volt   SoC Capacty  Cons   Temp  | seen[s]      | Count    | Rep    |")
+        print("| NodeID | Battery                                | Last     | Trick   |  #BT  |")
+        print("|        | Volt   SoC Capacty    Cons    Temp     | seen[s]  | Count   |  Rep  |")
         #print("|           |                 |                     |             |            |")
         for n in self.__nodes:
             n.printNodeInfo()
@@ -329,6 +329,11 @@ class Network(object):
         #for l in self.__consoleBuffer:
         #    print(l)
 
+    def resetCounters(self):
+        for n in self.__nodes:
+            n.amountOfBTReports=0
+        self.__trickleCheck()
+
 class Node(object):
 
     # The class "constructor" - It's actually an initializer
@@ -392,9 +397,9 @@ class Node(object):
     def printNodeInfo(self):
     #    if(self.batteryVoltage!=None):
         if self.batteryConsumption != None:
-            print("| %3s    | %3.2fV %3.0f%% %4.0fmAh %5.1fmA %3.1f° |  %3.0f         |  %3d     | %5d  |" % (str(self.name), self.batteryVoltage, self.batterySoc, self.batteryCapacity, self.batteryConsumption, self.batteryTemperature, self.getLastMessageElapsedTime(), self.lastTrickleCount, self.amountOfBTReports))
+            print("| %3s    | %3.2fV %3.0f%% %4.0fmAh %6.1fmA  %5.1f°    |  %3.0f     |  %3d    |%5d  |" % (str(self.name), self.batteryVoltage, self.batterySoc, self.batteryCapacity, self.batteryConsumption, self.batteryTemperature, self.getLastMessageElapsedTime(), self.lastTrickleCount, self.amountOfBTReports))
         else:
-            print("| %3s    | %3.2fV                            |  %3.0f         |  %3d     | %5d  |" % (str(self.name), self.batteryVoltage, self.getLastMessageElapsedTime(), self.lastTrickleCount, self.amountOfBTReports))
+            print("| %3s    | %3.2fV                                  |  %3.0f     |  %3d    |%5d  |" % (str(self.name), self.batteryVoltage, self.getLastMessageElapsedTime(), self.lastTrickleCount, self.amountOfBTReports))
 
 
         #print("| Node ID | Volt [v] Cons [mAh] Temp [°] | Last seen [s] | Tkl Count | #BT rep |"
@@ -439,6 +444,9 @@ def handle_user_input():
                         net.showHelp=True
 
                     net.printNetworkStatus()
+                    continue
+                elif input_str=='r':
+                    net.resetCounters()
                     continue
                 else:
                     forced=False
@@ -726,7 +734,7 @@ try:
                                     #ser.read(MAX_PACKET_PAYLOAD) #TODO:if it is a duplicate no need to store it, but it MUST be a duplicate
                                 #else:
                                     #ser.read(remainingDataSize)
-                                #    continue
+                                continue
 
                             messageSequenceList[seqid].lastPktnum = pktnum
                             messageSequenceList[seqid].latestTime = time.time()
