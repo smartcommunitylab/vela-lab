@@ -17,7 +17,11 @@ import binascii
 START_CHAR = '02'
 #START_BUF = '2a2a2a'  # this is not really a buffer
 BAUD_RATE = 1000000 #921600 #1000000
-SERIAL_PORT = "/dev/ttyACM0" #"/dev/ttyS0"
+SERIAL_PORT = "/dev/ttyS0" #"/dev/ttyACM0" #"/dev/ttyS0"
+
+if len(sys.argv)>1:
+	SERIAL_PORT=sys.argv[1]
+
 
 logfolderpath = os.path.dirname(os.path.realpath(__file__))+'/log/'
 if not os.path.exists(logfolderpath):
