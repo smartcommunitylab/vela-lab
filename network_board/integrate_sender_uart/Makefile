@@ -11,9 +11,9 @@ COMMON_DIR=../../common
 CFLAGS += -DROM_BOOTLOADER_ENABLE=1
 CFLAGS += -DSERIAL_LINE_CONF_BUFSIZE=128
 CFLAGS += -DVERSION_STRING=$(VERSION_STRING)
-CFLAGS += -DCC26XX_UART_CONF_BAUD_RATE=1000000
-CFLAGS += -DDEBUG=1
-CFLAGS += -DDEBUG_PRINT
+CFLAGS += -DCC26XX_UART_CONF_BAUD_RATE=1000000 #921600 #1000000
+CFLAGS += -DDEBUG=0
+CFLAGS += -DDEBUG_PRINT=0
 
 COMMON_DIR_REL_PATH=$(shell python -c "import os.path; print os.path.relpath('${COMMON_DIR}', '${CONTIKI}')")
 $(info $$COMMON_DIR_REL_PATH is: ${COMMON_DIR_REL_PATH})
@@ -29,8 +29,10 @@ PROJECT_SOURCEFILES += sink_receiver.c
 TARGET ?= srf06-cc26xx
 #BOARD=launchpad/cc2650
 #use this one for the nodes that DO NOT HAVE the new interface board with the solar panel
-BOARD=launchpad_vela/cc2650
-#BOARD=launchpad_vela/cc1350
+#BOARD=sensortag/cc2650
+#BOARD=launchpad_vela/cc2650
+#BOARD=sensortag/cc1350
+BOARD=launchpad_vela/cc1350
 
 BSL_FLAGS += -b 115200
 
