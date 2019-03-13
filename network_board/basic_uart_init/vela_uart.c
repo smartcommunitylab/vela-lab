@@ -89,6 +89,8 @@ static uint8_t bt_scan_state = 0;
 static uint32_t report_ready(data_t *p_data);
 static uint32_t report_rx_handler(uart_pkt_t* p_packet, report_type_t m_report_type );
 
+static uint8_t lock_new_commands=false;
+
 static void ping_timeout_handler(void *ptr);
 #if NORDIC_WATCHDOG_ENABLED
 static void nordic_watchdog_handler(void *ptr);
@@ -394,6 +396,7 @@ void uart_util_ack_error(ack_wait_t* ack_wait_data) {
 	}else{
 	    PRINTF("Nordic didn't respond, resetting it!\n");
 		is_nordic_ready=false;
+        sequential_procedure_stop();
 		reset_nodric(); //when the nordic will reboot it will generate the uart_ready evt. When the TI receives it, it restart the FSM
 	}
 }
@@ -454,6 +457,7 @@ static uint32_t pre_ack_uart_rx_handler(uart_pkt_t* p_packet) {
         //still not implemented
         break;
     case uart_resp_bt_neigh_rep_start:
+        lock_new_commands=true;
         ack_value = report_rx_handler(p_packet, start_of_data);
         break;
     case uart_resp_bt_neigh_rep_more:
@@ -461,6 +465,7 @@ static uint32_t pre_ack_uart_rx_handler(uart_pkt_t* p_packet) {
         break;
     case uart_resp_bt_neigh_rep_end:
         ack_value = report_rx_handler(p_packet, end_of_data);
+        lock_new_commands=false;
         break;
     case uart_set_bt_state:
     case uart_set_bt_scan_state:
@@ -604,60 +609,68 @@ PROCESS_THREAD(cc2650_uart_process, ev, data) {
 				process_uart_rx_data((uint8_t*)data);
 			}
 
-			if(!sequential_procedure_is_running()){
-                if (ev == event_ping_requested) {
-                    uint8_t* payload = (uint8_t*)data;
-                    send_ping_payload(*payload);
-                }
-                if(ev == turn_bt_off) {
-                    start_procedure(&bluetooth_off);
-                }
-                if(ev == turn_bt_on) {
-                    if(report_timeout_ms == 0){   //turn_bt_on is sent before any call to turn_bt_on_w_params. Load default value
-                        scan_window = DEFAULT_SCAN_WINDOW;
-                        scan_interval = DEFAULT_SCAN_INTERVAL;
-                        report_timeout_ms = DEFAULT_REPORT_TIMEOUT_MS;
-                    }
-                    report_timeout_ms_arg = report_timeout_ms;
-                    start_procedure(&bluetooth_on);
-                }
-                if(ev == turn_bt_on_w_params) {
-
-                    active_scan = ((uint8_t*)data)[0];     //boolean
-                    scan_interval = ((((uint8_t*)data)[1])<<8)+((uint8_t*)data)[2];       /**< Scan interval between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
-                    scan_window = ((((uint8_t*)data)[3])<<8)+((uint8_t*)data)[4];     /**< Scan window between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
-                    timeout = ((((uint8_t*)data)[5])<<8)+((uint8_t*)data)[6];
-                    report_timeout_ms = ((((uint8_t*)data)[7])<<24)+((((uint8_t*)data)[8])<<16)+((((uint8_t*)data)[9])<<8)+((uint8_t*)data)[10];
-                    report_timeout_ms_arg = report_timeout_ms;
-
-                    start_procedure(&bluetooth_on);
-                }
-                if(ev == turn_bt_on_def) {
-                    scan_window = DEFAULT_SCAN_WINDOW;     /**< Scan window between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
-                    scan_interval = DEFAULT_SCAN_INTERVAL;     /**< Scan window between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
-                    report_timeout_ms_arg = DEFAULT_REPORT_TIMEOUT_MS;
-                    report_timeout_ms = DEFAULT_REPORT_TIMEOUT_MS;
-                    start_procedure(&bluetooth_on);
-                }
-                if(ev == reset_bt){
+            if(ev == reset_bt){ //trickle commands are not accepted if a procedure is running, however always accept reset
 #if NORDIC_WATCHDOG_ENABLED
-                    ctimer_stop(&m_nordic_watchdog_timer);
+                ctimer_stop(&m_nordic_watchdog_timer);
 #endif
-                    reset_nodric();
-                }
+                sequential_procedure_stop(); //stop any pending procedure to avoid problems after the nordic reboot
+                lock_new_commands=false; //this is for safety
+                buff_free_from=0;        // thi is also for safety
+                reset_nodric();
+            }
 
-                //next commands are deprecated on the gateway but still handled by the TI board
-                if(ev == turn_bt_on_low) {
-                    scan_window = DEFAULT_SCAN_WINDOW / 2;     /**< Scan window between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
-                    report_timeout_ms_arg = report_timeout_ms;
-                    start_procedure(&bluetooth_on);
+            if(lock_new_commands==false){
+                if(!sequential_procedure_is_running()){ //it is actually very unlikelly that a procedure is running while we receive another trickle message. It is more likelly that a procedure (such as sedd_report) is running on the nordic.
+                    if (ev == event_ping_requested) {
+                        uint8_t* payload = (uint8_t*)data;
+                        send_ping_payload(*payload);
+                    }
+                    if(ev == turn_bt_off) {
+                        start_procedure(&bluetooth_off);
+                    }
+                    if(ev == turn_bt_on) {
+                        if(report_timeout_ms == 0){   //turn_bt_on is sent before any call to turn_bt_on_w_params. Load default value
+                            scan_window = DEFAULT_SCAN_WINDOW;
+                            scan_interval = DEFAULT_SCAN_INTERVAL;
+                            report_timeout_ms = DEFAULT_REPORT_TIMEOUT_MS;
+                        }
+                        report_timeout_ms_arg = report_timeout_ms;
+                        start_procedure(&bluetooth_on);
+                    }
+                    if(ev == turn_bt_on_w_params) {
+
+                        active_scan = ((uint8_t*)data)[0];     //boolean
+                        scan_interval = ((((uint8_t*)data)[1])<<8)+((uint8_t*)data)[2];       /**< Scan interval between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
+                        scan_window = ((((uint8_t*)data)[3])<<8)+((uint8_t*)data)[4];     /**< Scan window between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
+                        timeout = ((((uint8_t*)data)[5])<<8)+((uint8_t*)data)[6];
+                        report_timeout_ms = ((((uint8_t*)data)[7])<<24)+((((uint8_t*)data)[8])<<16)+((((uint8_t*)data)[9])<<8)+((uint8_t*)data)[10];
+                        report_timeout_ms_arg = report_timeout_ms;
+
+                        start_procedure(&bluetooth_on);
+                    }
+                    if(ev == turn_bt_on_def) {
+                        scan_window = DEFAULT_SCAN_WINDOW;     /**< Scan window between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
+                        scan_interval = DEFAULT_SCAN_INTERVAL;     /**< Scan window between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
+                        report_timeout_ms_arg = DEFAULT_REPORT_TIMEOUT_MS;
+                        report_timeout_ms = DEFAULT_REPORT_TIMEOUT_MS;
+                        start_procedure(&bluetooth_on);
+                    }
+
+                    //next commands are deprecated on the gateway but still handled by the TI board
+                    if(ev == turn_bt_on_low) {
+                        scan_window = DEFAULT_SCAN_WINDOW / 2;     /**< Scan window between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
+                        report_timeout_ms_arg = report_timeout_ms;
+                        start_procedure(&bluetooth_on);
+                    }
+                    if(ev == turn_bt_on_high) {
+                        scan_window = DEFAULT_SCAN_INTERVAL;     /**< Scan window between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
+                        report_timeout_ms_arg = report_timeout_ms;
+                        start_procedure(&bluetooth_on);
+                    }
                 }
-                if(ev == turn_bt_on_high) {
-                    scan_window = DEFAULT_SCAN_INTERVAL;     /**< Scan window between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
-                    report_timeout_ms_arg = report_timeout_ms;
-                    start_procedure(&bluetooth_on);
-                }
-			}
+            }else{
+                PRINTF("Cannot accept a command now! Lock is active\n");
+            }
 		}
 	PROCESS_END();
 }
