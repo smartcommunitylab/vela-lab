@@ -373,7 +373,6 @@ static bool is_link_present(ble_gap_evt_adv_report_t const * p_adv_report);
 PROCEDURE(ping, &send_ping);
 PROCEDURE(ready, &send_ready);
 PROCEDURE_VAR_LEN(ble_report, &send_neighbors_report);
-//PROCEDURE(ble_report, &send_neighbors_report,&send_neighbors_report,&send_neighbors_report);
 
 static uint8_t start_procedure(procedure_t *m_procedure){
     return sequential_procedure_start(m_procedure, uart_util_is_waiting_ack()); //if we are waiting an ack start use the delayed start
@@ -691,8 +690,14 @@ void uart_util_ack_tx_done(void) {
 }
 
 void uart_util_ack_error(ack_wait_t* ack_wait_data) {
-    PRINTF("UART ack error for packet type: 0x%04x!!!\n",ack_wait_data->waiting_ack_for_pkt_type);
+    if(ack_wait_data != NULL){
+        PRINTF("UART ack error for packet type: 0x%04x!!!\n",ack_wait_data->waiting_ack_for_pkt_type);
+    }else{
+        PRINTF("UART ack error")
+    }
+
 	blink_led(ERROR_LED, LED_BLINK_TIMEOUT_MS);
+    sequential_procedure_stop();
 	m_tx_error = true;
 }
 
