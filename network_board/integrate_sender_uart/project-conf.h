@@ -18,7 +18,9 @@
 /* NETSTACK_RDC_CONF_CHANNEL_CHECK_RATE must be a power of two (i.e. 1, 2, 4, 8, 16, 32, 64, ...)*/
 #define NETSTACK_CONF_RDC     contikimac_driver
 #undef  NETSTACK_CONF_RDC_CHANNEL_CHECK_RATE
-#define NETSTACK_CONF_RDC_CHANNEL_CHECK_RATE 16
+#define NETSTACK_CONF_RDC_CHANNEL_CHECK_RATE 64
+
+#define CC13XX_CONF_PROP_MODE   1   /*by default this is 1*/
 /*---------------------------------------------------------------------------*/
 #undef  UDP_PORT
 #define UDP_PORT 							1234
