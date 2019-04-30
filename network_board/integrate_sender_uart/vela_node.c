@@ -23,15 +23,9 @@ channel check interval
 
 #define FUEL_GAUGE_POLLING_INTERVAL_DEF 60
 
-#ifdef DEBUG
-#undef DEBUG
-#endif
-#define DEBUG 0
-#if DEBUG
-#define PRINTF(...) printf(__VA_ARGS__)
-#else
-#define PRINTF(...)
-#endif
+#include "sys/log.h"
+#define LOG_MODULE "vela_node"
+#define LOG_LEVEL LOG_LEVEL_DBG
 
 PROCESS(vela_node_process, "main starter process for non-sink");
 
@@ -67,27 +61,26 @@ static void poll_fuel_gauge(void *not_used)
 	AVG_voltage_mV = max_17260_sensor.value(
 			MAX_17260_SENSOR_TYPE_AVG_V);
 	AVG_temp_10mDEG = max_17260_sensor.value(MAX_17260_SENSOR_TYPE_AVG_TEMP);
-	PRINTF("POLLING: ");
-	PRINTF("Remaining battery capacity = %d mAh ", REP_CAP_mAh);
-	PRINTF("or %d.%d %%. ", (uint16_t) (REP_SOC_permillis / 10), REP_SOC_permillis % 10);
-	PRINTF("Remaining runtime with this consumption: %d hours and %d minutes. ", TTE_minutes / 60, TTE_minutes % 60);
+	LOG_DBG("Remaining battery capacity = %d mAh ", REP_CAP_mAh);
+	LOG_DBG_("or %d.%d %%. ", (uint16_t) (REP_SOC_permillis / 10), REP_SOC_permillis % 10);
+	LOG_DBG_("Remaining runtime with this consumption: %d hours and %d minutes. ", TTE_minutes / 60, TTE_minutes % 60);
 	if (AVG_current_100uA > 0) {
-		PRINTF("Avg current %d.%d mA ", AVG_current_100uA / 10, AVG_current_100uA % 10);
+	    LOG_DBG_("Avg current %d.%d mA ", AVG_current_100uA / 10, AVG_current_100uA % 10);
 	} else {
-		PRINTF("Avg current -%d.%d mA ", -AVG_current_100uA / 10, -AVG_current_100uA % 10);
+	    LOG_DBG_("Avg current -%d.%d mA ", -AVG_current_100uA / 10, -AVG_current_100uA % 10);
 	}
-	PRINTF("Avg voltage = %d mV ", AVG_voltage_mV);
+	LOG_DBG_("Avg voltage = %d mV ", AVG_voltage_mV);
 	if (AVG_temp_10mDEG > 0)
 	{
-		PRINTF("Avg temp %d.%d °C ", AVG_temp_10mDEG / 100,
+	    LOG_DBG_("Avg temp %d.%d °C ", AVG_temp_10mDEG / 100,
 				AVG_temp_10mDEG % 100);
 	}
 	else
 	{
-		PRINTF("Avg temp %d.%d °C ", -AVG_temp_10mDEG / 100,
+	    LOG_DBG_("Avg temp %d.%d °C ", -AVG_temp_10mDEG / 100,
 				-AVG_temp_10mDEG % 100);
 	}
-	PRINTF("\n");
+	LOG_DBG_("\n");
 
 	bat_data[0] = (uint8_t)(REP_CAP_mAh >> 8);
 	bat_data[1] = (uint8_t)REP_CAP_mAh;
@@ -146,11 +139,11 @@ PROCESS_THREAD(vela_node_process, ev, data)
 //    event_data_ready = process_alloc_event();
     set_battery_info_interval = process_alloc_event();
 
-	PRINTF("main: started\n");
+    LOG_INFO("main: started\n");
 
 	// initialize and start the other threads
 	vela_uart_init();
-	PRINTF("Uart initialized\n");
+	LOG_INFO("Uart initialized\n");
 
 	vela_sender_init();
 

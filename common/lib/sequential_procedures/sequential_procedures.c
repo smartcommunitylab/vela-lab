@@ -28,17 +28,20 @@
 #define DEBUG 0
 #if DEBUG
     #ifdef CONTIKI
-        #define PRINTF(...) printf(__VA_ARGS__)
+        #include "sys/log.h"
+        #define LOG_MODULE "sequential_procedures"
+        #define LOG_LEVEL LOG_LEVEL_NONE
+        #define LOG_PRINTF(...) LOG_DBG(__VA_ARGS__)
     #else
         #define  NRF_LOG_MODULE_NAME sequential_procedures
         #include "nrf_log.h"
         #include "nrf_log_ctrl.h"
         NRF_LOG_MODULE_REGISTER();
-        #define PRINTF(...) NRF_LOG_DEBUG(__VA_ARGS__)/*; \
+        #define LOG_PRINTF(...) NRF_LOG_DEBUG(__VA_ARGS__)/*; \
                             NRF_LOG_PROCESS()*/
     #endif
 #else
-#define PRINTF(...)
+#define LOG_PRINTF(...)
 #endif
 
 #define EXECUTE_ACTION_DELAY_US         2000
@@ -55,7 +58,7 @@ static uint8_t execute_action(void){
     nrf_delay_us(EXECUTE_ACTION_DELAY_US);
 #endif
 
-    PRINTF("Stepping on procedure \"%s\": action number %u\n",running_procedure->name,running_procedure->i);
+    LOG_PRINTF("Stepping on procedure \"%s\": action number %u\n",running_procedure->name,running_procedure->i);
     if(running_procedure->procedure_length!=0){
         ret = (*running_procedure->action[running_procedure->i])();
     }else{
@@ -72,16 +75,16 @@ uint8_t sequential_procedure_start(procedure_t *m_procedure, uint8_t delayed_sta
     }
 
     if(running_procedure->state != running){
-        PRINTF("Starting procedure \"%s\" with delayed_start = %u\n",m_procedure->name,delayed_start);
+        LOG_PRINTF("Starting procedure \"%s\" with delayed_start = %u\n",m_procedure->name,delayed_start);
         running_procedure = m_procedure;
         running_procedure->state=running;
         running_procedure->i=0;
-        if(delayed_start == 0){	//start the procedure on the next procedure_execute_action
+        //if(delayed_start == 0){	//start the procedure on the next procedure_execute_action. Removed because it can be source of problems
             sequential_procedure_execute_action();
-        }
+        //}
         return 1;
     }else{
-        PRINTF("Cannot start procedure \"%s\" because \"%s\" is still running\n",m_procedure->name,running_procedure->name);
+        LOG_PRINTF("Cannot start procedure \"%s\" because \"%s\" is still running\n",m_procedure->name,running_procedure->name);
         return 0;
     }
 }
@@ -92,7 +95,7 @@ void sequential_procedure_execute_action(){
             if(prev_action_return!=0){
                 prev_action_return=execute_action();
             }else{
-                PRINTF("Stopping variable length procedure\n");
+                LOG_PRINTF("Stopping variable length procedure\n");
                 sequential_procedure_stop();
             }
         }else{                                       //fixed length procedures
@@ -121,7 +124,7 @@ void sequential_procedure_stop_this(procedure_t *m_procedure){
         m_procedure->state=executed;
         m_procedure->i=0;
         prev_action_return=1;
-        PRINTF("Procedure \"%s\" exectuted!\n",m_procedure->name);
+        LOG_PRINTF("Procedure \"%s\" exectuted!\n",m_procedure->name);
     }
 }
 

@@ -14,6 +14,9 @@ channel check interval
 #include <string.h>
 #include "sink_receiver.h"
 
+#include "sys/log.h"
+#define LOG_MODULE "vela_sink"
+#define LOG_LEVEL LOG_LEVEL_DBG
 
 PROCESS(sink_process, "sink starter process");
 
@@ -26,13 +29,12 @@ AUTOSTART_PROCESSES (&sink_process);
 PROCESS_THREAD(sink_process, ev, data)
 {
   PROCESS_BEGIN();
-  printf("sink: started\n");
+  LOG_INFO("sink: started\n");
 
   // initialize and start the other threads
   sink_receiver_init();
 
   // do something, probably related to the watchdog
-  
   PROCESS_END();
 }
 /*---------------------------------------------------------------------------*/

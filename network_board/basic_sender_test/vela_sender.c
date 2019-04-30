@@ -4,25 +4,25 @@
  * the data will be sent
  * 
  **/
+
+#include <stdio.h>
+#include <string.h>
 #include "contiki.h"
-#include "sys/etimer.h"
-#include "sys/ctimer.h"
-#include "net/ip/uip.h"
-#include "net/ipv6/uip-ds6.h"
-#include "net/ip/uip-debug.h"
-#include "net/rpl/rpl.h"
+#include "contiki-net.h"
+#include "contiki-lib.h"
 #include "sys/node-id.h"
-#include "simple-udp.h"
-#include "servreg-hack.h"
+#include "dev/leds.h"
+#include "lib/trickle-timer.h"
+#include "network_messages.h"
+//#include "servreg-hack.h"
+#include "vela_node.h"
 #include "vela_uart.h"
 #include "vela_sender.h"
-#include "lib/trickle-timer.h"
-#include "constraints.h"
-#include "dev/leds.h"
-#include <stdio.h>
-#include "network_messages.h"
-#include "lib/random.h"
-#include "vela_node.h"
+
+#include "sys/log.h"
+#define LOG_MODULE "vela_sender"
+#define LOG_LEVEL LOG_LEVEL_DBG
+
 #ifdef BOARD_LAUNCHPAD_VELA
 #if BOARD_LAUNCHPAD_VELA==1
 #include "max-17260-sensor.h"
@@ -37,13 +37,8 @@ static struct etimer periodic_timer;
 static struct simple_udp_connection unicast_connection;
 static uint8_t message_number = 1;
 static uint8_t buf[MAX_PACKET_SIZE + 10];
-static uip_ipaddr_t *addr;
+static uip_ipaddr_t addr;
 
-#ifdef DEBUG
-static bool debug = DEBUG;
-#else
-static bool debug = false;
-#endif
 
 static struct trickle_timer tt;
 static struct uip_udp_conn *trickle_conn;
@@ -72,7 +67,7 @@ receiver(struct simple_udp_connection *c,
          const uint8_t *data,
          uint16_t datalen)
 {
-    PRINTF("Data received on port %d from port %d with length %d at %lu\n",
+    LOG_INFO("Data received on port %d from port %d with length %d at %lu\n",
            receiver_port, sender_port, datalen, clock_time());
 }
 /*---------------------------------------------------------------------------*/
@@ -88,13 +83,13 @@ set_global_address(void)
     uip_ds6_set_addr_iid(&ipaddr, &uip_lladdr);
     uip_ds6_addr_add(&ipaddr, 0, ADDR_AUTOCONF);
 
-    if (debug) PRINTF("IPv6 addresses: ");
+    LOG_INFO("IPv6 addresses: ");
     for(i = 0; i < UIP_DS6_ADDR_NB; i++) {
         state = uip_ds6_if.addr_list[i].state;
         if(uip_ds6_if.addr_list[i].isused &&
                 (state == ADDR_TENTATIVE || state == ADDR_PREFERRED)) {
-            PRINT6ADDR(&uip_ds6_if.addr_list[i].ipaddr);
-            if (debug) PRINTF("\n");
+            LOG_INFO_6ADDR(&uip_ds6_if.addr_list[i].ipaddr);
+            LOG_INFO_("\n");
         }
     }
 }
@@ -102,10 +97,10 @@ set_global_address(void)
 void vela_sender_init() {
     random_init(0);
 
-    PRINTF("vela_sender: initializing \n");
+    LOG_INFO("vela_sender: initializing \n");
     message_number = 0;
 
-    servreg_hack_init();
+//    servreg_hack_init();
 
     set_global_address();
 
@@ -119,31 +114,27 @@ void vela_sender_init() {
 
 /*---------------------------------------------------------------------------*/
 static uint8_t send_to_sink(network_message_t n_msg) {
-    addr = servreg_hack_lookup(SERVICE_ID);
+//    addr = servreg_hack_lookup(SERVICE_ID);
+    //NETSTACK_ROUTING.get_root_ipaddr(addr);
     leds_toggle(LEDS_GREEN);
-    if(addr!=NULL){
-        PRINTF("sendingsink...\n");
+    if(NETSTACK_ROUTING.node_is_reachable() && NETSTACK_ROUTING.get_root_ipaddr(&addr)){
+        LOG_DBG("sendingsink...\n");
         message_number++;
         buf[0] = n_msg.pkttype >> 8;
         buf[1] = n_msg.pkttype;
         buf[2] = message_number;
         memcpy(&buf[3], n_msg.payload.p_data, n_msg.payload.data_len);
 
-        PRINTF("Sending size: %u, msgNum: %u ,first 2 byte: 0x%02x 0x%02x to ",n_msg.payload.data_len,message_number, buf[3], buf[4]);
-        static rpl_dag_t* dag;
-        dag = rpl_get_any_dag();
-        if(dag->preferred_parent != NULL) {
-            PRINTF("Preferred parent: ");
-            PRINT6ADDR(rpl_get_parent_ipaddr(dag->preferred_parent));
-            PRINTF("\n");
-        }
+        LOG_DBG("Sending size: %u, msgNum: %u ,first 2 byte: 0x%02x 0x%02x to ",n_msg.payload.data_len,message_number, buf[3], buf[4]);
+        LOG_DBG_6ADDR(&addr);
+        LOG_DBG_("\n");
 
-        simple_udp_sendto(&unicast_connection, buf, n_msg.payload.data_len+3, addr);
+        simple_udp_sendto(&unicast_connection, buf, n_msg.payload.data_len+3, &addr);
         leds_on(LEDS_RED);
         return 0;
     } else {
         leds_off(LEDS_RED);
-        PRINTF("ERROR: No sink available!\n");
+        LOG_WARN("ERROR: No sink available!\n");
         return -1;
     }
 }
@@ -151,7 +142,7 @@ static uint8_t send_to_sink(network_message_t n_msg) {
 static void
 trickle_tx(void *ptr, uint8_t suppress)
 {
-    PRINTF("Trickle TX\n");
+    LOG_DBG("Trickle TX\n");
     uip_ipaddr_copy(&trickle_conn->ripaddr, &t_ipaddr);
     uip_udp_packet_send(trickle_conn, &trickle_msg, sizeof(trickle_msg)-sizeof(trickle_msg.payload.p_data)+trickle_msg.payload.data_len);
     uip_create_unspecified(&trickle_conn->ripaddr);
@@ -160,7 +151,7 @@ trickle_tx(void *ptr, uint8_t suppress)
 static void node_delay(void){
 //    uint32_t delayTime=(MAX_RANDOM_DELAY_S*CLOCK_SECOND*(node_id & (0x00FF)))/256;
     uint32_t delayTime=(random_rand()*MAX_RANDOM_DELAY_S*CLOCK_SECOND)/0xFFFF;
-    PRINTF("node_id 0x%4X, PACKET Delay %d\n",node_id, delayTime);
+    LOG_DBG("node_id 0x%4X, PACKET Delay %lu\n",node_id, delayTime);
     clock_wait(delayTime);
     //Commented the more appropriate wait implementation. It doesn't work because of some problems with context switch
     //clock_wait() is enough since it is only unatantum
@@ -171,32 +162,25 @@ static void node_delay(void){
 }
 
 static network_message_t *incoming;
-static rpl_dag_t* dag;
 static void
 tcpip_handler(void)
 {
     if(uip_newdata()) {
-    	dag = rpl_get_any_dag();
-    	if(dag != NULL && dag->preferred_parent != NULL) {
-    	    PRINTF("Preferred parent: ");
-    	    PRINT6ADDR(rpl_get_parent_ipaddr(dag->preferred_parent));
-    	    PRINTF("\n");
-    	}
         incoming = (network_message_t *) uip_appdata;
-    	PRINTF("Received new Trickle message, counter: %d, type: %X, payload: ", incoming->pktnum, incoming->pkttype);
+        LOG_INFO("Received new Trickle message, counter: %d, type: %X, payload: ", incoming->pktnum, incoming->pkttype);
 
     	uint8_t asd=0;
     	for(asd=0;asd<incoming->payload.data_len;asd++){
-    	    PRINTF("%02X", incoming->payload.p_data[asd]);
+    	    LOG_INFO_("%02X", incoming->payload.p_data[asd]);
     	}
-    	PRINTF("\n");
+    	LOG_INFO_("\n");
 
         if(trickle_msg.pktnum == incoming->pktnum) {
             trickle_timer_consistency(&tt);
         }
         else {
             trickle_timer_inconsistency(&tt);
-            PRINTF("At %lu: Trickle inconsistency. Scheduled TX for %lu\n",
+            LOG_WARN("At %lu: Trickle inconsistency. Scheduled TX for %lu\n",
                          (unsigned long)clock_time(),
                          (unsigned long)(tt.ct.etimer.timer.start +
             tt.ct.etimer.timer.interval));
@@ -205,60 +189,60 @@ tcpip_handler(void)
 
             if(incoming->pktnum > trickle_msg.pktnum || (trickle_msg.pktnum - incoming->pktnum > 10)){
                 memcpy(&trickle_msg, incoming, sizeof(network_message_t));
-            	PRINTF("Received new message, type: %X\n", trickle_msg.pkttype);
+                LOG_DBG("Received new message, type: %X\n", trickle_msg.pkttype);
             	switch(incoming->pkttype) {
                 case network_request_ping: {
                     ;
-                    PRINTF("Ping request\n");
+                    LOG_INFO("Ping request\n");
                     process_post(&cc2650_uart_process, event_ping_requested, incoming->payload.p_data);
                     break;
                 }
                 case nordic_turn_bt_off: {
                 	;
-                	PRINTF("Turning Bluetooth off...\n");
+                	LOG_INFO("Turning Bluetooth off...\n");
             		process_post(&cc2650_uart_process, turn_bt_off, NULL);
             		break;
 				}
 				case nordic_turn_bt_on: {
 					;
-					PRINTF("Turning Bluetooth on...\n");
+					LOG_INFO("Turning Bluetooth on...\n");
 					process_post(&cc2650_uart_process, turn_bt_on, NULL);
 					break;
 				}
 				case nordic_turn_bt_on_low: {
 					;
-					PRINTF("Turning Bluetooth on...\n");
+					LOG_INFO("Turning Bluetooth on...\n");
 					process_post(&cc2650_uart_process, turn_bt_on_low, NULL);
 					break;
 				}
 				case nordic_turn_bt_on_def: {
 					;
-					PRINTF("Turning Bluetooth on...\n");
+					LOG_INFO("Turning Bluetooth on...\n");
 					process_post(&cc2650_uart_process, turn_bt_on_def, NULL);
 					break;
 				}
 				case nordic_turn_bt_on_high: {
 					;
-					PRINTF("Turning Bluetooth on...\n");
+					LOG_INFO("Turning Bluetooth on...\n");
 					process_post(&cc2650_uart_process, turn_bt_on_high, NULL);
 					break;
 				}
                 case nordic_turn_bt_on_w_params: {
                     ;
-                    PRINTF("Turning Bluetooth on...\n");
+                    LOG_INFO("Turning Bluetooth on...\n");
                     process_post(&cc2650_uart_process, turn_bt_on_w_params, incoming->payload.p_data);
                     break;
                 }
                 case ti_set_keep_alive: {
                     ;
-                    PRINTF("Setting keep alive interval to %hhu\n", incoming->payload.p_data[0]);
+                    LOG_INFO("Setting keep alive interval to %hhu\n", incoming->payload.p_data[0]);
                     PROCESS_CONTEXT_BEGIN(&keep_alive_process);
                     keep_alive_interval = incoming->payload.p_data[0];
                     if(keep_alive_interval > 9){
                         etimer_set(&keep_alive_timer, keep_alive_interval * CLOCK_SECOND);
                     }else{
                         etimer_set(&keep_alive_timer, VERY_LONG_TIMER_VALUE * CLOCK_SECOND);
-                        PRINTF("Not a valid interval, turning keep alive off\n");
+                        LOG_INFO("Not a valid interval, turning keep alive off\n");
                     }
                     PROCESS_CONTEXT_END(&keep_alive_process);
                     break;
@@ -266,9 +250,9 @@ tcpip_handler(void)
                 case ti_set_batt_info_int: {
                     ;
                     if(incoming->payload.p_data[0] != 0){
-                        PRINTF("Enabling battery info report with interval %u\n",incoming->payload.p_data[0]);
+                        LOG_INFO("Enabling battery info report with interval %u\n",incoming->payload.p_data[0]);
                     }else{
-                        PRINTF("Disabling battery info report\n");
+                        LOG_INFO("Disabling battery info report\n");
                     }
                     process_post(&vela_node_process, set_battery_info_interval, incoming->payload.p_data);
                     break;
@@ -276,12 +260,12 @@ tcpip_handler(void)
                 case network_set_time_between_sends: {
                     uint16_t time_between_sends_ms = (incoming->payload.p_data[0]<<8) | incoming->payload.p_data[1];
                     time_between_sends = time_between_sends_ms*(CLOCK_SECOND/1000.0);
-                    PRINTF("Setting Time Between Sends to %d ms, %d ticks\n",time_between_sends_ms,time_between_sends);
+                    LOG_INFO("Setting Time Between Sends to %d ms, %lu ticks\n",time_between_sends_ms,time_between_sends);
                     break;
                 }
                 case nordic_reset: {
                     ;
-                    PRINTF("Reseting nordic board\n");
+                    LOG_INFO("Reseting nordic board\n");
                     process_post(&cc2650_uart_process, reset_bt, NULL);
                     break;
                 }
@@ -311,7 +295,7 @@ PROCESS_THREAD(vela_sender_process, ev, data) {
     event_buffer_empty = process_alloc_event();
     //event_bat_data_ready = process_alloc_event();
 
-    if (debug) PRINTF("unicast: started\n");
+    LOG_INFO("unicast: started\n");
     while (1)
     {
         PROCESS_WAIT_EVENT();
@@ -373,7 +357,7 @@ PROCESS_THREAD(vela_sender_process, ev, data) {
             }
         }
         if(ev == event_pong_received){
-            PRINTF("Sending pong\n");
+            LOG_INFO("Sending pong\n");
             temp = (uint8_t*)data;
             response.pkttype = network_respond_ping;
             response.payload.data_len = 1;
@@ -381,7 +365,7 @@ PROCESS_THREAD(vela_sender_process, ev, data) {
             send_to_sink(response);
         }
         if(ev == event_bat_data_ready) {
-            PRINTF("Received bat data\n");
+            LOG_INFO("Received battery data event\n");
             bat_message.pkttype = network_bat_data;
             memcpy(bat_message.payload.p_data, data, 12);
             bat_message.payload.data_len = 12;
@@ -394,7 +378,7 @@ PROCESS_THREAD(vela_sender_process, ev, data) {
 PROCESS_THREAD(trickle_protocol_process, ev, data)
 {
     PROCESS_BEGIN();
-    PRINTF("Trickle protocol started\n");
+    LOG_INFO("Trickle protocol started\n");
     //initialize trickle_msg struct
     trickle_msg.pkttype = 0;
     trickle_msg.pktnum = 0;
@@ -405,7 +389,7 @@ PROCESS_THREAD(trickle_protocol_process, ev, data)
     uip_create_linklocal_allnodes_mcast(&t_ipaddr); /* Store for later */
     trickle_conn = udp_new(NULL, UIP_HTONS(TRICKLE_PROTO_PORT), NULL);
     udp_bind(trickle_conn, UIP_HTONS(TRICKLE_PROTO_PORT));
-    PRINTF("Connection: local/remote port %u/%u\n",
+    LOG_INFO("Connection: local/remote port %u/%u\n",
            UIP_HTONS(trickle_conn->lport), UIP_HTONS(trickle_conn->rport));
 
     trickle_timer_config(&tt, TRICKLE_IMIN, TRICKLE_IMAX, REDUNDANCY_CONST);

@@ -4,29 +4,22 @@
  * This file is part of the Contiki operating system.
  */
 #include <stdio.h>
-#include "contiki.h"
-#include "lib/random.h"
-#include "sys/ctimer.h"
-#include "sys/etimer.h"
-#include "net/ip/uip.h"
-#include "net/ipv6/uip-ds6.h"
-#include "net/ip/uip-debug.h"
-#include "simple-udp.h"
-#include "servreg-hack.h"
-#include "net/rpl/rpl.h"
 #include <string.h>
-#include "sink_receiver.h"
+#include "contiki.h"
+#include "contiki-net.h"
+#include "contiki-lib.h"
 #include "dev/leds.h"
 #include "dev/cc26xx-uart.h"
-#include "net/ip/uip-udp-packet.h"
-#include "lib/trickle-timer.h"
-#include "lib/random.h"
-#include "constraints.h"
-#include "net/netstack.h"
-#include "network_messages.h"
 #include "dev/serial-line.h"
-#include "dev/cc26xx-uart.h"
+#include "lib/trickle-timer.h"
+#include "constraints.h"
+#include "network_messages.h"
 #include "ti-lib.h"
+//#include "servreg-hack.h"
+
+#include "sys/log.h"
+#define LOG_MODULE "sink_receiver"
+#define LOG_LEVEL LOG_LEVEL_DBG
 
 #define TO_BYTE(hex_data) (((hex_data ) <= '9') ? ((hex_data)  - '0') : ((hex_data)  - 'A' + 10))
 #define TO_HEX(byte_data) (((byte_data) <=  9 ) ? ((byte_data) + '0') : ((byte_data) + 'A' - 10)) //NOTE THAT THIS PROPERLY WORKS ONLY ON 4 BITS!!!
@@ -114,35 +107,35 @@ set_global_address(void)
     uip_ds6_set_addr_iid(&ipaddr, &uip_lladdr);
     uip_ds6_addr_add(&ipaddr, 0, ADDR_AUTOCONF);
 
-    PRINTF("IPv6 addresses: ");
+    LOG_INFO("IPv6 addresses: ");
     for(i = 0; i < UIP_DS6_ADDR_NB; i++) {
         state = uip_ds6_if.addr_list[i].state;
         if(uip_ds6_if.addr_list[i].isused &&
                 (state == ADDR_TENTATIVE || state == ADDR_PREFERRED)) {
-            uip_debug_ipaddr_print(&uip_ds6_if.addr_list[i].ipaddr);
-            PRINTF("\n");
+            LOG_INFO_6ADDR(&uip_ds6_if.addr_list[i].ipaddr);
+            LOG_INFO_("\n");
         }
     }
     return &ipaddr;
 }
 /*---------------------------------------------------------------------------*/
-static struct uip_ds6_addr *root_if;
-static rpl_dag_t *dag;
-static uip_ipaddr_t prefix;
-static void
-create_rpl_dag(uip_ipaddr_t *ipaddr)
-{
-    root_if = uip_ds6_addr_lookup(ipaddr);
-    if(root_if != NULL) {
-        rpl_set_root(RPL_DEFAULT_INSTANCE, ipaddr);
-        dag = rpl_get_any_dag();
-        uip_ip6addr(&prefix, UIP_DS6_DEFAULT_PREFIX, 0, 0, 0, 0, 0, 0, 0);
-        rpl_set_prefix(dag, &prefix, 64);
-        PRINTF("created a new RPL dag\n");
-    } else {
-        PRINTF("failed to create a new RPL DAG\n");
-    }
-}
+//static struct uip_ds6_addr *root_if;
+//static rpl_dag_t *dag;
+//static uip_ipaddr_t prefix;
+//static void
+//create_rpl_dag(uip_ipaddr_t *ipaddr)
+//{
+//    root_if = uip_ds6_addr_lookup(ipaddr);
+//    if(root_if != NULL) {
+//        rpl_set_root(RPL_DEFAULT_INSTANCE, ipaddr);
+//        dag = rpl_get_any_dag();
+//        uip_ip6addr(&prefix, UIP_DS6_DEFAULT_PREFIX, 0, 0, 0, 0, 0, 0, 0);
+//        rpl_set_prefix(dag, &prefix, 64);
+//        PRINTF("created a new RPL dag\n");
+//    } else {
+//        PRINTF("failed to create a new RPL DAG\n");
+//    }
+//}
 /*---------------------------------------------------------------------------*/
 static int
 dummy_uart_receiver(unsigned char c) //this function will be useful in the future. For now setting the input function disables the power saving of the uart peripheral.
@@ -194,17 +187,18 @@ PROCESS_THREAD(sink_receiver_process, ev, data)
 
     cc26xx_uart_set_input(dummy_uart_receiver);
 
-    servreg_hack_init();
+//    servreg_hack_init();
 
     ipaddr_global = set_global_address();
 
-    create_rpl_dag(ipaddr_global);
+    //create_rpl_dag(ipaddr_global);
+    NETSTACK_ROUTING.root_start(); //TODO: is this the same of create_rpl_dag?
 
-    servreg_hack_register(SERVICE_ID, ipaddr_global);
+//    servreg_hack_register(SERVICE_ID, ipaddr_global);
 
     simple_udp_register(&unicast_connection, UDP_PORT, NULL, UDP_PORT, receiver);
 
-    NETSTACK_RDC.off(1);
+    //NETSTACK_MAC.off();
 
     while(1) {
     	//do nothing
@@ -218,11 +212,11 @@ PROCESS_THREAD(sink_receiver_process, ev, data)
 PROCESS_THREAD(trickle_sender_process, ev, data)
 {
     PROCESS_BEGIN();
-    PRINTF("Trickle protocol started\n");
+    LOG_INFO("Trickle protocol started\n");
     uip_create_linklocal_allnodes_mcast(&t_ipaddr); /* Store for later */
     trickle_conn = udp_new(NULL, UIP_HTONS(TRICKLE_PROTO_PORT), NULL);
     udp_bind(trickle_conn, UIP_HTONS(TRICKLE_PROTO_PORT));
-    PRINTF("Connection: local/remote port %u/%u\n",
+    LOG_INFO("Connection: local/remote port %u/%u\n",
            UIP_HTONS(trickle_conn->lport), UIP_HTONS(trickle_conn->rport));
 
     trickle_timer_config(&tt, TRICKLE_IMIN, TRICKLE_IMAX, REDUNDANCY_CONST);

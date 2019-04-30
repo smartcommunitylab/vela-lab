@@ -48,9 +48,6 @@
 	<storageModule moduleId="cdtBuildSystem" version="4.0.0">
 		<project id="basic_uart_init_ccs.null.505892981" name="basic_uart_init_ccs"/>
 	</storageModule>
-	<storageModule moduleId="scannerConfiguration">
-		<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
-	</storageModule>
 	<storageModule moduleId="org.eclipse.cdt.core.LanguageSettingsProviders"/>
 	<storageModule moduleId="refreshScope" versionNumber="2">
 		<configuration configurationName="Default">
@@ -59,4 +56,13 @@
 	</storageModule>
 	<storageModule moduleId="null.devicePreference"/>
 	<storageModule moduleId="cpuFamily"/>
+	<storageModule moduleId="scannerConfiguration">
+		<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
+		<scannerConfigBuildInfo instanceId="cdt.managedbuild.toolchain.gnu.cross.base.2021895692;cdt.managedbuild.toolchain.gnu.cross.base.2021895692.795765957;cdt.managedbuild.tool.gnu.cross.c.compiler.1185574918;cdt.managedbuild.tool.gnu.c.compiler.input.1903291650">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="cdt.managedbuild.toolchain.gnu.cross.base.2021895692;cdt.managedbuild.toolchain.gnu.cross.base.2021895692.795765957;cdt.managedbuild.tool.gnu.cross.cpp.compiler.617175304;cdt.managedbuild.tool.gnu.cpp.compiler.input.788186395">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
+		</scannerConfigBuildInfo>
+	</storageModule>
 </cproject>

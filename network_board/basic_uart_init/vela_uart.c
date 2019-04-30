@@ -15,8 +15,6 @@
 */
 
 #include "contiki.h"
-#include "sys/etimer.h"
-#include "dev/leds.h"
 #include "dev/cc26xx-uart.h"
 #include "dev/serial-line.h"
 #include <stdio.h>
@@ -24,23 +22,17 @@
 #include <string.h>
 #include "uart_util.h"
 #include "constraints.h"
-#include "sys/ctimer.h"
 #include "vela_uart.h"
 #include "vela_sender.h"
 #include "network_messages.h"
 #include "sequential_procedures.h"
 
+#include "sys/log.h"
+#define LOG_MODULE "vela_uart"
+#define LOG_LEVEL LOG_LEVEL_WARN
+
 #define NORDIC_WATCHDOG_ENABLED						1
 
-#ifdef DEBUG
-#undef DEBUG
-#endif
-#define DEBUG 0
-#if DEBUG
-#define PRINTF(...) printf(__VA_ARGS__)
-#else
-#define PRINTF(...)
-#endif
 
 PROCESS(cc2650_uart_process, "cc2650 uart process");
 
@@ -54,7 +46,6 @@ typedef enum{
 
 #define PING_PACKET_SIZE		5
 #define BT_REPORT_BUFFER_SIZE 	MAX_MESH_PAYLOAD_SIZE
-#define PING_TIMEOUT 			CLOCK_SECOND*5
 
 #define DEFAULT_ACTIVE_SCAN         1     //boolean
 #define DEFAULT_SCAN_INTERVAL       3520       /**< Scan interval between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
@@ -66,8 +57,6 @@ typedef enum{
 /** Converts a macro argument into a character constant.
  */
 #define STRINGIFY(val)  #val
-
-static struct ctimer m_ping_timer;
 
 static uint8_t is_nordic_ready=false;
 //static app_state_t m_app_state = wait;
@@ -91,20 +80,17 @@ static uint32_t report_rx_handler(uart_pkt_t* p_packet, report_type_t m_report_t
 
 static uint8_t lock_new_commands=false;
 
-static void ping_timeout_handler(void *ptr);
 #if NORDIC_WATCHDOG_ENABLED
 static void nordic_watchdog_handler(void *ptr);
 #endif
 
 void reset_nodric(void);
 
-static uint8_t send_ping(void);
 static uint8_t send_set_bt_scan(void);
 static uint8_t send_set_bt_scan_on(void);
 static uint8_t send_set_bt_scan_off(void);
 static uint8_t send_set_bt_scan_params(void);
 static uint8_t send_ready(void);
-static uint8_t send_reset(void);
 static uint8_t request_periodic_report_to_nordic(void);
 static uint8_t stop_periodic_report_to_nordic(void);
 
@@ -179,18 +165,12 @@ static uint32_t report_rx_handler(uart_pkt_t* p_packet, report_type_t m_report_t
 	return ret;
 }
 
-static void ping_timeout_handler(void *ptr){
-	ctimer_reset(&m_ping_timer);
-
-	send_ping();
-}
-
 #if NORDIC_WATCHDOG_ENABLED
 static void nordic_watchdog_handler(void *ptr){
 	nordic_watchdog_value++;
 
 	if(nordic_watchdog_value > 3){
-	    PRINTF("Nordic didn't respond, resetting it!\n");
+	    LOG_ERR("Nordic didn't respond, resetting it!\n");
 	    reset_nodric();
 //		while(1){ //Stay here. The reset of the mcu will be triggered by the watchdog timer initialized into contiki-main.c
 //		}
@@ -214,33 +194,7 @@ void reset_nodric(void){
 	clock_wait(CLOCK_SECOND/10);
 }
 
-
-//example of use of uart_util_send. This function is called with a timer and send a packet to the UART
-static uint8_t send_ping(void) {
-/*  CREATE DUMMY UINT8 ARRAY   */
-#if PING_PACKET_SIZE != 0
-	static uint8_t payload[PING_PACKET_SIZE];
-	for (uint16_t i = 0; i < PING_PACKET_SIZE; i++) {
-		payload[i] = PING_PACKET_SIZE - i;
-	}
-	/*  CREATE A PACKET VARIABLE */
-	static uart_pkt_t packet;
-	packet.payload.p_data = payload;
-	packet.payload.data_len = PING_PACKET_SIZE;
-	packet.type = uart_ping;
-#else
-	static uart_pkt_t packet;
-	packet.payload.p_data = NULL;
-	packet.payload.data_len = PING_PACKET_SIZE;
-	packet.type = uart_ping;
-#endif
-	/*  SEND THE PACKET  */
-	uart_util_send_pkt(&packet);
-
-	return 0;
-}
-
-static void send_ping_payload(uint8_t ping_payload) {
+static void send_ping(uint8_t ping_payload) {
     static uart_pkt_t ping_packet;
     static uint8_t buf[1];
     buf[0] = ping_payload;
@@ -297,7 +251,7 @@ static uint8_t send_set_bt_scan_on(void) {
 }
 
 static uint8_t send_set_bt_scan_off(void) {
-	PRINTF("Turning bt off\n");
+    LOG_INFO("Turning bt off\n");
 	bt_scan_state=0;
 
     return send_set_bt_scan();
@@ -331,17 +285,6 @@ static uint8_t send_ready(void) {
 	packet.payload.p_data = (uint8_t*)version_string;
 	packet.payload.data_len = strlen(version_string);
 	packet.type = uart_evt_ready;
-
-	uart_util_send_pkt(&packet);
-
-    return 0;
-}
-
-static uint8_t send_reset(void) {
-	static uart_pkt_t packet;
-	packet.payload.p_data = NULL;
-	packet.payload.data_len = 0;
-	packet.type = uart_req_reset;
 
 	uart_util_send_pkt(&packet);
 
@@ -385,16 +328,16 @@ static uint8_t stop_periodic_report_to_nordic(void){
 #define MAX_ATTEMPTS 3
 void uart_util_ack_error(ack_wait_t* ack_wait_data) {
     if(ack_wait_data != NULL){
-        PRINTF("Uart ack error for packet: 0x%04X\n", (uint16_t)ack_wait_data->waiting_ack_for_pkt_type);
+        LOG_ERR("Uart ack error for packet: 0x%04X\n", (uint16_t)ack_wait_data->waiting_ack_for_pkt_type);
     }else{
-        PRINTF("Uart ack error\n");
+        LOG_ERR("Uart ack error\n");
     }
 
 	if(no_of_attempts < MAX_ATTEMPTS){
 		no_of_attempts++;
 		sequential_procedure_retry();
 	}else{
-	    PRINTF("Nordic didn't respond, resetting it!\n");
+	    LOG_ERR("Nordic didn't respond, resetting it!\n");
 		is_nordic_ready=false;
         sequential_procedure_stop();
 		reset_nodric(); //when the nordic will reboot it will generate the uart_ready evt. When the TI receives it, it restart the FSM
@@ -407,8 +350,8 @@ void uart_util_ack_tx_done(void){
 static uint32_t pre_ack_uart_rx_handler(uart_pkt_t* p_packet) {
     uart_pkt_type_t type;
     type = p_packet->type;
-    uint8_t *p_payload_data;
-    p_payload_data = p_packet->payload.p_data;
+    //uint8_t *p_payload_data;
+    //p_payload_data = p_packet->payload.p_data;
     uint32_t ack_value;
 
     switch (type) {
@@ -539,7 +482,7 @@ static void post_ack_uart_rx_handler(uart_pkt_t* p_packet) {
     case uart_pong:
         if (p_packet->payload.data_len == 1)
         {
-            PRINTF("Received pong from nordic, sending it to sink\n");
+            LOG_INFO("Received pong from nordic\n");
             static uint8_t data[1];
             data[0] = p_packet->payload.p_data[0];
             process_post(&vela_sender_process, event_pong_received, data);
@@ -599,10 +542,10 @@ PROCESS_THREAD(cc2650_uart_process, ev, data) {
 		//TODO: if the ready message isn't received within a timeout the reset should be redone till the message is received.
 		//Once the ready message is received the boot is completed
 
-		PRINTF("Nordic board reset, waiting ready message\n");
+		LOG_INFO("Nordic board reset, waiting ready message\n");
 
 		while (1) {
-		    //send_ping();
+
 			PROCESS_WAIT_EVENT();
 
 			if (ev == serial_line_event_message) { //NB: *data contains a string, the '\n' character IS NOT included, the '\0' character IS included
@@ -623,7 +566,7 @@ PROCESS_THREAD(cc2650_uart_process, ev, data) {
                 if(!sequential_procedure_is_running()){ //it is actually very unlikelly that a procedure is running while we receive another trickle message. It is more likelly that a procedure (such as sedd_report) is running on the nordic.
                     if (ev == event_ping_requested) {
                         uint8_t* payload = (uint8_t*)data;
-                        send_ping_payload(*payload);
+                        send_ping(*payload);
                     }
                     if(ev == turn_bt_off) {
                         start_procedure(&bluetooth_off);
@@ -669,7 +612,14 @@ PROCESS_THREAD(cc2650_uart_process, ev, data) {
                     }
                 }
             }else{
-                PRINTF("Cannot accept a command now! Lock is active\n");
+                if(ev == turn_bt_off ||
+                   ev == turn_bt_on  ||
+                   ev == turn_bt_on_w_params  ||
+                   ev == turn_bt_on_def  ||
+                   ev == turn_bt_on_low  ||
+                   ev == turn_bt_on_high){
+                    LOG_WARN("Cannot accept a command now! Lock is active\n");
+                }
             }
 		}
 	PROCESS_END();
