@@ -80,7 +80,7 @@ btPreviousTime = 0
 btToggleInterval = 1800
 btToggleBool = True
 
-NODE_TIMEOUT_S = 180
+NODE_TIMEOUT_S = 60*10
 NETWORK_PERIODIC_CHECK_INTERVAL = 2
 CLEAR_CONSOLE = True
 
@@ -200,10 +200,11 @@ class Network(object):
         threading.Timer(NETWORK_PERIODIC_CHECK_INTERVAL,self.__periodicNetworkCheck).start()
         nodes_removed = False;
         for n in self.__nodes:
-            if n.getLastMessageElapsedTime() > NODE_TIMEOUT_S:
+            if n.getLastMessageElapsedTime() > NODE_TIMEOUT_S and n.online:
                 if printVerbosity > 2:
                     self.addPrint("[APPLICATION] Node "+ n.name +" timed out. Elasped time: %.2f" %n.getLastMessageElapsedTime() +" Removing it from the network.")
-                self.removeNode(n)
+                #self.removeNode(n)
+                n.online=False                
                 nodes_removed = True
 
         #self.__trickleCheck()
@@ -274,11 +275,13 @@ class Network(object):
             n.updateTrickleCount(trickleCount)
             n.updateBatteryVoltage(batteryVoltage)
             n.updateBatteryCapacity(capacity)
+            n.online=True 
         else:
             n=Node(label, trickleCount)
             n.updateBatteryVoltage(batteryVoltage)
             n.updateBatteryCapacity(capacity)
             self.addNode(n)
+            
 
         if len(self.__trickleQueue) != 0:
             if self.__trickleCheck():
@@ -338,6 +341,11 @@ class Network(object):
             n.amountOfBTReports=0
         self.__trickleCheck()
 
+    def resetTrickle(self):
+        self.__trickleCheck()
+        self.__expTrickle = self.__netMaxTrickle
+        
+
 class Node(object):
 
     # The class "constructor" - It's actually an initializer
@@ -346,6 +354,7 @@ class Node(object):
         self.name = label
         self.lastTrickleCount = 0
         self.lastMessageTime = float(time.time())
+        self.online=True
 
     def __init__(self, label, trickleCount):
         self.lock = threading.Lock()
@@ -358,6 +367,7 @@ class Node(object):
         self.batteryConsumption = None
         self.batteryTemperature = None
         self.amountOfBTReports = 0
+        self.online=True
 
     def updateTrickleCount(self,trickleCount):
         with self.lock:
@@ -399,16 +409,17 @@ class Node(object):
         return now-self.lastMessageTime
 
     def printNodeInfo(self):
-    #    if(self.batteryVoltage!=None):
-        if self.batteryConsumption != None:
-            print("| %3s    | %3.2fV %3.0f%% %4.0fmAh %6.1fmA  %5.1f°    |  %3.0f     |  %3d    |%5d  |" % (str(self.name), self.batteryVoltage, self.batterySoc, self.batteryCapacity, self.batteryConsumption, self.batteryTemperature, self.getLastMessageElapsedTime(), self.lastTrickleCount, self.amountOfBTReports))
+        if self.online:
+            if self.batteryConsumption != None:
+                print("| %3s    | %3.2fV %3.0f%% %4.0fmAh %6.1fmA  %5.1f°    |  %3.0f     |  %3d    |%5d  |" % (str(self.name), self.batteryVoltage, self.batterySoc, self.batteryCapacity, self.batteryConsumption, self.batteryTemperature, self.getLastMessageElapsedTime(), self.lastTrickleCount, self.amountOfBTReports))
+            else:
+                print("| %3s    | %3.2fV                                  |  %3.0f     |  %3d    |%5d  |" % (str(self.name), self.batteryVoltage, self.getLastMessageElapsedTime(), self.lastTrickleCount, self.amountOfBTReports))
         else:
-            print("| %3s    | %3.2fV                                  |  %3.0f     |  %3d    |%5d  |" % (str(self.name), self.batteryVoltage, self.getLastMessageElapsedTime(), self.lastTrickleCount, self.amountOfBTReports))
+            if self.batteryConsumption != None:
+                print("| %3s *  | %3.2fV %3.0f%% %4.0fmAh %6.1fmA  %5.1f°    |  %3.0f     |  %3d    |%5d  |" % (str(self.name), self.batteryVoltage, self.batterySoc, self.batteryCapacity, self.batteryConsumption, self.batteryTemperature, self.getLastMessageElapsedTime(), self.lastTrickleCount, self.amountOfBTReports))
+            else:
+                print("| %3s *  | %3.2fV                                  |  %3.0f     |  %3d    |%5d  |" % (str(self.name), self.batteryVoltage, self.getLastMessageElapsedTime(), self.lastTrickleCount, self.amountOfBTReports))
 
-
-        #print("| Node ID | Volt [v] Cons [mAh] Temp [°] | Last seen [s] | Tkl Count | #BT rep |"
-        #else:
-    #        print("|  %3s      |                |  %3.0f                |  %3d        |  %5d     |" % (str(self.name), self.getLastMessageElapsedTime(), self.lastTrickleCount, self.amountOfBTReports))
 
 @unique
 class PacketType(IntEnum):
@@ -451,6 +462,11 @@ def handle_user_input():
                     continue
                 elif input_str=='r':
                     net.resetCounters()
+                    net.printNetworkStatus()
+                    continue
+                elif input_str=='t':
+                    net.resetTrickle()
+                    net.printNetworkStatus()
                     continue
                 else:
                     forced=False
@@ -478,7 +494,7 @@ def handle_user_input():
             #    appLogger.debug("[SENDING] Enable Bluetooth HIGH")
             #    net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_turn_bt_on_high, None),forced)
             elif user_input == 5:
-                SCAN_INTERVAL_MS = 9000
+                SCAN_INTERVAL_MS = 1500
                 SCAN_WINDOW_MS = 1500
                 SCAN_TIMEOUT_S = 0
                 REPORT_TIMEOUT_S = 15
@@ -497,7 +513,7 @@ def handle_user_input():
                 net.addPrint("[USER_INPUT] Turn bluetooth on with parameters: scan_int="+str(SCAN_INTERVAL_MS)+"ms, scan_win="+str(SCAN_WINDOW_MS)+"ms, timeout="+str(SCAN_TIMEOUT_S)+"s, report_int="+str(REPORT_TIMEOUT_S)+"s")
                 net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_turn_bt_on_w_params, payload),forced)
             elif user_input == 6:
-                bat_info_interval_s = 60
+                bat_info_interval_s = 90
                 net.addPrint("[USER_INPUT] Enable battery info with interval: "+str(bat_info_interval_s))
                 net.sendNewTrickle(build_outgoing_serial_message(PacketType.ti_set_batt_info_int, bat_info_interval_s.to_bytes(1, byteorder="big", signed=False)),forced)
             elif user_input == 7:
@@ -508,7 +524,7 @@ def handle_user_input():
                 net.addPrint("[USER_INPUT] Reset nordic")
                 net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_reset, None),forced)
             elif user_input == 9:
-                time_between_send_ms = 1000
+                time_between_send_ms = 0
                 time_between_send = time_between_send_ms.to_bytes(2, byteorder="big", signed=False)
                 net.addPrint("[USER_INPUT] Set time between sends to "+ str(time_between_send_ms) + "ms")
                 net.sendNewTrickle(build_outgoing_serial_message(PacketType.network_set_time_between_send, time_between_send),forced)
