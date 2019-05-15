@@ -278,6 +278,13 @@ tcpip_handler(void)
           LOG_INFO("Setting Time Between Sends to %d ms, %lu ticks\n",time_between_sends_ms,time_between_sends);
           break;
         }
+        case nordic_ble_tof_enable: {
+        ;
+          if(incoming->payload.data_len >0){
+            process_post(&cc2650_uart_process, turn_ble_tof_onoff, incoming->payload.p_data);
+          }
+          break;
+        }
         case nordic_reset: {
           ;
           LOG_INFO("Reseting nordic board\n");

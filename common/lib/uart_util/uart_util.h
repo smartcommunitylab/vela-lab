@@ -116,13 +116,25 @@
 #define NRF_ERROR_BUSY                        (NRF_ERROR_BASE_NUM + 17) ///< Busy
 #endif
 
-#define APP_ACK_SUCCESS							NRF_SUCCESS
-#define APP_ERROR_GENERIC						NRF_ERROR_INTERNAL
-#define APP_ERROR_NO_MEM						NRF_ERROR_NO_MEM
-#define APP_ERROR_COMMAND_NOT_VALID				NRF_ERROR_NOT_SUPPORTED
-#define APP_ERROR_NOT_IMPLEMENTED				NRF_ERROR_NOT_FOUND
-#define APP_ERROR_NOT_FOUND						NRF_ERROR_NOT_FOUND
-#define APP_ERROR_INVALID_STATE					NRF_ERROR_INVALID_STATE
+#define APP_ACK_SUCCESS                         NRF_SUCCESS
+//#define NRF_ERROR_SVC_HANDLER_MISSING
+//#define NRF_ERROR_SOFTDEVICE_NOT_ENABLED
+#define APP_ERROR_GENERIC                       NRF_ERROR_INTERNAL
+#define APP_ERROR_NO_MEM                        NRF_ERROR_NO_MEM
+#define APP_ERROR_NOT_FOUND                     NRF_ERROR_NOT_FOUND
+#define APP_ERROR_NOT_IMPLEMENTED               NRF_ERROR_NOT_FOUND
+#define APP_ERROR_COMMAND_NOT_VALID             NRF_ERROR_NOT_SUPPORTED
+#define APP_ERROR_INVALID_PARAM                 NRF_ERROR_INVALID_PARAM
+#define APP_ERROR_INVALID_STATE                 NRF_ERROR_INVALID_STATE
+#define APP_ERROR_INVALID_LENGTH                NRF_ERROR_INVALID_LENGTH
+//#define NRF_ERROR_INVALID_FLAGS
+#define APP_ERROR_INVALID_DATA                  NRF_ERROR_INVALID_DATA
+#define APP_ERROR_DATA_SIZE                     NRF_ERROR_DATA_SIZE
+#define APP_ERROR_TIMEOUT                       NRF_ERROR_TIMEOUT
+#define APP_ERROR_NULL                          NRF_ERROR_NULL
+#define APP_ERROR_FORBIDDEN                     NRF_ERROR_FORBIDDEN
+#define APP_ERROR_INVALID_ADDR                  NRF_ERROR_INVALID_ADDR
+#define APP_ERROR_BUSY                          NRF_ERROR_BUSY
 
 typedef enum{
 	uart_app_level_ack 				= 0x0001,
@@ -161,6 +173,7 @@ typedef enum{
 	uart_set_bt_scan_params			= 0x0411,
 	uart_set_bt_adv_params			= 0x0412,
 
+	uart_set_bt_tof_state           = 0x5000,
 
 	uart_ping						= 0xFF00,
 	uart_pong						= 0xFF01,

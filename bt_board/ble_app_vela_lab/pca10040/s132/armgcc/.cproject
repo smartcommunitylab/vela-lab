@@ -180,8 +180,15 @@
 			</target>
 			<target name="flash" path="" targetID="org.eclipse.cdt.build.MakeTargetBuilder">
 				<buildCommand>${ProjDirPath}/build_script.sh</buildCommand>
-				<buildArguments/>
 				<buildTarget>flash</buildTarget>
+				<stopOnError>true</stopOnError>
+				<useDefaultCommand>true</useDefaultCommand>
+				<runAllBuilders>true</runAllBuilders>
+			</target>
+			<target name="flash_682551834" path="" targetID="org.eclipse.cdt.build.MakeTargetBuilder">
+				<buildCommand>${ProjDirPath}/build_script.sh</buildCommand>
+				<buildArguments/>
+				<buildTarget>flash_682551834</buildTarget>
 				<stopOnError>true</stopOnError>
 				<useDefaultCommand>true</useDefaultCommand>
 				<runAllBuilders>true</runAllBuilders>

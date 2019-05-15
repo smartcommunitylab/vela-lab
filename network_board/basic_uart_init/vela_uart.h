@@ -16,6 +16,7 @@ process_event_t turn_bt_off;
 process_event_t turn_bt_on_w_params;
 process_event_t turn_bt_on_def;
 process_event_t reset_bt;
+process_event_t turn_ble_tof_onoff;
 
 process_event_t turn_bt_on_low;
 process_event_t turn_bt_on_high;

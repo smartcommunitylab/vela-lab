@@ -126,6 +126,11 @@
 			<locationURI>SDK_ROOT/components/toolchain/system_nrf52840.c</locationURI>
 		</link>
 		<link>
+			<name>lib/sequential_procedures</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
 			<name>lib/tof</name>
 			<type>2</type>
 			<locationURI>virtual:/virtual</locationURI>
@@ -174,6 +179,11 @@
 			<name>nRF_BLE_Services/ble_dis.c</name>
 			<type>1</type>
 			<locationURI>SDK_ROOT/components/ble/ble_services/ble_dis/ble_dis.c</locationURI>
+		</link>
+		<link>
+			<name>nRF_BLE_Services/ble_dists.c</name>
+			<type>1</type>
+			<locationURI>SDK_ROOT/components/ble/ble_services/ble_dists/ble_dists.c</locationURI>
 		</link>
 		<link>
 			<name>nRF_BLE_Services/ble_hrs.c</name>
@@ -336,14 +346,24 @@
 			<locationURI>SDK_ROOT/components/softdevice/common/nrf_sdh_soc.c</locationURI>
 		</link>
 		<link>
+			<name>lib/sequential_procedures/sequential_procedures.c</name>
+			<type>1</type>
+			<locationURI>PARENT-5-PROJECT_LOC/common/lib/sequential_procedures/sequential_procedures.c</locationURI>
+		</link>
+		<link>
+			<name>lib/sequential_procedures/sequential_procedures.h</name>
+			<type>1</type>
+			<locationURI>PARENT-5-PROJECT_LOC/common/lib/sequential_procedures/sequential_procedures.h</locationURI>
+		</link>
+		<link>
 			<name>lib/tof/ifs_tof.c</name>
 			<type>1</type>
-			<locationURI>PARENT-3-PROJECT_LOC/tof/ifs_tof.c</locationURI>
+			<locationURI>SDK_ROOT/external/ifs_tof/ifs_tof.c</locationURI>
 		</link>
 		<link>
 			<name>lib/tof/ifs_tof.h</name>
 			<type>1</type>
-			<locationURI>PARENT-3-PROJECT_LOC/tof/ifs_tof.h</locationURI>
+			<locationURI>SDK_ROOT/external/ifs_tof/ifs_tof.h</locationURI>
 		</link>
 		<link>
 			<name>lib/uart_util/uart_util.c</name>
@@ -359,7 +379,7 @@
 	<variableList>
 		<variable>
 			<name>SDK_ROOT</name>
-			<value>file:/home/giova/workspaces/SDK/nRF5_SDK_14.0.0_3bcc1f7</value>
+			<value>file:/home/giova/workspaces/GIT/time_of_flight_ble/nRF5_SDK_14.0.0_3bcc1f7</value>
 		</variable>
 	</variableList>
 </projectDescription>

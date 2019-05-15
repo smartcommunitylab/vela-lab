@@ -4,7 +4,7 @@
 
 export NRF52_SDK_ROOT={absolute_path_to_nordic_sdk}
 
-export NRF52_SDK_ROOT=/home/giova/workspaces/SDK/nRF5_SDK_14.0.0_3bcc1f7/
+export NRF52_SDK_ROOT=/home/giova/workspaces/GIT/time_of_flight_ble/nRF5_SDK_14.0.0_3bcc1f7
 
 while IFS=. read major minor build
 do

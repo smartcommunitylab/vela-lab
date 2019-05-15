@@ -42,6 +42,7 @@ typedef enum{
     nordic_turn_bt_on_high =        0xF025, //deprecated
     ti_set_batt_info_int =          0xF026,
     nordic_reset =                  0xF027,
+    nordic_ble_tof_enable =         0xF030,
     ti_set_keep_alive =             0xF801,
 } pkttype_t;
 

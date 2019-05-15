@@ -68,7 +68,13 @@ SRC_FILES += \
   $(SDK_ROOT)/components/drivers_nrf/power/nrf_drv_power.c \
   $(SDK_ROOT)/components/libraries/serial/nrf_serial.c \
   ${COMMON_DIR}/lib/uart_util/uart_util.c \
-  ${COMMON_DIR}/lib/sequential_procedures/sequential_procedures.c
+  ${COMMON_DIR}/lib/sequential_procedures/sequential_procedures.c \
+  $(SDK_ROOT)/external/ifs_tof/ifs_tof.c \
+  $(SDK_ROOT)/components/drivers_nrf/ppi/nrf_drv_ppi.c \
+  $(SDK_ROOT)/components/drivers_nrf/timer/nrf_drv_timer.c \
+  $(SDK_ROOT)/external/AHRS_lib/AHRS_lib.c \
+  $(SDK_ROOT)/external/AHRS_lib/Math_Utils.c \
+  $(SDK_ROOT)/components/ble/ble_services/ble_dists/ble_dists.c
   
 # Include folders common to all targets
 INC_FOLDERS += \
@@ -195,6 +201,10 @@ INC_FOLDERS += \
   ${COMMON_DIR}/lib/uart_util \
   ${COMMON_DIR}/inc \
   ${COMMON_DIR}/lib/sequential_procedures \
+  $(SDK_ROOT)/components/ble/ble_radio_notification \
+  $(SDK_ROOT)/external/ifs_tof \
+  $(SDK_ROOT)/external/AHRS_lib \
+  $(SDK_ROOT)/components/ble/ble_services/ble_dists
 
 # Libraries common to all targets
 LIB_FILES += \
@@ -217,14 +227,14 @@ CFLAGS += -DSOFTDEVICE_PRESENT
 CFLAGS += -DSWI_DISABLE0
 CFLAGS += -mcpu=cortex-m4
 CFLAGS += -mthumb -mabi=aapcs
-CFLAGS +=  -Wall -Werror
+#CFLAGS +=  -Wall -Werror
 CFLAGS += -mfloat-abi=hard -mfpu=fpv4-sp-d16
 # keep every function in a separate section, this allows linker to discard unused ones
 CFLAGS += -ffunction-sections -fdata-sections -fno-strict-aliasing
 CFLAGS += -fno-builtin -fshort-enums 
 CFLAGS += -DPPI_ENABLED=1
 CFLAGS += -DTIMER_ENABLED=1
-CFLAGS += -DTIMER1_ENABLED=1
+#CFLAGS += -DTIMER1_ENABLED=1 #seems to be not used. Ifs_tof uses timer2
 CFLAGS += -DDEBUG=1
 CFLAGS += -DDISABLE_NEW_LINE_DAV
 CFLAGS += -DEGU_ENABLED=1
@@ -238,6 +248,11 @@ CFLAGS += -DNRF_LOG_USES_RTT=1
 CFLAGS += -DNRF_LOG_BACKEND_SERIAL_USES_RTT=1
 CFLAGS += -DNRF_LOG_BACKEND_RTT_ENABLED=1
 CFLAGS += -DNRF_LOG_DEFAULT_LEVEL=4
+CFLAGS += -DENABLE_TOF=1
+CFLAGS += -DENABLE_GATT=1
+CFLAGS += -DSDK_VERSION=14
+CFLAGS += -DBLE_DISTS_ENABLED=1
+CFLAGS += -DTIMER2_ENABLED=1
 #CFLAGS += -DREDIRECT_TO_USB
 
 # C++ flags common to all targets
@@ -300,7 +315,11 @@ $(foreach target, $(TARGETS), $(call define_target, $(target)))
 flash_682368845: $(OUTPUT_DIRECTORY)/nrf52832_xxaa.hex
 	@echo Flashing: $<
 	nrfjprog -f nrf52 --program $< --sectorerase -s 682368845
-	nrfjprog -f nrf52 --reset -s 682368845
+	nrfjprog -f nrf52 --reset -s 682368845# Flash the program on the specific target
+flash_682551834: $(OUTPUT_DIRECTORY)/nrf52832_xxaa.hex
+	@echo Flashing: $<
+	nrfjprog -f nrf52 --program $< --sectorerase -s 682551834
+	nrfjprog -f nrf52 --reset -s 682551834
 	
 # Flash the program on the first available target
 flash: $(OUTPUT_DIRECTORY)/nrf52832_xxaa.hex
