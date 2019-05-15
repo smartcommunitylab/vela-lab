@@ -37,11 +37,13 @@ if not os.path.exists(logfolderpath):
 endchar = 0x0a
 SER_END_CHAR = endchar.to_bytes(1, byteorder='big', signed=False)
 
-SINGLE_REPORT_SIZE = 9
-MAX_ONGOING_SEQUENCES = 10
-MAX_PACKET_PAYLOAD = 54
+SINGLE_NODE_REPORT_SIZE = 9      #must be the same as in common/inc/contraints.h
+MAX_REPORTS_PER_PACKET = 22 #must be the same as in common/inc/contraints.h
+MAX_PACKET_PAYLOAD = SINGLE_NODE_REPORT_SIZE*MAX_REPORTS_PER_PACKET
 
 MAX_BEACONS = 100
+
+MAX_ONGOING_SEQUENCES = 10
 
 MAX_TRICKLE_C_VALUE = 256
 
@@ -439,12 +441,14 @@ class PacketType(IntEnum):
     nordic_turn_bt_on_high =        0xF025  #deprecated
     ti_set_batt_info_int =          0xF026
     nordic_reset =                  0xF027
+    nordic_ble_tof_enable =         0xF030
     ti_set_keep_alive =             0xF801
 
 def cls():
     os.system('cls' if os.name=='nt' else 'clear')
 
 def handle_user_input():
+    ble_tof_enabled=False
     while 1:
         try:
             input_str = input()
@@ -486,13 +490,23 @@ def handle_user_input():
             #    net.addPrint("Turning bt on low")
             #    appLogger.debug("[SENDING] Enable Bluetooth LOW")
             #    net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_turn_bt_on_low, None),forced)
-            elif user_input == 4:
-                net.addPrint("[USER_INPUT] Turn bluetooth on with default settings stored on the nodes")
-                net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_turn_bt_on_def, None),forced)
+            #elif user_input == 4:
+            #    net.addPrint("[USER_INPUT] Turn bluetooth on with default settings stored on the nodes")
+            #    net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_turn_bt_on_def, None),forced)
             #elif user_input == 6:
             #    net.addPrint("Turning bt on high")
             #    appLogger.debug("[SENDING] Enable Bluetooth HIGH")
             #    net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_turn_bt_on_high, None),forced)
+            elif user_input == 4:
+                if ble_tof_enabled:
+                    net.addPrint("[USER_INPUT] disabling ble tof")
+                    ble_tof_enabled=False
+                else:
+                    net.addPrint("[USER_INPUT] enabling ble tof")
+                    ble_tof_enabled=True
+                
+                net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_ble_tof_enable, ble_tof_enabled.to_bytes(1, byteorder="big", signed=False)),forced)
+                    
             elif user_input == 5:
                 SCAN_INTERVAL_MS = 1500
                 SCAN_WINDOW_MS = 1500
@@ -560,7 +574,7 @@ def decode_payload(payload, seqid, size, packettype, pktnum): #TODO: packettype 
     #raw_data = "Node {0} ".format(messageSequenceList[seqid].nodeid) + "0x {:04X} ".format(packettype) + "0x {:02X}".format(pktnum) + " 0x "
     cur=0
     try:
-        for x in range(round(size / SINGLE_REPORT_SIZE)):
+        for x in range(round(size / SINGLE_NODE_REPORT_SIZE)):
             nid = int(payload[cur:cur+12], 16) #int(ser.read(6).hex(), 16)
             cur=cur+12
             lastrssi = int(payload[cur:cur+2], 16) #int(ser.read(1).hex(), 16)
@@ -572,7 +586,7 @@ def decode_payload(payload, seqid, size, packettype, pktnum): #TODO: packettype 
             #net.addPrint("id = {:012X}".format(nid, 8))
             contact = ContactData(nid, lastrssi, maxrssi, pktcounter)
             messageSequenceList[seqid].datalist.append(contact)
-            messageSequenceList[seqid].datacounter += SINGLE_REPORT_SIZE
+            messageSequenceList[seqid].datacounter += SINGLE_NODE_REPORT_SIZE
             #raw_data += "{:012X}".format(nid, 8) + '{:02X}'.format(lastrssi) + '{:02X}'.format(maxrssi) + '{:02X}'.format(pktcounter)
 
     except ValueError:
@@ -682,7 +696,7 @@ try:
                             cursor+=2
                             payload = line[cursor:].hex()
                             cursor = len(line)
-                            if datalen % SINGLE_REPORT_SIZE != 0:
+                            if datalen % SINGLE_NODE_REPORT_SIZE != 0:
                                 if printVerbosity > 1:
                                     net.addPrint("  [PACKET DECODE] Invalid datalength: "+ str(datalen))
                                 #appLogger.warning("[Node {0}] invalid sequencelength: {1}".format(nodeid, datalen))
@@ -717,8 +731,8 @@ try:
                             seqid = len(messageSequenceList) - 1
                             messageSequenceList[seqid].sequenceSize += datalen
 
-                            if messageSequenceList[seqid].sequenceSize > MAX_PACKET_PAYLOAD - SINGLE_REPORT_SIZE: #this is the normal behaviour
-                                decode_payload(payload, seqid, MAX_PACKET_PAYLOAD - SINGLE_REPORT_SIZE, PacketType.network_new_sequence, pktnum)
+                            if messageSequenceList[seqid].sequenceSize > MAX_PACKET_PAYLOAD: #this is the normal behaviour
+                                decode_payload(payload, seqid, MAX_PACKET_PAYLOAD, PacketType.network_new_sequence, pktnum)
                             else:   #this is when the sequence is made by only one packet.
                                 decode_payload(payload, seqid, datalen, PacketType.network_new_sequence, pktnum)
 
