@@ -11,3 +11,4 @@
 vela_uart.*
 vela_sender.*
 sink_receiver.*
+*.cc26x0-cc13x0

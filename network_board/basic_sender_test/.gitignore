@@ -7,3 +7,4 @@
 *.elf
 *.hex
 *srf06-cc26xx*
+*.cc26x0-cc13x0

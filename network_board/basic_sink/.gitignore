@@ -2,6 +2,7 @@
 .cproject
 .project
 /obj_*/
+/build/
 *.a
 *.bin
 *.elf
