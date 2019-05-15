@@ -28,7 +28,7 @@ typedef struct
    54 bytes - Header size = 50 bytes. Highest power of 9 under 50 is 45 bytes per packet,
    which is 5 reports per packet */ 
 #define SINGLE_NODE_REPORT_SIZE 		9
-#define MAX_REPORTS_PER_PACKET 6
+#define MAX_REPORTS_PER_PACKET 22 // this is NET_MSG_BUFF_SIZE/SINGLE_NODE_REPORT_SIZE
 #define MAX_PACKET_SIZE MAX_REPORTS_PER_PACKET * SINGLE_NODE_REPORT_SIZE
 
 /*EDDYSTONE DEFINES*/

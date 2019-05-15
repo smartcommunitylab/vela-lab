@@ -39,13 +39,11 @@
 
 #define KEEP_ALIVE_PACKET "A"
 
-#define MAX_REPORTS_PER_PACKET 6
-#define MAX_REPORT_DATA_SIZE MAX_REPORTS_PER_PACKET * SINGLE_NODE_REPORT_SIZE // 5 * 9
 
 //-------------------------------------------------------------------------------
 //Trickle defines
-#define IMIN               10 * CLOCK_SECOND   /* ticks */
-#define IMAX               15   /* doublings of IMIN, so τmax = IMIN*(2^IMAX) */
+#define TRICKLE_IMIN               10 * CLOCK_SECOND   /* ticks */
+#define TRICKLE_IMAX               15   /* doublings of IMIN, so τmax = IMIN*(2^IMAX) */
 #define REDUNDANCY_CONST    2   /*  aka k*/
 
 /* Networking */

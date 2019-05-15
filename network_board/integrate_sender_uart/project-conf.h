@@ -21,7 +21,7 @@
 //#define NETSTACK_CONF_RDC_CHANNEL_CHECK_RATE 64
 
 //#define MAC_CONF_WITH_TSCH                  tschmac_driver
-#define TSCH_CONF_AUTOSTART                 1
+//#define TSCH_CONF_AUTOSTART                 1
 //#define CC13XX_CONF_PROP_MODE   0   /*by default this is 1*/
 /*---------------------------------------------------------------------------*/
 #undef  UDP_PORT
@@ -55,12 +55,12 @@
 //#define TSCH_CONF_CCA_ENABLED       1
 //#define ORCHESTRA_CONF_EBSF_PERIOD           101
 //#define ORCHESTRA_CONF_UNICAST_PERIOD        7
-#define ORCHESTRA_CONF_UNICAST_SENDER_BASED  1
+//#define ORCHESTRA_CONF_UNICAST_SENDER_BASED  1
 //there is an hash function that maps node id to slot
-#define ORCHESTRA_CONF_UNICAST_PERIOD           10   //THIS MORE OR LESS DEFINES THE SLOT LENGTH; THEN ALSO THE NETWORKS SIZE IF THE NETWORK IS A STAR (1HOP)
-#define TSCH_CONF_KEEPALIVE_TIMEOUT             10*CLOCK_SECOND
-#define TSCH_SCHEDULE_CONF_DEFAULT_LENGTH       10
-#define QUEUEBUF_CONF_NUM                       8   //THIS IS THE SIZE OF THE PACKET BUFFER (two buffers, incoming and outgoing of this size)
+//#define ORCHESTRA_CONF_UNICAST_PERIOD           10   //THIS MORE OR LESS DEFINES THE SLOT LENGTH; THEN ALSO THE NETWORKS SIZE IF THE NETWORK IS A STAR (1HOP)
+//#define TSCH_CONF_KEEPALIVE_TIMEOUT             10*CLOCK_SECOND
+//#define TSCH_SCHEDULE_CONF_DEFAULT_LENGTH       10
+//#define QUEUEBUF_CONF_NUM                       8   //THIS IS THE SIZE OF THE PACKET BUFFER (two buffers, incoming and outgoing of this size)
 //#define ORCHESTRA_CONF_COLLISION_FREE_HASH      1
 //#define TSCH_CONF_RX_WAIT 1100
 

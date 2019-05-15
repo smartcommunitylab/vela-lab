@@ -109,6 +109,8 @@ PROCESS_THREAD(vela_node_process, ev, data)
 	event_bat_data_ready = process_alloc_event();
 	poll_fuel_gauge(0);
 	// do something, probably related to the watchdog
+	while (1) { PROCESS_YIELD();
+	}
 
 	PROCESS_END();
 }

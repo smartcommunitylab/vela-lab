@@ -588,10 +588,10 @@ void uart_util_initialize(void){
     APP_ERROR_CHECK(ret);
 #else
 #if BOARD_IOID_UART_CTS != IOID_UNUSED && BOARD_IOID_UART_RTS != IOID_UNUSED
-#if UART_FLOW_CONTROL==0
+
     enable_uart_flow_control();
     update_isr_priority();
-#endif
+
 #endif
 #endif
 }

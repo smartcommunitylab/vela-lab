@@ -21,15 +21,15 @@ COMMON_DIR_REL_PATH=../vela-lab/common
 $(info $$COMMON_DIR_REL_PATH is: ${COMMON_DIR_REL_PATH})
 
 # force Orchestra from command line
-MAKE_WITH_ORCHESTRA ?= 1
-ifeq ($(MAKE_WITH_ORCHESTRA),1)
-MODULES += os/services/orchestra
-endif
+#MAKE_WITH_ORCHESTRA ?= 1
+#ifeq ($(MAKE_WITH_ORCHESTRA),1)
+#MODULES += os/services/orchestra
+#endif
  # print #routes periodically, used for regression tests
 #MAKE_WITH_PERIODIC_ROUTES_PRINT ?= 0
 
-MAKE_MAC = MAKE_MAC_TSCH
-MAKE_ROUTING = MAKE_ROUTING_RPL_CLASSIC
+#MAKE_MAC = MAKE_MAC_TSCH
+#MAKE_ROUTING = MAKE_ROUTING_RPL_CLASSIC
 
 
 MODULES+=${COMMON_DIR_REL_PATH}/lib/uart_util
@@ -53,8 +53,8 @@ BOARD=launchpad_vela/cc1350
 
 BSL_FLAGS += -b 115200
 
-CONTIKI_WITH_RPL=1
-CONTIKI_WITH_IPV6 = 1
+#CONTIKI_WITH_RPL=1
+#CONTIKI_WITH_IPV6 = 1
 
 include $(CONTIKI)/Makefile.include
 

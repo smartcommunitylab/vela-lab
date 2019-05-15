@@ -22,7 +22,8 @@
 #define NET_MESS_MSGTYPE_LEN    2
 #define NET_MESS_MSGLEN_LEN     1
 
-#define NET_MESS_BUFF_SIZE      SERIAL_LINE_CONF_BUFSIZE
+/* NOTE THAT THIS NUMBER IS RATHER ARBITRARY.  200 worked for me. Amy, May 2019*/
+#define NET_MESS_BUFF_SIZE      200
 
 typedef enum{
     network_new_sequence =          0x0100,
