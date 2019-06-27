@@ -137,12 +137,7 @@ receiver(struct simple_udp_connection *c,
 //    }
 //}
 /*---------------------------------------------------------------------------*/
-static int
-dummy_uart_receiver(unsigned char c) //this function will be useful in the future. For now setting the input function disables the power saving of the uart peripheral.
-{
-  (void) c;
-  return 0;
-}
+
 /*---------------------------------------------------------------------------*/
 
 static void
@@ -184,20 +179,21 @@ PROCESS_THREAD(sink_receiver_process, ev, data)
 {
   PROCESS_BEGIN();
 
-  cc26xx_uart_set_input(dummy_uart_receiver);
 
   //    servreg_hack_init();
 
   //    ipaddr_global = set_global_address();
 
   //create_rpl_dag(ipaddr_global);
-  NETSTACK_ROUTING.root_start(); //TODO: is this the same of create_rpl_dag?
 
+  simple_udp_register(&unicast_connection, UDP_PORT, NULL, UDP_PORT, receiver);
+
+  NETSTACK_ROUTING.root_start(); //TODO: is this the same of create_rpl_dag?
+  NETSTACK_MAC.on();
 
 
   //    servreg_hack_register(SERVICE_ID, ipaddr_global);
 
-  simple_udp_register(&unicast_connection, UDP_PORT, NULL, UDP_PORT, receiver);
 
   //NETSTACK_MAC.off();
 

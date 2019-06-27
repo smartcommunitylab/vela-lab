@@ -24,6 +24,7 @@ MODULES+=${COMMON_DIR_REL_PATH}/lib/sequential_procedures
 PROJECT_SOURCEFILES += vela_uart.c
 PROJECT_SOURCEFILES += vela_sender.c
 
+TARGET ?= cc26x0-cc13x0
 BOARD=launchpad/cc2650
 
 BSL_FLAGS += -b 115200

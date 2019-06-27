@@ -22,6 +22,9 @@ SERIAL_PORT = "/dev/ttyS0" #"/dev/ttyACM0" #"/dev/ttyS0"
 if len(sys.argv)>1:
 	SERIAL_PORT=sys.argv[1]
 
+if len(sys.argv)>2:
+	BAUD_RATE=int(sys.argv[2])
+
 
 logfolderpath = os.path.dirname(os.path.realpath(__file__))+'/log/'
 if not os.path.exists(logfolderpath):

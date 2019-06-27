@@ -98,7 +98,7 @@ static uint8_t stop_periodic_report_to_nordic(void);
 
 void uart_util_rx_handler(uart_pkt_t* p_packet);
 void uart_util_ack_tx_done(void);
-extern void uart_util_ack_error(ack_wait_t* ack_wait_data);
+void uart_util_ack_error(ack_wait_t* ack_wait_data);
 
 PROCEDURE(tof_on, &send_set_bt_scan_params, &send_set_bt_scan_on, &send_set_ble_tof_on);
 PROCEDURE(tof_off_w_ble, &send_set_ble_tof_off);
@@ -266,10 +266,10 @@ static uint8_t send_set_ble_tof_off(void) {
     static uart_pkt_t packet;
     static uint8_t payload[1];
     packet.payload.p_data = payload;
-    packet.payload.data_len = 0;
+    packet.payload.data_len = 1;
     packet.type = uart_set_bt_tof_state;
 
-    payload[0] = 1;
+    payload[0] = 0;
     uart_util_send_pkt(&packet);
 
     return 0;

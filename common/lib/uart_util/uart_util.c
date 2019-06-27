@@ -38,8 +38,8 @@ typedef enum{
 	error,
 } uart_rx_status_t;
 
-uint8_t is_an_ack(uart_pkt_t* p_packet);
-uint8_t uart_util_ack_check(uart_pkt_t* p_packet);
+static uint8_t is_an_ack(uart_pkt_t* p_packet);
+static uint8_t uart_util_ack_check(uart_pkt_t* p_packet);
 static void stop_wait_for_ack(void);
 #ifdef CONTIKI
 static void enable_uart_flow_control(void);
@@ -72,7 +72,7 @@ static void sleep_handler(void)
 }
 #endif
 
-ack_wait_t m_ack_wait = {
+static ack_wait_t m_ack_wait = {
 		false,
 		0,
 		0,
@@ -84,7 +84,7 @@ ack_wait_t m_ack_wait = {
 static struct ctimer m_ack_timer;
 #endif
 
-uint8_t to_byte(uint8_t hex_data){
+static uint8_t to_byte(uint8_t hex_data){
 	if( hex_data <= '9'){ //0x'0' to 0x'9'
 		return hex_data - '0';
 	}else{  //0x'A' to 0x'F'
@@ -152,17 +152,24 @@ static void process_uart_rx_data() {
 void process_uart_rx_data(uint8_t *serial_data){
 #endif
 	static uint8_t uart_frame[UART_FRAME_MAX_LEN_BYTE];
+	static uint8_t uart_packet[UART_PKT_PAYLOAD_MAX_LEN_SYMB+UART_PKT_TYPE_LEN_SYMB];
+	static uart_pkt_t p_packet;
 	static uint16_t idx = 0;
 	static uint16_t expected_lenght = 0;
 	static uart_rx_status_t status = waiting_start_seq;
-	uart_rx_status_t new_status = waiting_start_seq;
+	static uart_rx_status_t new_status = waiting_start_seq;
+	new_status = waiting_start_seq;
 
-	uint8_t temp_array[HEX_FRAME_LEN_LEN_SYMB];
-	size_t written_size = 0;
-	uint32_t ret = NRF_SUCCESS;
+	static uint8_t temp_array[HEX_FRAME_LEN_LEN_SYMB];
+	static size_t written_size = 0;
+	written_size = 0;
+	static uint32_t ret = NRF_SUCCESS;
+	ret = NRF_SUCCESS;
+
 
 #ifdef CONTIKI
-	uint8_t done = 0;
+	static uint8_t done = 0;
+	done = 0;
 	while ( !done ) {
 #endif
 
@@ -268,9 +275,7 @@ void process_uart_rx_data(uint8_t *serial_data){
 		if( is_end_sequence( &uart_frame[ UART_FRAME_START_SEQ_LEN_BYTE + HEX_FRAME_LEN_LEN_BYTE + expected_lenght ]) ){
 			idx++;
 
-			uint8_t *uart_packet = &uart_frame[UART_FRAME_START_SEQ_LEN_BYTE + HEX_FRAME_LEN_LEN_BYTE]; //THIS IS FOR REUSE THE SPACE!, IF IT LEADS TO PROBLEM ALLOCATE A NEW ARRAY
 			uint32_t byte_len = hex_array_to_uint8(&uart_frame[UART_FRAME_START_SEQ_LEN_BYTE + HEX_FRAME_LEN_LEN_BYTE], expected_lenght , uart_packet);
-			uart_pkt_t p_packet;
 			p_packet.type = (uart_pkt_type_t) ((uart_packet[0] << 8) + uart_packet[1]); //TODO: WHAT'S HAPPEN IF THE CAST CANNOT BE DONE?????
 			if(expected_lenght == 0){
 				p_packet.payload.p_data = NULL;
@@ -303,7 +308,7 @@ void process_uart_rx_data(uint8_t *serial_data){
 
 //returns true if the packet has to be passed to the application for processing (if it is not an ack and we are not waiting acks). These packets needs ack!
 //false if the packet was an ack
-uint8_t uart_util_ack_check(uart_pkt_t* p_packet) {
+static uint8_t uart_util_ack_check(uart_pkt_t* p_packet) {
 	if (is_an_ack(p_packet)) {
 		if (m_ack_wait.ack_waiting) {
 			stop_wait_for_ack();
@@ -313,7 +318,8 @@ uint8_t uart_util_ack_check(uart_pkt_t* p_packet) {
 		return 0; //in any case ack pacekts are not passed to the application
 	}else{
 		if (m_ack_wait.ack_waiting) { //if we receive an generic packet while we were waiting an ack, stop waiting and signal the error
-			ack_wait_t old_wait = m_ack_wait; //stop_wait_for_ack() resets the m_ack_wait variable. So we store a temporary version to pass it to uart_util_ack_error(...)
+			static ack_wait_t old_wait;
+			memcpy ( &old_wait, &m_ack_wait, sizeof(m_ack_wait) ); //stop_wait_for_ack() resets the m_ack_wait variable. So we store a temporary version to pass it to uart_util_ack_error(...)
 			stop_wait_for_ack();
 			uart_util_ack_error(&old_wait);
 			return 0;
@@ -348,7 +354,7 @@ void serial_evt_handle(struct nrf_serial_s const * p_serial, nrf_serial_event_t 
 #endif
 
 
-uint8_t is_an_ack(uart_pkt_t* p_packet){
+static uint8_t is_an_ack(uart_pkt_t* p_packet){
 	if( p_packet->type == uart_app_level_ack ){ //todo check also the state of the ack
 //		uart_pkt_type_t ack_for_type = (p_packet->payload[2] << 8) + p_packet->payload[3];
 		return 1;
@@ -364,7 +370,8 @@ static void ack_timeout_handler(void *ptr){
 static void ack_timeout_handler(){
 #endif
 	if (m_ack_wait.ack_waiting) {
-		ack_wait_t old_wait = m_ack_wait; //stop_wait_for_ack() resets the m_ack_wait variable. So we store a temporary version to pass it to uart_util_ack_error(...)
+		static ack_wait_t old_wait;
+		memcpy ( &old_wait, &m_ack_wait, sizeof(m_ack_wait) ); //stop_wait_for_ack() resets the m_ack_wait variable. So we store a temporary version to pass it to uart_util_ack_error(...)
 		stop_wait_for_ack();
 		uart_util_ack_error(&old_wait);
 	}else{ //if ack_timeout_handler() is triggered but we are not waiting an ack, reset variables but not call packet_error_handler
@@ -411,7 +418,8 @@ static void start_wait_for_ack(uint32_t timeout, uart_pkt_t *p_paket){ //timeout
 #ifdef CONTIKI
 static unsigned int uart1_send_bytes(const unsigned char *s, unsigned int len)
 {
-  unsigned int i = 0;
+  static unsigned int i = 0;
+  i = 0;
 
   while(s && *s != 0) {
     if(i >= len) {
@@ -448,23 +456,31 @@ uint32_t uart_util_send_pkt(uart_pkt_t* uart_pkt_t){
 		return NRF_ERROR_INVALID_STATE;
 	}
 
-	uint16_t idx = 0;
-	uint32_t len = 0;
+	static uint16_t idx = 0;
+	idx = 0;
+	static uint32_t len = 0;
+	len = 0;
 	//calculate the lenght in byte for allocating memory
-	uint8_t uart_frame_len = UART_FRAME_START_SEQ_LEN_BYTE + 2*(uart_pkt_t->payload.data_len) + HEX_FRAME_LEN_LEN_BYTE + UART_PKT_TYPE_LEN_BYTE + UART_FRAME_END_SEQ_LEN_BYTE;
-	uint8_t uart_frame[uart_frame_len];
+	static uint8_t uart_frame_len;
+	uart_frame_len = UART_FRAME_START_SEQ_LEN_BYTE + 2*(uart_pkt_t->payload.data_len) + HEX_FRAME_LEN_LEN_BYTE + UART_PKT_TYPE_LEN_BYTE + UART_FRAME_END_SEQ_LEN_BYTE;
+	uint8_t uart_frame[uart_frame_len]; //to make this static the maximum size for the uart_frame has to be defined
 	//memset(uart_frame, 0x00, uart_frame_len*sizeof(uint8_t));
 
 	//write start of packet symbol
 	uart_frame[idx++] = UART_PKT_START_SYMBOL;
 	//calculate content of packet length field (it will  contain the length in hex formatted characters which is half of the length in byte)
-	uint16_t hex_len_field = UART_PKT_TYPE_LEN_SYMB + uart_pkt_t->payload.data_len;
-	uint8_t hex_len_field_array[UART_PKT_TYPE_LEN_SYMB] = {0xFF & (hex_len_field >> 8), 0xFF & (hex_len_field)};
+	static uint16_t hex_len_field;
+	hex_len_field = UART_PKT_TYPE_LEN_SYMB + uart_pkt_t->payload.data_len;
+	static uint8_t hex_len_field_array[UART_PKT_TYPE_LEN_SYMB];
+	hex_len_field_array[0] = 0xFF & (hex_len_field >> 8);
+	hex_len_field_array[1] = 0xFF & (hex_len_field);
 	//write content of packet length field to the packet
 	len = uint8_to_hex_array(hex_len_field_array,HEX_FRAME_LEN_LEN_BYTE, &uart_frame[idx], HEX_FRAME_LEN_LEN_BYTE);
 	idx += len;
 	//write content of packet type field to the packet
-	uint8_t type_field_array[UART_PKT_TYPE_LEN_BYTE] = {0xFF & ((uart_pkt_t->type) >> 8), 0xFF & (uart_pkt_t->type)};
+	static uint8_t type_field_array[UART_PKT_TYPE_LEN_BYTE];
+	type_field_array[0] = 0xFF & ((uart_pkt_t->type) >> 8);
+	type_field_array[1] = 0xFF & (uart_pkt_t->type);
 	len = uint8_to_hex_array(type_field_array,UART_PKT_TYPE_LEN_BYTE, &uart_frame[idx], UART_PKT_TYPE_LEN_BYTE);
 	idx += len;
 	//write content of payload field to the packet
@@ -480,7 +496,8 @@ uint32_t uart_util_send_pkt(uart_pkt_t* uart_pkt_t){
                             NULL,
                             0);
 #else
-	uint32_t ret = uart1_send_bytes(uart_frame, idx);
+	static uint32_t ret;
+	ret = uart1_send_bytes(uart_frame, idx);
 #endif
 
 	if(ret == NRF_SUCCESS){
@@ -590,7 +607,7 @@ void uart_util_initialize(void){
 #if BOARD_IOID_UART_CTS != IOID_UNUSED && BOARD_IOID_UART_RTS != IOID_UNUSED
 
     enable_uart_flow_control();
-    update_isr_priority();
+    //update_isr_priority();
 
 #endif
 #endif
@@ -602,4 +619,3 @@ void uart_util_flush(void){
     APP_ERROR_CHECK(ret);
 #endif
 }
-

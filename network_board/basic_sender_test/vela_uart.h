@@ -10,6 +10,7 @@ process_event_t event_data_ready;
 process_event_t event_ping_requested;
 process_event_t event_pong_received;
 process_event_t event_nordic_message_received;
+process_event_t turn_ble_tof_onoff;
 process_event_t turn_bt_on;
 process_event_t turn_bt_off;
 process_event_t turn_bt_on_w_params;

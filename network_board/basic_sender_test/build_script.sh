@@ -5,7 +5,7 @@
 
 export CONTIKI_ROOT={absolute_path_to_contiki}
 
-export CONTIKI_ROOT=/home/bram/Documents/ContikiTest/contiki
+export CONTIKI_ROOT=/home/giova/workspaces/GIT/contiki-ng
 
 
 #Device detection rootdirectory for devices detection script
@@ -73,4 +73,4 @@ export CFLAGS="-O0 -g"
 #	echo "Detect devices script not found, uploading to default port"
 make "$@" V=1 PORT=/dev/ttyACM0
 	    
-fi
+#fi

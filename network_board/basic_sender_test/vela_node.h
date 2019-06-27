@@ -5,6 +5,4 @@ PROCESS_NAME (vela_node_process);
 
 process_event_t set_battery_info_interval;
 
-extern uint8_t debug_print;
-
 #endif

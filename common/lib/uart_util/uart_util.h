@@ -34,8 +34,8 @@
 #ifndef CONTIKI
 	#define SERIAL_FIFO_TX_SIZE SERIAL_FIFOS_SIZE
 	#define SERIAL_FIFO_RX_SIZE SERIAL_FIFOS_SIZE         /**< UART RX buffer (FIFO) size. */
-	#define SERIAL_BUFF_TX_SIZE	64
-	#define SERIAL_BUFF_RX_SIZE	1
+	#define SERIAL_BUFF_TX_SIZE	128
+	#define SERIAL_BUFF_RX_SIZE	2                       //do not touch this. For some reason by setting it to 1 the RTS pin keeps toggling and the MCU never goes to sleep
 
 	#ifdef REDIRECT_TO_USB
 		#define UART_RX_PIN_NUMBER 				RX_PIN_NUMBER

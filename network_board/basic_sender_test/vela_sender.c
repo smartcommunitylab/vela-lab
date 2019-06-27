@@ -2,7 +2,7 @@
  * vela_sender.c - this file drives the sending of RPL packets. The intent is
  * for it to be used from the UART by raising an event event_data_ready, then
  * the data will be sent
- * 
+ *
  **/
 
 #include <stdio.h>
@@ -21,7 +21,8 @@
 
 #include "sys/log.h"
 #define LOG_MODULE "vela_sender"
-#define LOG_LEVEL LOG_LEVEL_DBG
+//#define LOG_LEVEL LOG_LEVEL_DBG
+#define LOG_LEVEL LOG_LEVEL_NONE
 
 #ifdef BOARD_LAUNCHPAD_VELA
 #if BOARD_LAUNCHPAD_VELA==1
@@ -31,6 +32,8 @@
 
 #define VERY_LONG_TIMER_VALUE   14510024
 #define MAX_RANDOM_DELAY_S      0.5f
+#define NODE_OFFLINE_RESET_TIMEOUT_MINUTES  30
+#define NODE_OFFLINE_RESET_TIMEOUT CLOCK_SECOND*60*NODE_OFFLINE_RESET_TIMEOUT_MINUTES //30 minutes timeout. If the nodes remains offline for more than this timeout, it will be reset
 
 static struct etimer periodic_timer;
 
@@ -50,6 +53,7 @@ static struct etimer keep_alive_timer;
 //static struct etimer rand_delay_timer;
 
 static uint32_t keep_alive_interval = KEEP_ALIVE_INTERVAL;
+static struct ctimer m_node_offline_timeout;
 
 static uint32_t time_between_sends = TIME_BETWEEN_SENDS_DEFAULT_S*CLOCK_SECOND;
 
@@ -94,12 +98,22 @@ set_global_address(void)
   }
 }
 /*---------------------------------------------------------------------------*/
+static void offline_timeout_handler(void *ptr){ //when this triggers the node will be reset
+  if(NETSTACK_ROUTING.node_is_reachable() && NETSTACK_ROUTING.get_root_ipaddr(&addr)){ //last chance to get the sink address, if it fails the node is reset
+    ctimer_restart(&m_node_offline_timeout);
+  }else{
+    LOG_DBG("The node is offline since more than %d minutes. The node will be reset.\n",NODE_OFFLINE_RESET_TIMEOUT_MINUTES);
+    while(1){};
+  }
+}
+/*---------------------------------------------------------------------------*/
 void vela_sender_init() {
   random_init(0);
 
   LOG_INFO("vela_sender: initializing \n");
   message_number = 0;
-
+  ctimer_set(&m_node_offline_timeout, NODE_OFFLINE_RESET_TIMEOUT, offline_timeout_handler, NULL);
+  LOG_INFO("A timer will reset the node if it stays offline for more than %d minutes\n",NODE_OFFLINE_RESET_TIMEOUT_MINUTES);
   //    servreg_hack_init();
 
   set_global_address();
@@ -111,15 +125,15 @@ void vela_sender_init() {
   process_start(&keep_alive_process, "keep alive process");
   return;
 }
-
 /*---------------------------------------------------------------------------*/
 static uint8_t send_to_sink (uint8_t *data, int dataSize, pkttype_t pkttype, int sequenceSize ) {
 
   // note that unless this is the start of a sequence of packets, sequenceSize will be ignored
-  
+
   leds_toggle(LEDS_GREEN);
   if(NETSTACK_ROUTING.node_is_reachable() && NETSTACK_ROUTING.get_root_ipaddr(&addr)){
     LOG_DBG("sending to sink...\n");
+    ctimer_restart(&m_node_offline_timeout);
     uint8_t totalSize = 0;
     message_number++;
     buf[0] = pkttype >> 8;
@@ -151,7 +165,7 @@ static uint8_t send_to_sink (uint8_t *data, int dataSize, pkttype_t pkttype, int
     return -1;
   }
 }
-        
+
 
 
 static void
@@ -163,17 +177,18 @@ trickle_tx(void *ptr, uint8_t suppress)
   uip_create_unspecified(&trickle_conn->ripaddr);
 }
 
-static void node_delay(void){
+static void node_delay(void){ //not required with the new contiki and tsch
   //    uint32_t delayTime=(MAX_RANDOM_DELAY_S*CLOCK_SECOND*(node_id & (0x00FF)))/256;
-  uint32_t delayTime=(random_rand()*MAX_RANDOM_DELAY_S*CLOCK_SECOND)/0xFFFF;
-  LOG_DBG("node_id 0x%4X, PACKET Delay %lu\n",node_id, delayTime);
-  clock_wait(delayTime);
+  //uint32_t delayTime=(random_rand()*MAX_RANDOM_DELAY_S*CLOCK_SECOND)/0xFFFF;
+  //LOG_DBG("node_id 0x%4X, PACKET Delay %lu\n",node_id, delayTime);
+  //clock_wait(delayTime);
   //Commented the more appropriate wait implementation. It doesn't work because of some problems with context switch
   //clock_wait() is enough since it is only unatantum
   //    PROCESS_CONTEXT_BEGIN(trickle_protocol_process);
   //    etimer_set(&rand_delay_timer, delayTime);
   //    PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&rand_delay_timer));
   //    PROCESS_CONTEXT_END(trickle_protocol_process);
+  return;
 }
 
 static network_message_t *incoming;
@@ -312,6 +327,7 @@ static uint8_t ret;
 
 PROCESS_THREAD(vela_sender_process, ev, data) {
   PROCESS_BEGIN();
+  NETSTACK_MAC.on();
   //etimer_set(&pause_timer, TIME_BETWEEN_SENDS_DEFAULT);   //what's this?
 
   event_buffer_empty = process_alloc_event();
@@ -336,10 +352,8 @@ PROCESS_THREAD(vela_sender_process, ev, data) {
               ret = send_to_sink(&eventData->p_data[offset], MAX_PACKET_SIZE,
                                  network_active_sequence, 0 );
             }
-            if(ret==0){
-              sequenceSize -= MAX_PACKET_SIZE;
-              offset += MAX_PACKET_SIZE;
-            }
+	    sequenceSize -= MAX_PACKET_SIZE;
+	    offset += MAX_PACKET_SIZE;
 
             etimer_set(&periodic_timer, time_between_sends);
             PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
@@ -351,11 +365,9 @@ PROCESS_THREAD(vela_sender_process, ev, data) {
               // this is my last packet
               ret = send_to_sink (&eventData->p_data[offset], sequenceSize,
                                   network_last_sequence, sequenceSize);
-              
+
             }
-            if (ret == 0) {
-              sequenceSize = 0;
-            }
+	    sequenceSize = 0;
 
           }
         }
@@ -481,4 +493,3 @@ PROCESS_THREAD(keep_alive_process, ev, data)
   }
   PROCESS_END();
 }
-

@@ -63,7 +63,7 @@
 #include "app_timer.h"
 #include "app_error.h"
 #include "nrf_soc.h"
-
+#include "nrf_delay.h"
 //#include "nrf_cli.h"
 //#include "nrf_cli_rtt.h"
 //#include "nrf_cli_uart.h"
@@ -71,11 +71,11 @@
 #include "uart_util.h"
 #include "constraints.h"
 #include "sequential_procedures.h"
-#ifdef ENABLE_TOF
+#if defined(ENABLE_TOF) && ENABLE_TOF==1
 #include "ble_db_discovery.h"
 #include "ifs_tof.h"
 #include "ble_dists.h"
-#ifdef ENABLE_GATT
+#if defined(ENABLE_GATT) && ENABLE_GATT==1
 #include "nrf_ble_gatt.h"
 NRF_BLE_GATT_DEF(m_gatt);                   /**< GATT module instance. */
 BLE_DB_DISCOVERY_DEF(m_ble_db_discovery);   /**< DB discovery module instance. */
@@ -84,16 +84,14 @@ BLE_DISTS_DEF(m_dists);                                              /**< Heart 
 #endif
 
 #include "nrf_log_default_backends.h"
-#if DEBUG
+
 #define  NRF_LOG_MODULE_NAME application
 #include "nrf_log.h"
 #include "nrf_log_ctrl.h"
 NRF_LOG_MODULE_REGISTER();
 #define PRINTF(...) NRF_LOG_DEBUG(__VA_ARGS__); /*\
                     NRF_LOG_PROCESS()*/
-#else
-#define PRINTF(...)
-#endif
+
 
 #define CONN_INTERVAL_DEFAULT           (uint16_t)(MSEC_TO_UNITS(10, UNIT_1_25_MS))    /**< Default connection interval used at connection establishment by central side. */
 
@@ -241,7 +239,7 @@ uint8_t stop = 0;
 uint32_t beacon_timeout_ms = NODE_TIMEOUT_DEFAULT_MS;
 //uint32_t blinking_led_bit_map;
 
-#ifdef ENABLE_TOF
+#if defined(ENABLE_TOF) && ENABLE_TOF==1
 static uint8_t m_no_of_central_links = 0;
 static uint8_t m_no_of_peripheral_links = 0;
 static ifs_tof_t m_ifs_tof[MAXIMUM_NUMBER_OF_CENTRAL_CONN];
@@ -318,7 +316,7 @@ extern void uart_util_ack_tx_done(void);
 extern void uart_util_ack_error(ack_wait_t* ack_wait_data);
 
 //ToF
-#ifdef ENABLE_TOF
+#if defined(ENABLE_TOF) && ENABLE_TOF==1
 static uint32_t calculate_ifs_offset(ble_gap_phys_t actual_phy);
 static void tof_results_print(ifs_tof_t * p_ctx);
 #endif
@@ -328,7 +326,7 @@ void on_scan_response(ble_gap_evt_adv_report_t const * p_adv_report);
 void on_adv(ble_gap_evt_adv_report_t const * p_adv_report);
 void network_maintainance_check(void);
 uint32_t get_time_since_last_contact(node_t *p_node);
-node_t* get_beacon_pos_by_bdaddr(const ble_gap_addr_t *target_addr);
+node_t* get_network_pos_by_bdaddr(const ble_gap_addr_t *target_addr);
 node_t* get_network_pos_by_conn_handle(uint16_t target_conn_h);
 uint8_t is_position_free(node_t *p_node);
 node_t* get_first_free_network_pos(void);
@@ -354,7 +352,7 @@ static void gap_params_init(void);
 static void advertising_data_set(void);
 void preferred_phy_set(ble_gap_phys_t * p_phy);
 void conn_interval_set(uint16_t value);
-#ifdef ENABLE_TOF
+#if defined(ENABLE_TOF) && ENABLE_TOF==1
 static void db_disc_evt_handler(ble_db_discovery_evt_t * p_evt);
 #endif
 static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context);
@@ -365,6 +363,10 @@ static void scan_stop(void);
 static void scan_start(void);
 static void advertising_stop(void);
 static void advertising_start(void);
+#if defined(ENABLE_TOF) && ENABLE_TOF==1
+static void ble_tof_start(void);
+static void ble_tof_stop(void);
+#endif
 static void set_scan_params(uint8_t scan_active, uint16_t scan_interval, uint16_t scan_window, uint16_t scan_timeout);
 char const * phy_str(ble_gap_phys_t phys);
 static uint32_t adv_report_parse(uint8_t type, data_t * p_advdata, data_t * p_typedata);
@@ -388,7 +390,7 @@ static void button_evt_handler(uint8_t pin_no, uint8_t button_action);
 //system
 static void wait_for_event(void);
 
-#ifdef ENABLE_TOF
+#if defined(ENABLE_TOF) && ENABLE_TOF==1
 void ifs_tof_evt_handler(ifs_tof_evt_t * p_evt);
 static bool is_link_present(ble_gap_evt_adv_report_t const * p_adv_report);
 #endif
@@ -472,8 +474,10 @@ uint8_t send_neighbors_report(void) {
 	while (n < MAXIMUM_NETWORK_SIZE && pkt_full == false) {
 		if (UART_PKT_PAYLOAD_MAX_LEN_SYMB - payload_free_from > SINGLE_NODE_REPORT_SIZE) {
 			if (!is_position_free(&m_network[n])) {
-				uint32_t occupied_size = add_node_to_report_payload(&m_network[n], &report_payload[payload_free_from], UART_PKT_PAYLOAD_MAX_LEN_SYMB - payload_free_from);
-				payload_free_from += occupied_size;
+			    if(m_network[n].node_type!=IFS_TOF_DEVICE){
+			        uint32_t occupied_size = add_node_to_report_payload(&m_network[n], &report_payload[payload_free_from], UART_PKT_PAYLOAD_MAX_LEN_SYMB - payload_free_from);
+			        payload_free_from += occupied_size;
+			    }
 			}
 			n++;
 		} else {
@@ -490,7 +494,7 @@ uint8_t send_neighbors_report(void) {
 	}
 
 	if (n == 0) {	//this is executed after the transmission of uart_resp_bt_neigh_rep_end
-		reset_network();
+		reset_network(); //TODO: a specific function for resetting ONLY reported nodes should be used
 	}
 
     PRINTF("Returning n=%u\n",n);
@@ -689,11 +693,12 @@ void uart_util_rx_handler(uart_pkt_t* p_packet) {
 		//still not implemented
 		break;
     case uart_set_bt_tof_state:
-        if(p_packet->payload.data_len >1){
+#if defined(ENABLE_TOF) && ENABLE_TOF==1
+        if(p_packet->payload.data_len == 1){
             if(p_packet->payload.p_data[0]){
-                ifs_tof_enable_module();
+                ble_tof_start();
             }else{
-                ifs_tof_disable_module();
+                ble_tof_stop();
                 disconnect_all_ifs_tof_devices();
                 //TODO: after the module is disabled disconnect all devices of type: IFS_TOF_DEVICE
             }
@@ -701,6 +706,9 @@ void uart_util_rx_handler(uart_pkt_t* p_packet) {
         }else{
             ack_value = APP_ERROR_INVALID_LENGTH;
         }
+#else
+        ack_value = APP_ERROR_NOT_IMPLEMENTED;
+#endif
         break;
 	case uart_ping:
 		ack_value = APP_ACK_SUCCESS;
@@ -738,7 +746,7 @@ void uart_util_ack_error(ack_wait_t* ack_wait_data) {
 	m_tx_error = true;
 }
 
-#ifdef ENABLE_TOF
+#if defined(ENABLE_TOF) && ENABLE_TOF==1
 static uint32_t calculate_ifs_offset(ble_gap_phys_t actual_phy)
 { //check/compare results with matlab!
 //#ifdef S140
@@ -781,10 +789,10 @@ void tof_results_print(ifs_tof_t * p_ctx) {
             ble_dists_estimated_distance_send(&m_dists, p_ctx->conn_handle, d-728);
 
 
-            static char addr_str[30]; //18 should be enough, but it mess up
+            //static char addr_str[30]; //18 should be enough, but it mess up
 
-            node_t* m_node = get_network_pos_by_conn_handle(p_ctx->conn_handle);
-            bd_addr_to_string(&m_node->bd_address, addr_str, 30);
+            //node_t* m_node = get_network_pos_by_conn_handle(p_ctx->conn_handle);
+            //bd_addr_to_string(&m_node->bd_address, addr_str, 30);
 
             //char line[300];
             //sprintf(line, "bd_addr = %s distance = "NRF_LOG_FLOAT_MARKER" m, velocity = "NRF_LOG_FLOAT_MARKER" m/s\n\r",addr_str,NRF_LOG_FLOAT(p_ctx->last_d_estimation),NRF_LOG_FLOAT(p_ctx->last_v_estimation));
@@ -838,7 +846,7 @@ void tof_init()
 
 
 void on_scan_response(ble_gap_evt_adv_report_t const * p_adv_report) {
-	node_t *node = get_beacon_pos_by_bdaddr(&p_adv_report->peer_addr);
+	node_t *node = get_network_pos_by_bdaddr(&p_adv_report->peer_addr);
 	if (node != NULL) {
 		update_node(NULL, p_adv_report, node);
 	} else {
@@ -865,7 +873,7 @@ void on_adv(ble_gap_evt_adv_report_t const * p_adv_report) {
 	}
 
 	if (node_type == EDDYSTONE_BEACON || node_type == CLIMB_BEACON) {
-		node_t *node = get_beacon_pos_by_bdaddr( &p_adv_report->peer_addr );
+		node_t *node = get_network_pos_by_bdaddr( &p_adv_report->peer_addr );
 		if (node == NULL) {
 			add_node_to_network(NULL, p_adv_report, node_type);
 		} else {
@@ -873,7 +881,7 @@ void on_adv(ble_gap_evt_adv_report_t const * p_adv_report) {
 		}
 	}
 
-#ifdef ENABLE_TOF
+#if defined(ENABLE_TOF) && ENABLE_TOF==1
 //TODO: better manage the network:
 //  a node is a beacon till it is non-connected
 //  once a connectable beacon is found the connection is established, and once it is connected, regardless the BEACON_TYPE it becomes a IFS_TOF_DEVICE
@@ -955,7 +963,7 @@ uint32_t get_time_since_last_contact(node_t *p_node) {
 	return app_timer_cnt_diff_compute(app_timer_cnt_get(), p_node->last_contact_ticks);
 }
 
-node_t* get_beacon_pos_by_bdaddr(const ble_gap_addr_t *target_addr) {
+node_t* get_network_pos_by_bdaddr(const ble_gap_addr_t *target_addr) {
 	for (uint8_t n = 0; n < MAXIMUM_NETWORK_SIZE; n++) {
 		if (memcmp(&(m_network[n].bd_address), target_addr, sizeof(ble_gap_addr_t)) == 0) {
 			return &m_network[n];
@@ -1002,6 +1010,7 @@ static node_t* add_node_to_network(const ble_gap_evt_t *p_conn_evt, const ble_ga
 	}
 
 	if (p_adv_evt != NULL) {
+        memcpy(&p_node->bd_address, &p_adv_evt->peer_addr, sizeof(ble_gap_addr_t));
 		if (node_type == CLIMB_BEACON) {
 			data_t manuf_data;
 
@@ -1043,10 +1052,8 @@ static node_t* add_node_to_network(const ble_gap_evt_t *p_conn_evt, const ble_ga
 		}
 	}
 
-	if (p_adv_evt != NULL) {
-		memcpy(&p_node->bd_address, &p_adv_evt->peer_addr, sizeof(ble_gap_addr_t));
-	} else if (p_conn_evt != NULL) {
-		memcpy(&p_node->bd_address, &p_conn_evt->params.connected.peer_addr, sizeof(ble_gap_addr_t));
+	if (p_conn_evt != NULL) {
+		memcpy(&p_node->bd_address, &(p_conn_evt->params.connected.peer_addr), sizeof(ble_gap_addr_t));
 	}
 	p_node->node_type = node_type;
 	p_node->first_contact_ticks = app_timer_cnt_get();
@@ -1062,7 +1069,11 @@ static node_t* update_node(const ble_gap_evt_t *p_conn_evt, const ble_gap_evt_ad
 	if (p_conn_evt != NULL) {
 		p_node->conn_handle = p_conn_evt->conn_handle;
 		p_node->local_role = p_conn_evt->params.connected.role;
-	} else if (p_adv_evt != NULL) {
+		p_node->last_rssi=0;
+		p_node->max_rssi=0;
+		p_node->beacon_msg_count=0;
+	}
+	if (p_adv_evt != NULL) {
 		p_node->last_rssi = p_adv_evt->rssi;
 		if (p_node->last_rssi > p_node->max_rssi) {
 			p_node->max_rssi = p_node->last_rssi;
@@ -1094,15 +1105,23 @@ static void reset_node(node_t* p_node) { //TODO: check this, many of the fields 
 static void reset_network(void) {
 	//memset(m_network, 0x00, MAXIMUM_NETWORK_SIZE * sizeof(node_t));
 	for (uint8_t n = 0; n < MAXIMUM_NETWORK_SIZE; n++) {
-		reset_node(&m_network[n]);
+	    if(m_network[n].node_type!=IFS_TOF_DEVICE){
+	        reset_node(&m_network[n]);
+	    }
 	}
 }
 
 static void disconnect_all_ifs_tof_devices(void){
     for (uint8_t n = 0; n < MAXIMUM_NETWORK_SIZE; n++) {
-        if(m_network[n].node_type==IFS_TOF_DEVICE && m_network[n].conn_handle!=BLE_CONN_HANDLE_INVALID){
-            uint32_t err_code = sd_ble_gap_disconnect(m_network[n].conn_handle, BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
-            APP_ERROR_CHECK(err_code);
+        if(m_network[n].node_type==IFS_TOF_DEVICE){
+            static char addr_str[30]; //18 should be enough, but it mess up
+            bd_addr_to_string(&m_network[n].bd_address, addr_str,30);
+
+            PRINTF("Node %d - bdaddr %s - conn_handle %d\n",n,addr_str,m_network[n].conn_handle);
+            if(m_network[n].conn_handle!=BLE_CONN_HANDLE_INVALID){
+                uint32_t err_code = sd_ble_gap_disconnect(m_network[n].conn_handle, BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
+                APP_ERROR_CHECK(err_code);
+            }
         }
     }
 }
@@ -1261,7 +1280,7 @@ void conn_interval_set(uint16_t value) {
 	m_test_params.conn_interval = value;
 }
 
-#ifdef ENABLE_TOF
+#if defined(ENABLE_TOF) && ENABLE_TOF==1
 /**@brief Function for handling Database Discovery events.
  *
  * @details This function is a callback function to handle events from the database discovery module.
@@ -1379,7 +1398,7 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context) {
 		break;
 	}
 }
-#ifdef ENABLE_TOF
+#if defined(ENABLE_TOF) && ENABLE_TOF==1
 static void on_ifs_tof_buffer_full(ifs_tof_t * p_ctx)
 {
 	if (!m_test_params.continuous_test)
@@ -1410,7 +1429,7 @@ void ifs_tof_evt_handler(ifs_tof_evt_t * p_evt)
  * Unset the connection handle and terminate the test.
  */
 static void on_ble_gap_evt_disconnected(ble_gap_evt_t const * p_gap_evt) {
-#ifdef ENABLE_TOF
+#if defined(ENABLE_TOF) && ENABLE_TOF==1
 	ifs_tof_unregister_conn_handle(p_gap_evt->conn_handle);
 
 	//NRF_LOG_DEBUG("Disconnected: reason 0x%x.\n\r", p_gap_evt->params.disconnected.reason);
@@ -1452,16 +1471,28 @@ static void on_ble_gap_evt_disconnected(ble_gap_evt_t const * p_gap_evt) {
  * Save the connection handle and GAP role, then discover the peer DB.
  */
 static void on_ble_gap_evt_connected(ble_gap_evt_t const * p_gap_evt) {
-#ifdef ENABLE_TOF
+#if defined(ENABLE_TOF) && ENABLE_TOF==1
 //#warning the node_t has changed. The logic of connecting/disconnecting may be broken
 	ret_code_t err_code;
 //    m_conn_handle = p_gap_evt->conn_handle;
 //    m_gap_role    = p_gap_evt->params.connected.role;
 	node_t* p_node = add_node_to_network(p_gap_evt, NULL, IFS_TOF_DEVICE);
-	if(p_node == NULL)
-	{
-		return;
+	if(p_node == NULL){
+	    NRF_LOG_WARNING("Node not added to the network!\n\r");
+	    return;
 	}
+
+#if 0
+    static char addr_str[30]; //18 should be enough, but it mess up
+    bd_addr_to_string(&p_node->bd_address, addr_str,30);
+    PRINTF("bdaddr %s - conn_handle %d\n",addr_str,p_node->conn_handle);
+    char addrstr[30];
+    char line[100];
+    bd_addr_to_string(&p_gap_evt->params.connected.peer_addr, addrstr, 30);
+    sprintf(line, "connected to: bd_addr = %s \n\r",addrstr);
+    NRF_LOG_DEBUG("%s",nrf_log_push(line));
+#endif
+
 	bsp_board_leds_off();
 
 	if (p_node->local_role == BLE_GAP_ROLE_PERIPH)
@@ -1566,7 +1597,7 @@ static void scan_start(void) {
 	if (!m_scan_active) {
         PRINTF("Starting scan\n");
 //        NRF_LOG_INFO("Starting scan.\n\r");
-		reset_network();
+//		reset_network();
 		blink_led(SCAN_ADV_LED, LED_BLINK_TIMEOUT_MS);
 		m_scan_active = true;
 		ret_code_t err_code = sd_ble_gap_scan_start(&m_scan_param);
@@ -1602,6 +1633,27 @@ static void advertising_start(void) {
 		APP_ERROR_CHECK(err_code);
 	}
 }
+#if defined(ENABLE_TOF) && ENABLE_TOF==1
+static void ble_tof_start(void) {
+    if (!m_ifs_tof_active) {
+        PRINTF("Starting ble tof\n");
+
+        ifs_tof_enable_module();
+        m_ifs_tof_active = true;
+        allow_new_connections = true;
+    }
+}
+
+static void ble_tof_stop(void) {
+    if (m_ifs_tof_active) {
+        PRINTF("Stopping ble tof\n");
+
+        ifs_tof_disable_module();
+        m_ifs_tof_active = false;
+        allow_new_connections = false;
+    }
+}
+#endif
 
 static void set_scan_params(uint8_t scan_active, uint16_t scan_interval, uint16_t scan_window, uint16_t scan_timeout) {
 	if (m_scan_active) {
@@ -1949,7 +2001,7 @@ static void buttons_enable(void) {
 
 static void client_init(void)
 {
-#ifdef ENABLE_GATT
+#if defined(ENABLE_GATT) && ENABLE_GATT==1
     ret_code_t err_code = ble_db_discovery_init(db_disc_evt_handler);
     APP_ERROR_CHECK(err_code);
 #endif
@@ -1957,7 +2009,7 @@ static void client_init(void)
 
 void gatt_mtu_set(uint16_t att_mtu)
 {
-#ifdef ENABLE_GATT
+#if defined(ENABLE_GATT) && ENABLE_GATT==1
     ret_code_t err_code;
 
     m_test_params.att_mtu = att_mtu;
@@ -1972,7 +2024,7 @@ void gatt_mtu_set(uint16_t att_mtu)
 
 void data_len_ext_set(bool status)
 {
-#ifdef ENABLE_GATT
+#if defined(ENABLE_GATT) && ENABLE_GATT==1
     m_test_params.data_len_ext_enabled = status;
 
     uint8_t data_length = status ? (247 + L2CAP_HDR_LEN) : (23 + L2CAP_HDR_LEN);
@@ -1983,6 +2035,7 @@ void data_len_ext_set(bool status)
 
 static void conn_evt_len_ext_set(bool status)
 {
+#if defined(ENABLE_GATT) && ENABLE_GATT==1
     ret_code_t err_code;
     ble_opt_t  opt;
 
@@ -1991,6 +2044,7 @@ static void conn_evt_len_ext_set(bool status)
 
     err_code = sd_ble_opt_set(BLE_COMMON_OPT_CONN_EVT_EXT, &opt);
     APP_ERROR_CHECK(err_code);
+#endif
 }
 
 /**@brief Function for disabling button input. */
@@ -2039,23 +2093,17 @@ static void button_evt_handler(uint8_t pin_no, uint8_t button_action) {
         }
     }
         break;
-#ifdef ENABLE_TOF
+#if defined(ENABLE_TOF) && ENABLE_TOF==1
     case TOGGLE_TOF_BUTTON:
     {
         if (m_ifs_tof_active)
         {
-
-            PRINTF("Stopping ifs tof module\n");
-            ifs_tof_disable_module();
-            m_ifs_tof_active = false;
-            allow_new_connections = false;
+            ble_tof_stop();
+            disconnect_all_ifs_tof_devices();
         }
         else
         {
-            PRINTF("Starting ifs tof module\n");
-            ifs_tof_enable_module();
-            m_ifs_tof_active = true;
-            allow_new_connections = true;
+            ble_tof_start();
         }
     }
         break;
@@ -2092,6 +2140,7 @@ static void log_init(void)
  */
 static void services_init(void)
 {
+#if defined(ENABLE_GATT) && ENABLE_GATT==1
     ret_code_t     err_code;
     ble_dist_init_t dists_init;
 
@@ -2135,6 +2184,7 @@ static void services_init(void)
 //
 //    err_code = ble_dis_init(&dis_init);
 //    APP_ERROR_CHECK(err_code);
+#endif
 }
 
 int main(void) {
@@ -2169,14 +2219,15 @@ int main(void) {
 
     PRINTF("Running!\n");
 
-#ifdef ENABLE_TOF
+#if defined(ENABLE_TOF) && ENABLE_TOF==1
     tof_init();
     ifs_offset_ticks = calculate_ifs_offset(m_test_params.phys);
     if(m_ifs_tof_active){
-        ifs_tof_enable_module();
+        ble_tof_start();
     }
 #endif
 
+    nrf_delay_ms(1000); //delay a bit to allow all the hardware to be ready (not strictly necessary)
 	start_procedure(&ready);
 
 	while (1) {

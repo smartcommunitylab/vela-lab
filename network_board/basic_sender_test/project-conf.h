@@ -23,12 +23,12 @@
 /*---------------------------------------------------------------------------*/
 /* ContikiMAC channel check rate given in Hz, specifying the number of channel checks per second*/
 /* NETSTACK_RDC_CONF_CHANNEL_CHECK_RATE must be a power of two (i.e. 1, 2, 4, 8, 16, 32, 64, ...)*/
-#define NETSTACK_CONF_RDC     contikimac_driver
+//#define NETSTACK_CONF_RDC     contikimac_driver
 /*#undef  NETSTACK_CONF_RDC_CHANNEL_CHECK_RATE
 #define NETSTACK_CONF_RDC_CHANNEL_CHECK_RATE 2
 */
-#undef SICSLOWPAN_CONF_FRAG
-#define SICSLOWPAN_CONF_FRAG 1
+//#undef SICSLOWPAN_CONF_FRAG
+//#define SICSLOWPAN_CONF_FRAG 1
 /*---------------------------------------------------------------------------*/
 #undef UDP_PORT
 #define UDP_PORT 							1234
@@ -66,39 +66,25 @@
 #define PING_INTERVAL  120 * CLOCK_SECOND
 //-------------------------------------------------------------------------------
 
-//DIO INTERVALS
-/*
- * The DIO interval (n) represents 2^n ms.
- *
- * According to the specification, the default value is 3 which
- * means 8 milliseconds. That is far too low when using duty cycling
- * with wake-up intervals that are typically hundreds of milliseconds.
- * ContikiRPL thus sets the default to 2^12 ms = 4.096 s.
- */
-#define RPL_CONF_DIO_INTERVAL_MIN        8
-//
-///*
-// * Maximum amount of timer doublings.
-// *
-// * The maximum interval will by default be 2^(12+8) ms = 1048.576 s.
-// * RFC 6550 suggests a default value of 20, which of course would be
-// * unsuitable when we start with a minimum interval of 2^12.
-// */
-#define RPL_CONF_DIO_INTERVAL_DOUBLINGS  6
-//
-#define RPL_CONF_DEFAULT_ROUTE_INFINITE_LIFETIME 0
-//
-#define RPL_CONF_DEFAULT_LIFETIME_UNIT       20
-///*
-// * Default route lifetime as a multiple of the lifetime unit.
-// */
-#define RPL_CONF_DEFAULT_LIFETIME            2
-//
-#define RPL_CONF_DELAY_BEFORE_LEAVING 50 * CLOCK_SECOND
-//
-#define RPL_CONF_PROBING_INTERVAL 20 * CLOCK_SECOND
-#define RPL_CONF_WITH_PROBING 1
-#define RPL_CONF_DIS_INTERVAL 30
+/* Do not start TSCH at init, wait for NETSTACK_MAC.on() */
+#define TSCH_CONF_AUTOSTART 0
+#define ORCHESTRA_CONF_UNICAST_PERIOD 7
+
+/* 6TiSCH minimal schedule length.
+ * Larger values result in less frequent active slots: reduces capacity and saves energy. */
+#define TSCH_SCHEDULE_CONF_DEFAULT_LENGTH 3
+
+
+/* Five nines reliability paper used the config below */
+#define RPL_CONF_DIO_INTERVAL_MIN 14 /* 2^14 ms = 16.384 s */
+#define RPL_CONF_DIO_INTERVAL_DOUBLINGS 6 /* 2^(14+6) ms = 1048.576 s */
+#define RPL_CONF_PROBING_INTERVAL (60 * CLOCK_SECOND)
+
+/* Five nines reliability paper used the config below */
+#define TSCH_CONF_KEEPALIVE_TIMEOUT (20 * CLOCK_SECOND)
+#define TSCH_CONF_MAX_KEEPALIVE_TIMEOUT (60 * CLOCK_SECOND)
+//#define TSCH_CONF_EB_PERIOD (16 * CLOCK_SECOND)
+//#define TSCH_CONF_MAX_EB_PERIOD (50 * CLOCK_SECOND)
 
 #endif /* __PROJECT_CONF_H__ */
 
