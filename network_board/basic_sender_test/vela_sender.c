@@ -10,6 +10,7 @@
 #include "contiki.h"
 #include "contiki-net.h"
 #include "contiki-lib.h"
+#include "rpl-neighbor.h" // added for neighbor reporting
 #include "sys/node-id.h"
 #include "dev/leds.h"
 #include "lib/trickle-timer.h"
@@ -438,7 +439,63 @@ static uint16_t bat_data1;
 static uint16_t bat_data2;
 #endif
 //static network_message_t keep_alive_msg;
-static uint8_t keep_alive_data[5];
+static uint8_t keep_alive_data[100]; // ALM: increaated from 5 to 100 to include neighbor information
+
+/* create the list of neighbors, placed in the parameter neighborBuf.  Return the amount of data put into the buffer */
+static int prepNeighborList(uint8_t* neighborBufUint8) {
+  LOG_INFO("prepNeighborList***********************************************************************************************************************\n");
+  int index = 0;
+  char* neighborBuf = (char *)neighborBufUint8;
+  static char tmpBuf[10];
+  int addressLen = 0;
+  //LOG_INFO("index at the beginning %d\n",index);
+  if(NETSTACK_ROUTING.node_is_reachable() && NETSTACK_ROUTING.get_root_ipaddr(&addr)){
+    static int buflen = 195; // needs to be the size of the keep_alive_data buffer
+    if(curr_instance.used) {
+
+      addressLen = log_6addr_compact_snprint(tmpBuf, 10, rpl_get_global_address()); // insert the ID of this node
+      neighborBuf[index] = tmpBuf[addressLen-1];
+      index++;
+	    
+      //index += log_6addr_compact_snprint(neighborBuf, buflen, rpl_get_global_address()); // insert the ID of this node
+      if (curr_instance.dag.rank == RPL_INFINITE_RANK) {
+	index += snprintf(neighborBuf+index, buflen-index, "i");  // error rank if not yet set for this node
+      } else {
+	index += snprintf(neighborBuf+index, buflen-index, "%5u",curr_instance.dag.rank);  // rank of this node
+      }
+      
+      // start cycling through the neighbors
+      rpl_nbr_t *nbr = nbr_table_head(rpl_neighbors); // get the head of the neighbor table
+      
+
+      while(nbr != NULL) {
+	if (rpl_neighbor_is_parent(nbr)) {  // identify as potential parent, or just neighbor
+	  index += snprintf(neighborBuf+index, buflen-index, " P"); // neighbor is a potential parent 
+	} else {
+	  index += snprintf(neighborBuf+index, buflen-index, " N"); // neighbor is NOT a potential parent
+	}
+	if (curr_instance.dag.preferred_parent == nbr) { // identify as the current parent or not
+	  index += snprintf(neighborBuf+index, buflen-index, "*:"); // neighbor is the curent parent
+	}  else {
+	  index += snprintf(neighborBuf+index, buflen-index, ":"); // neighbor is NOT the current parent
+	}
+
+	addressLen = log_6addr_compact_snprint(tmpBuf, 10, rpl_neighbor_get_ipaddr(nbr)); // get the ID of the neighbor
+	neighborBuf[index] = tmpBuf[addressLen-1]; // insert neighbor's id
+	index++;
+	//index += log_6addr_compact_snprint(neighborBuf+index, buflen-index, rpl_neighbor_get_ipaddr(nbr)); // insert ID of the neighbor
+	
+	index += snprintf(neighborBuf+index, buflen-index, "%5u",nbr->rank);  // rank of the neighbor
+
+	nbr = nbr_table_next(rpl_neighbors, nbr);
+      }
+
+      
+    }
+  }
+  return index;
+}
+
 
 PROCESS_THREAD(keep_alive_process, ev, data)
 {
@@ -485,7 +542,22 @@ PROCESS_THREAD(keep_alive_process, ev, data)
       keep_alive_msg.payload.p_data[3] = (uint8_t)bat_data2;
       keep_alive_msg.payload.p_data[4] = trickle_msg.pktnum; */
 #endif
-      send_to_sink(keep_alive_data, 5, network_keep_alive,0);
+
+
+      // add the neighbor table information to the keepalive packet
+      static int neighborLength=0; // track the size of the neighbor table in the packet
+      neighborLength = prepNeighborList(&keep_alive_data[5]) + 5; // add 5 because of the data added to the keep_alive message above
+
+      ///////debugging  vvvvvvvv
+      LOG_INFO("neighbor size=%d      Data:",neighborLength-5); 
+      for (int i=5; i<neighborLength;i++) 
+	LOG_INFO_("%c",(char)keep_alive_data[i]);
+      LOG_INFO_("\n");
+      ///////debugging ^^^^^^^^
+
+      // need to send the 5 bytes of the standard keepalive PLUS the lenght of the neighbor table      
+      send_to_sink(keep_alive_data, neighborLength+55, network_keep_alive,0);
+
     }else{
       etimer_set(&keep_alive_timer, VERY_LONG_TIMER_VALUE * CLOCK_SECOND); //NOTE: the etimer seems to not reset the expired status, then once stopped the execution keeps looping inside the while(1). Setting it to an high value is a workaround
     }
