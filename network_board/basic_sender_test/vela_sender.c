@@ -556,7 +556,7 @@ PROCESS_THREAD(keep_alive_process, ev, data)
       ///////debugging ^^^^^^^^
 
       // need to send the 5 bytes of the standard keepalive PLUS the lenght of the neighbor table      
-      send_to_sink(keep_alive_data, neighborLength+55, network_keep_alive,0);
+      send_to_sink(keep_alive_data, neighborLength+5, network_keep_alive,0);
 
     }else{
       etimer_set(&keep_alive_timer, VERY_LONG_TIMER_VALUE * CLOCK_SECOND); //NOTE: the etimer seems to not reset the expired status, then once stopped the execution keeps looping inside the while(1). Setting it to an high value is a workaround
