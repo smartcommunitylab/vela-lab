@@ -1,0 +1,43 @@
+DEFINES+=PROJECT_CONF_H=\"project-conf.h\"
+CONTIKI_PROJECT = vela_node vela_sink
+
+all: $(CONTIKI_PROJECT)
+APPS=servreg-hack
+
+CONTIKI =/home/murphy/contiki/contiki-ng
+COMMON_DIR=../../common
+
+CFLAGS += -DROM_BOOTLOADER_ENABLE=1
+CFLAGS += -DSERIAL_LINE_CONF_BUFSIZE=128
+CFLAGS += -DVERSION_STRING=$(VERSION_STRING)
+CFLAGS += -DCC26XX_UART_CONF_BAUD_RATE=1000000
+#CFLAGS += -DCC26XX_UART_CONF_BAUD_RATE=115200
+CFLAGS += -DBUTTON_SENSOR_CONF_ENABLE_SHUTDOWN=0
+CFLAGS += -DBUILD_WITH_SHELL=0
+
+COMMON_DIR_REL_PATH=$(shell python -c "import os.path; print os.path.relpath('${COMMON_DIR}', '${CONTIKI}')")
+$(info $$COMMON_DIR_REL_PATH is: ${COMMON_DIR_REL_PATH})
+
+MAKE_MAC = MAKE_MAC_TSCH
+
+MODULES+=${COMMON_DIR_REL_PATH}/inc
+MODULES += os/services/orchestra
+
+PROJECT_SOURCEFILES += vela_uart.c
+PROJECT_SOURCEFILES += vela_sender.c
+PROJECT_SOURCEFILES += sink_receiver.c
+
+#TARGET ?= cc26x0-cc13x0 // REMOVED FOR COOJA
+#TARGET ?= srf06-cc26xx
+#TARGET = cc26x0-cc13x0
+#BOARD=launchpad/cc1350
+#BOARD=launchpad/cc2650
+#BOARD=launchpad_vela/cc2650 // REMOVED FOR COOJA
+#BOARD=launchpad_vela/cc1350
+
+BSL_FLAGS += -b 115200
+
+#CONTIKI_WITH_RPL=1
+#CONTIKI_WITH_IPV6 = 1
+
+include $(CONTIKI)/Makefile.include
