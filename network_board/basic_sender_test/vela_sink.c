@@ -13,7 +13,7 @@ channel check interval
 #include <stdio.h>
 #include <string.h>
 #include "sink_receiver.h"
-
+#include "sink_code_tx.h"
 
 PROCESS(sink_process, "sink starter process");
 //PROCESS(trickle_command_process, "trickle keepalive process");
@@ -27,7 +27,8 @@ PROCESS_THREAD(sink_process, ev, data)
 
     // initialize and start the other threads
     sink_receiver_init();
-
+    sink_code_tx_init();
+    
     // do something, probably related to the watchdog
 
     PROCESS_END();

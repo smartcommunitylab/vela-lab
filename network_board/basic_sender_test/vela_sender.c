@@ -63,6 +63,11 @@ PROCESS(trickle_protocol_process, "Trickle Protocol process");
 PROCESS(keep_alive_process, "keep alive process");
 
 /*---------------------------------------------------------------------------*/
+/* receiver - will be called when this node receives a packet. In vela_sencer 
+              we expect the contents to be pieces of a new code image.  These
+	      should be sent to the handler that re-assembles the chunks into
+	      a code image */
+/*---------------------------------------------------------------------------*/
 static void
 receiver(struct simple_udp_connection *c,
          const uip_ipaddr_t *sender_addr,
@@ -74,6 +79,9 @@ receiver(struct simple_udp_connection *c,
 {
   LOG_INFO("Data received on port %d from port %d with length %d at %lu\n",
            receiver_port, sender_port, datalen, clock_time());
+
+  // DO SOMETHING WITH THE CODE CHUNK THAT ARRIVED!!!!  TODO TODO TODO 
+
 }
 /*---------------------------------------------------------------------------*/
 static uip_ipaddr_t ipaddr;
@@ -233,31 +241,31 @@ tcpip_handler(void)
           LOG_INFO("Turning Bluetooth off...\n");
           process_post(&cc2650_uart_process, turn_bt_off, NULL);
           break;
-				}
-				case nordic_turn_bt_on: {
-					;
-					LOG_INFO("Turning Bluetooth on...\n");
-					process_post(&cc2650_uart_process, turn_bt_on, NULL);
-					break;
-				}
-				case nordic_turn_bt_on_low: {
-					;
-					LOG_INFO("Turning Bluetooth on...\n");
-					process_post(&cc2650_uart_process, turn_bt_on_low, NULL);
-					break;
-				}
-				case nordic_turn_bt_on_def: {
-					;
-					LOG_INFO("Turning Bluetooth on...\n");
-					process_post(&cc2650_uart_process, turn_bt_on_def, NULL);
-					break;
-				}
-				case nordic_turn_bt_on_high: {
-					;
-					LOG_INFO("Turning Bluetooth on...\n");
-					process_post(&cc2650_uart_process, turn_bt_on_high, NULL);
-					break;
-				}
+	}
+	case nordic_turn_bt_on: {
+	  ;
+	  LOG_INFO("Turning Bluetooth on...\n");
+	  process_post(&cc2650_uart_process, turn_bt_on, NULL);
+	  break;
+	}
+	case nordic_turn_bt_on_low: {
+	  ;
+	  LOG_INFO("Turning Bluetooth on...\n");
+	  process_post(&cc2650_uart_process, turn_bt_on_low, NULL);
+	  break;
+	}
+	case nordic_turn_bt_on_def: {
+	  ;
+	  LOG_INFO("Turning Bluetooth on...\n");
+	  process_post(&cc2650_uart_process, turn_bt_on_def, NULL);
+	  break;
+	}
+	case nordic_turn_bt_on_high: {
+	  ;
+	  LOG_INFO("Turning Bluetooth on...\n");
+	  process_post(&cc2650_uart_process, turn_bt_on_high, NULL);
+	  break;
+	}
         case nordic_turn_bt_on_w_params: {
           ;
           LOG_INFO("Turning Bluetooth on...\n");
@@ -295,7 +303,7 @@ tcpip_handler(void)
           break;
         }
         case nordic_ble_tof_enable: {
-        ;
+	  ;
           if(incoming->payload.data_len >0){
             process_post(&cc2650_uart_process, turn_ble_tof_onoff, incoming->payload.p_data);
           }
@@ -307,7 +315,7 @@ tcpip_handler(void)
           process_post(&cc2650_uart_process, reset_bt, NULL);
           break;
         }
-				default:
+	default:
           break;
         }
       }
@@ -377,18 +385,18 @@ PROCESS_THREAD(vela_sender_process, ev, data) {
         LOG_INFO("Sending pong\n");
         send_to_sink((uint8_t*)data, 1, network_respond_ping, 0);
         /*temp = (uint8_t*)data;
-        response.pkttype = network_respond_ping;
-        response.payload.data_len = 1;
-        response.payload.p_data[0] = temp[0];
-        send_to_sink(response); */
+	  response.pkttype = network_respond_ping;
+	  response.payload.data_len = 1;
+	  response.payload.p_data[0] = temp[0];
+	  send_to_sink(response); */
       }
       if(ev == event_bat_data_ready) {
         LOG_INFO("Received battery data event\n");
         send_to_sink((uint8_t*)data, 12, network_bat_data, 0);
         /*        bat_message.pkttype = network_bat_data;
-        memcpy(bat_message.payload.p_data, data, 12);
-        bat_message.payload.data_len = 12;
-        send_to_sink(bat_message);*/
+		  memcpy(bat_message.payload.p_data, data, 12);
+		  bat_message.payload.data_len = 12;
+		  send_to_sink(bat_message);*/
       }
     }
   PROCESS_END();
@@ -521,10 +529,10 @@ PROCESS_THREAD(keep_alive_process, ev, data)
       keep_alive_data[4] = trickle_msg.pktnum;
 
       /*            keep_alive_msg.payload.p_data[0] = (uint8_t)(REP_CAP_mAh >> 8);
-      keep_alive_msg.payload.p_data[1] = (uint8_t)REP_CAP_mAh;
-      keep_alive_msg.payload.p_data[2] = (uint8_t)(AVG_voltage_mV >> 8);
-      keep_alive_msg.payload.p_data[3] = (uint8_t)AVG_voltage_mV;
-      keep_alive_msg.payload.p_data[4] = trickle_msg.pktnum;*/
+		    keep_alive_msg.payload.p_data[1] = (uint8_t)REP_CAP_mAh;
+		    keep_alive_msg.payload.p_data[2] = (uint8_t)(AVG_voltage_mV >> 8);
+		    keep_alive_msg.payload.p_data[3] = (uint8_t)AVG_voltage_mV;
+		    keep_alive_msg.payload.p_data[4] = trickle_msg.pktnum;*/
 
 #endif
 #else
@@ -537,10 +545,10 @@ PROCESS_THREAD(keep_alive_process, ev, data)
       keep_alive_data[4] = trickle_msg.pktnum;
 
       /*      keep_alive_msg.payload.p_data[0] = (uint8_t)(bat_data1 >> 8);
-      keep_alive_msg.payload.p_data[1] = (uint8_t)bat_data1;
-      keep_alive_msg.payload.p_data[2] = (uint8_t)(bat_data2 >> 8);
-      keep_alive_msg.payload.p_data[3] = (uint8_t)bat_data2;
-      keep_alive_msg.payload.p_data[4] = trickle_msg.pktnum; */
+	      keep_alive_msg.payload.p_data[1] = (uint8_t)bat_data1;
+	      keep_alive_msg.payload.p_data[2] = (uint8_t)(bat_data2 >> 8);
+	      keep_alive_msg.payload.p_data[3] = (uint8_t)bat_data2;
+	      keep_alive_msg.payload.p_data[4] = trickle_msg.pktnum; */
 #endif
 
 
@@ -549,7 +557,7 @@ PROCESS_THREAD(keep_alive_process, ev, data)
       neighborLength = prepNeighborList(&keep_alive_data[5]) + 5; // add 5 because of the data added to the keep_alive message above
 
       ///////debugging  vvvvvvvv
-      LOG_INFO("neighbor size=%d      Data:",neighborLength-5); 
+      LOG_INFO("neighbor size=%d      Data:",neighborLength); 
       for (int i=5; i<neighborLength;i++) 
 	LOG_INFO_("%c",(char)keep_alive_data[i]);
       LOG_INFO_("\n");

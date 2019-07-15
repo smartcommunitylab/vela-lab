@@ -545,17 +545,17 @@ PROCESS_THREAD(keep_alive_process, ev, data)
 #endif
       // sending the neighbor table in the keepalive message
       static int neighborLength=0;
-      neighborLength = prepNeighborList(&keep_alive_data[5]) + 5; // add 5 because of the data added to the keep_alive message above
+      neighborLength = prepNeighborList(&keep_alive_data[5]);  // put the neighbor table at the end of the keepalive message
 
       ///////debugging  vvvvvvvv
-      LOG_INFO("neighbor size=%d      Data:",neighborLength-5); 
+      LOG_INFO("neighbor size=%d      Data:",neighborLength); 
       for (int i=5; i<neighborLength;i++) 
 	LOG_INFO_("%c",(char)keep_alive_data[i]);
       LOG_INFO_("\n");
       ///////debugging ^^^^^^^^
 
       
-      send_to_sink(keep_alive_data, neighborLength, network_keep_alive,0);
+      send_to_sink(keep_alive_data, neighborLength+5, network_keep_alive,0); // add 5 because of the data added to the keep_alive message above
     }else{
       etimer_set(&keep_alive_timer, VERY_LONG_TIMER_VALUE * CLOCK_SECOND); //NOTE: the etimer seems to not reset the expired status, then once stopped the execution keeps looping inside the while(1). Setting it to an high value is a workaround
     }

@@ -54,6 +54,16 @@ typedef struct
 
 typedef struct
 {
+  int  data_len;    /**< Length of valid data. in this payload*/
+  uint8_t   *p_data;      /**< Pointer to data. */
+  uint8_t   chunkID;  // id of the chunk
+  uip_ipaddr_t *destination; // who to send the chunk to
+} codeChunk_t;
+
+
+
+typedef struct
+{
    pkttype_t pkttype;
    uint8_t pktnum;
    payload_data_t payload;

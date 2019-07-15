@@ -14,6 +14,8 @@
 #include "lib/trickle-timer.h"
 #include "constraints.h"
 #include "network_messages.h"
+#include "sink_code_tx.h"
+#include "sink_receiver.h"
 #include "ti-lib.h"
 //#include "servreg-hack.h"
 
@@ -28,6 +30,11 @@
 
 
 static struct simple_udp_connection unicast_connection;
+static uip_ipaddr_t aNode_ipaddr ;     // hack to save an incoming address - ALM
+static uint8_t message_number = 1;
+static uint8_t buf[MAX_PACKET_SIZE + 10];
+
+//static struct etimer periodic_timer;
 
 static struct trickle_timer tt;
 static struct uip_udp_conn *trickle_conn;
@@ -76,6 +83,47 @@ void sink_receiver_init() {
   process_start(&uart_reader_process, "Uart reader process");
 }
 /*---------------------------------------------------------------------------*/
+static uint8_t send_to_node (uint8_t *data, int dataSize, pkttype_t pkttype,
+			     int sequenceSize, uip_ipaddr_t *dest) {
+
+  // note that unless this is the start of a sequence of packets, sequenceSize will be ignored
+
+  leds_toggle(LEDS_GREEN);
+  if(NETSTACK_ROUTING.node_is_reachable() ) {
+    LOG_DBG("sending to node...\n");
+    int totalSize = 0;
+    message_number++;
+    buf[0] = pkttype >> 8;
+    buf[1] = pkttype;
+    buf[2] = message_number;
+    if (pkttype == network_new_sequence) { // the first message of a sequence must contain its length
+      buf[3] = (uint8_t)(sequenceSize >> 8); // add the size of the whole sequence
+      buf[4] = (uint8_t)sequenceSize; // note that sequenceSize is an integer now! TODO
+      memcpy(&buf[5], data, dataSize);
+      totalSize = dataSize+5;
+      LOG_DBG("Sending size: %u, msgNum: %u ,first 2 byte: 0x%02x 0x%02x to ",
+              totalSize, message_number, buf[5], buf[6]);
+    } else { // this is not the first message of a sequence, so it starts w/ actual data
+      memcpy(&buf[3], data, dataSize);
+      totalSize = dataSize+3;
+      LOG_DBG("Sending size: %u, msgNum: %u ,first 2 byte: 0x%02x 0x%02x to ",
+              totalSize, message_number, buf[3], buf[4]);
+    }
+
+    LOG_DBG_6ADDR(dest);
+    LOG_DBG_("\n");
+
+    simple_udp_sendto(&unicast_connection, buf, totalSize, dest);
+    leds_on(LEDS_RED);
+    return 0;
+  } else {
+    leds_off(LEDS_RED);
+    LOG_WARN("ERROR: No sink available!\n");
+    return -1;
+  }
+}
+
+/*---------------------------------------------------------------------------*/
 static void sendCharAsHexString(uint8_t c){
   uint8_t hc = TO_HEX((c>>4)&0x0F);
   cc26xx_uart_write_byte( hc );
@@ -93,8 +141,11 @@ receiver(struct simple_udp_connection *c,
          uint16_t datalen) {
   leds_toggle(LEDS_GREEN);
 
-  printf("received from %d    size=%d  num=%d\n",sender_addr->u8[15],datalen,data[2]);
+  LOG_INFO("received from %d    size=%d  num=%d\n",sender_addr->u8[15],datalen,data[2]);
 
+  if ((int)sender_addr->u8[15] > (int)aNode_ipaddr.u8[15]) {
+    uip_ipaddr_copy(&aNode_ipaddr,sender_addr); // save the ipaddr of the sender <<<a hack for testing unicast - ALM
+  }
   cc26xx_uart_write_byte(UART_PKT_START_SYMBOL);
   sendCharAsHexString(sender_addr->u8[15]);
   for (uint16_t i=0;i<datalen;i++){
@@ -173,7 +224,12 @@ tcpip_handler(void)
   }
 }
 
-static struct etimer uping;
+//static struct etimer uping;
+
+
+static int offset = 0;
+static int sequenceSize = 0;
+static uint8_t ret;
 
 PROCESS_THREAD(sink_receiver_process, ev, data)
 {
@@ -196,11 +252,54 @@ PROCESS_THREAD(sink_receiver_process, ev, data)
 
 
   //NETSTACK_MAC.off();
-
+  codeChunk_t *chunkData;
   while(1) {
     //do nothing
-    etimer_set(&uping, CLOCK_SECOND * 10);
-    PROCESS_WAIT_UNTIL(etimer_expired(&uping));
+    //etimer_set(&uping, CLOCK_SECOND * 10);
+    //    PROCESS_WAIT_UNTIL(etimer_expired(&uping));
+
+    PROCESS_YIELD();
+    
+    if (ev == event_code_ready) {
+      chunkData = (codeChunk_t*)data; // the code chunk to send
+      
+      offset=0; // offset from the begining of the buffer to send next, starts at 0
+      sequenceSize = chunkData->data_len; // amount of data in the buffer not yet sent
+      while ( sequenceSize > 0 ) {
+	if (sequenceSize > MAX_PACKET_SIZE) {
+	  if(offset==0) { // more than one packet to send, this is the first
+	    ret = send_to_node (&chunkData->p_data[0], MAX_PACKET_SIZE,
+				network_new_sequence, sequenceSize,
+				&aNode_ipaddr );
+	    
+	  } else { // this is not the first or last packet of a sequence
+	    ret = send_to_node(&chunkData->p_data[offset], MAX_PACKET_SIZE,
+			       network_active_sequence, 0,
+			       &aNode_ipaddr  );
+	  }
+	  sequenceSize -= MAX_PACKET_SIZE;
+	  offset += MAX_PACKET_SIZE;
+	  
+	  LOG_INFO("WAITING ON TIMER\n");
+	  //	  etimer_set(&periodic_timer, time_between_sends);
+	  //	  PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
+	} else { // this is the first and last packet of a seuqnce
+	  if (offset == 0) {
+	    ret = send_to_node (&chunkData->p_data[0], sequenceSize,
+				network_new_sequence, sequenceSize,
+				&aNode_ipaddr);
+	  } else { // this is the last packet, but not the first.
+	    // this is my last packet
+	    ret = send_to_node (&chunkData->p_data[offset], sequenceSize,
+				network_last_sequence, sequenceSize,
+				&aNode_ipaddr);
+	    
+	  }
+	  sequenceSize = 0;
+	  
+	}
+      }
+    }
   }
   PROCESS_END();
 }
@@ -278,7 +377,7 @@ PROCESS_THREAD(uart_reader_process, ev, data)
       }
     } else if (etimer_expired(&periodicSinkOutput)) {
       etimer_reset(&periodicSinkOutput);
-      printf("---------------------NodeCount: %d lost = %d\n",uip_sr_num_nodes(), lost);
+      LOG_INFO("---------------------NodeCount: %d lost = %d\n",uip_sr_num_nodes(), lost);
     }
   }
   PROCESS_END();

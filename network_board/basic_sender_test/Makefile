@@ -5,6 +5,7 @@ all: $(CONTIKI_PROJECT)
 APPS=servreg-hack
 
 CONTIKI =${CONTIKI_ROOT}
+#CONTIKI =/home/murphy/contiki/contiki-ng
 COMMON_DIR=../../common
 
 CFLAGS += -DROM_BOOTLOADER_ENABLE=1
@@ -26,6 +27,7 @@ MODULES += os/services/orchestra
 PROJECT_SOURCEFILES += vela_uart.c
 PROJECT_SOURCEFILES += vela_sender.c
 PROJECT_SOURCEFILES += sink_receiver.c
+PROJECT_SOURCEFILES += sink_code_tx.c
 
 TARGET ?= cc26x0-cc13x0
 #TARGET ?= srf06-cc26xx

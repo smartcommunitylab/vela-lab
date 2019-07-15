@@ -14,6 +14,8 @@
 #include "lib/trickle-timer.h"
 #include "constraints.h"
 #include "network_messages.h"
+#include "sink_code_tx.h"
+#include "sink_receiver.h"
 //#include "ti-lib.h" // REMOVED FOR COOJA
 //#include "servreg-hack.h"
 
