@@ -1,0 +1,7 @@
+
+%.o: %.c
+	gcc -std=c99 -c $< -o $@
+
+generate-metadata: generate-metadata.o
+	gcc -o $@ generate-metadata.o
+	rm -f *.o

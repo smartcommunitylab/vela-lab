@@ -35,22 +35,22 @@ static struct ctimer polling_timer;
 static uint8_t bat_data[12];
 static uint8_t fuel_gauge_polling_interval_s = FUEL_GAUGE_POLLING_INTERVAL_DEF;
 
-#ifdef BOARD_LAUNCHPAD_VELA
-#if BOARD_LAUNCHPAD_VELA==1
-static uint16_t REP_CAP_mAh, REP_SOC_permillis, TTE_minutes, AVG_voltage_mV;
-static int16_t AVG_current_100uA, AVG_temp_10mDEG;
-#endif
-#else
-static uint16_t t1 = 1;
-static uint16_t t2 = 2;
-static uint16_t t3 = 3;
-static uint16_t t4 = 4;
-static uint16_t t5 = 5;
-static uint16_t t6 = 6;
-#endif
-
 static void poll_fuel_gauge(void *not_used)
 {
+#ifdef BOARD_LAUNCHPAD_VELA
+#if BOARD_LAUNCHPAD_VELA==1
+uint16_t REP_CAP_mAh, REP_SOC_permillis, TTE_minutes, AVG_voltage_mV;
+int16_t AVG_current_100uA, AVG_temp_10mDEG;
+#endif
+#else
+uint16_t t1 = 1;
+uint16_t t2 = 2;
+uint16_t t3 = 3;
+uint16_t t4 = 4;
+uint16_t t5 = 5;
+uint16_t t6 = 6;
+#endif
+
 #ifdef BOARD_LAUNCHPAD_VELA
 #if BOARD_LAUNCHPAD_VELA==1
   REP_CAP_mAh = max_17260_sensor.value(MAX_17260_SENSOR_TYPE_REP_CAP);
@@ -127,7 +127,7 @@ static void set_fuel_gauge_interval(uint8_t interval_s){
   ctimer_stop(&polling_timer);
   if(interval_s >= 10){
     fuel_gauge_polling_interval_s = interval_s;
-    ctimer_set(&polling_timer, fuel_gauge_polling_interval_s*CLOCK_SECOND, poll_fuel_gauge, NULL);
+    ctimer_set(&polling_timer, 0, poll_fuel_gauge, NULL); //setting the timer to 0 makes it send the battery info immediately, on the next loop the timer will use fuel_gauge_polling_interval_s instead
   }
 }
 
@@ -157,7 +157,7 @@ PROCESS_THREAD(vela_node_process, ev, data)
 
       if (ev == set_battery_info_interval)
         {
-	  set_fuel_gauge_interval(((uint8_t*)data)[0]);
+	        set_fuel_gauge_interval(((uint8_t*)data)[0]);
         }
     }
 

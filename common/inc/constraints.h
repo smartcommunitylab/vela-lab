@@ -17,6 +17,9 @@
 
 #ifndef CONSTRAINTS_H
 #define CONSTRAINTS_H
+
+#include "project-conf.h"
+
 typedef struct
 {
     uint8_t  * p_data;      /**< Pointer to data. */
@@ -26,12 +29,18 @@ typedef struct
 #define MAX_NUMBER_OF_BT_BEACONS 		100
 /* Maximum packetsize before fragmentation occurs is 54 bytes with llsec disabled.
    54 bytes - Header size = 50 bytes. Highest power of 9 under 50 is 45 bytes per packet,
-   which is 5 reports per packet */ 
-#define SINGLE_NODE_REPORT_SIZE 		9
-#define MAX_REPORTS_PER_PACKET 22 // this is NET_MSG_BUFF_SIZE/SINGLE_NODE_REPORT_SIZE
+   which is 5 reports per packet */
 
-//#define MAX_PACKET_SIZE MAX_REPORTS_PER_PACKET * SINGLE_NODE_REPORT_SIZE
-#define MAX_PACKET_SIZE 1024 // TESTING REALLY BIG SENDS ALM
+#define APPLICATION_HEADER_SIZE         10
+#define MAX_PACKET_SIZE                 128 //UIP_CONF_BUFFER_SIZE-APPLICATION_HEADER_SIZE
+
+#define SINGLE_NODE_REPORT_SIZE 		9   // WARNING: THIS HAS TO BE REPLICATED INTO THE GATEWAY SCRIPT /vela-lab/gateway/dev/sink_integration/main.py
+#define MAX_REPORTS_PER_PACKET          13 //(uint32_t) (MAX_PACKET_SIZE/SINGLE_NODE_REPORT_SIZE) // WARNING: THIS HAS TO BE REPLICATED INTO THE GATEWAY SCRIPT /vela-lab/gateway/dev/sink_integration/main.py
+#define MAX_REPORTS_PACKET_SIZE         MAX_REPORTS_PER_PACKET*SINGLE_NODE_REPORT_SIZE
+
+#if MAX_REPORTS_PACKET_SIZE > MAX_PACKET_SIZE
+$(error MAX_REPORTS_PACKET_SIZE should be less or equal to MAX_PACKET_SIZE. Decrease MAX_REPORTS_PER_PACKET or increase MAX_PACKET_SIZE)
+#endif
 
 /*EDDYSTONE DEFINES*/
 #define EDDYSTONE_SERVICE_UUID_16BIT	0xFEAA

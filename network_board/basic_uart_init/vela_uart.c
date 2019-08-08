@@ -61,7 +61,7 @@ typedef enum{
 static uint8_t is_nordic_ready=false;
 //static app_state_t m_app_state = wait;
 static uint8_t no_of_attempts = 0;
-static uint8_t bt_report_buffer[BT_REPORT_BUFFER_SIZE];
+static uint8_t bt_report_buffer[BT_REPORT_BUFFER_SIZE]; //this might be allocated dynamically once the BT is enabled and free once it is disabled (avoid to allocate the space twice!!!)
 static data_t complete_report_data = {bt_report_buffer, 0};
 #if NORDIC_WATCHDOG_ENABLED
 static struct ctimer m_nordic_watchdog_timer;
@@ -200,8 +200,8 @@ void reset_nodric(void){
 }
 
 static void send_ping(uint8_t ping_payload) {
-    static uart_pkt_t ping_packet;
-    static uint8_t buf[1];
+    uart_pkt_t ping_packet;
+    uint8_t buf[1];
     buf[0] = ping_payload;
     ping_packet.payload.p_data = buf;
     ping_packet.payload.data_len = 1;
@@ -211,20 +211,20 @@ static void send_ping(uint8_t ping_payload) {
 
 static uint8_t send_pong(uart_pkt_t* p_packet) {
 	if(p_packet->payload.data_len ){
-		static uint8_t pong_payload[MAX_PING_PAYLOAD];
+		uint8_t pong_payload[MAX_PING_PAYLOAD];
 		if(p_packet->payload.data_len > MAX_PING_PAYLOAD){
 			p_packet->payload.data_len = MAX_PING_PAYLOAD;
 		}
 		memcpy(pong_payload, p_packet->payload.p_data, p_packet->payload.data_len);
 
-		static uart_pkt_t pong_packet;
+		uart_pkt_t pong_packet;
 		pong_packet.payload.p_data = pong_payload;
 		pong_packet.payload.data_len = p_packet->payload.data_len;
 		pong_packet.type = uart_pong;
 
 		uart_util_send_pkt(&pong_packet);
 	}else{
-		static uart_pkt_t pong_packet;
+		uart_pkt_t pong_packet;
 		pong_packet.payload.p_data = NULL;
 		pong_packet.payload.data_len = p_packet->payload.data_len;
 		pong_packet.type = uart_pong;
@@ -235,8 +235,8 @@ static uint8_t send_pong(uart_pkt_t* p_packet) {
 }
 
 static uint8_t send_set_bt_scan(void) {
-    static uart_pkt_t packet;
-    static uint8_t payload[1];
+    uart_pkt_t packet;
+    uint8_t payload[1];
     packet.payload.p_data = payload;
     packet.payload.data_len = 1;
     packet.type = uart_set_bt_scan_state;
@@ -250,8 +250,8 @@ static uint8_t send_set_bt_scan(void) {
 
 
 static uint8_t send_set_ble_tof_on(void) {
-    static uart_pkt_t packet;
-    static uint8_t payload[1];
+    uart_pkt_t packet;
+    uint8_t payload[1];
     packet.payload.p_data = payload;
     packet.payload.data_len = 1;
     packet.type = uart_set_bt_tof_state;
@@ -263,8 +263,8 @@ static uint8_t send_set_ble_tof_on(void) {
 }
 
 static uint8_t send_set_ble_tof_off(void) {
-    static uart_pkt_t packet;
-    static uint8_t payload[1];
+    uart_pkt_t packet;
+    uint8_t payload[1];
     packet.payload.p_data = payload;
     packet.payload.data_len = 1;
     packet.type = uart_set_bt_tof_state;
@@ -289,8 +289,8 @@ static uint8_t send_set_bt_scan_off(void) {
 }
 
 static uint8_t send_set_bt_scan_params(void) {
-	static uart_pkt_t packet;
-	static uint8_t payload[7];
+	uart_pkt_t packet;
+	uint8_t payload[7];
 	packet.payload.p_data = payload;
 	packet.payload.data_len = 7;
 	packet.type = uart_set_bt_scan_params;
@@ -310,9 +310,9 @@ static uint8_t send_set_bt_scan_params(void) {
 
 static uint8_t send_ready(void) {
 
-	static char version_string[] = STRINGIFY(VERSION_STRING);
+	char version_string[] = STRINGIFY(VERSION_STRING);
 
-	static uart_pkt_t packet;
+	uart_pkt_t packet;
 	packet.payload.p_data = (uint8_t*)version_string;
 	packet.payload.data_len = strlen(version_string);
 	packet.type = uart_evt_ready;
@@ -323,7 +323,7 @@ static uint8_t send_ready(void) {
 }
 
 static uint8_t request_periodic_report_to_nordic(void){
-	static uint8_t payload[4];
+	uint8_t payload[4];
 	payload[0] = report_timeout_ms_arg >> 24;
 	payload[1] = report_timeout_ms_arg >> 16;
 	payload[2] = report_timeout_ms_arg >> 8;

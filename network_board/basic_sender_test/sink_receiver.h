@@ -6,6 +6,9 @@
 
 PROCESS_NAME (sink_receiver_process);
 
+// the event to be raised between the code transmitter and the sender
+process_event_t event_code_ready;
+
 // to initialize the fake_uart
 void sink_receiver_init();
 #endif 

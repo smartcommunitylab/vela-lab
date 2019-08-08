@@ -18,14 +18,19 @@
 #ifndef NETWORK_MESSAGES_H
 #define NETWORK_MESSAGES_H
 
+#include "contiki-net.h"
+#include "constraints.h"
 
 #define NET_MESS_MSGTYPE_LEN    2
 #define NET_MESS_MSGLEN_LEN     1
+#define NET_MESS_MSGADDR_LEN    16
 
-/* NOTE THAT THIS NUMBER IS RATHER ARBITRARY.  200 worked for me. Amy, May 2019*/
-#define NET_MESS_BUFF_SIZE      200
-
-typedef enum{
+typedef enum{    
+    ota_start_of_firmware =         0x0020,  // OTA start of firmware (sink to node)
+    ota_more_of_firmware =          0x0021,  // OTA more of firmware (sink to node)
+    ota_end_of_firmware =           0x0022,  // OTA end of firmware (sink to node)
+    ota_ack =                       0x0023,  // OTA firmware packet ack (node to sink)
+    ota_reboot_node =               0x0024,  // OTA reboot (node to sink)
     network_new_sequence =          0x0100,
     network_active_sequence =       0x0101,
     network_last_sequence =         0x0102,
@@ -44,12 +49,17 @@ typedef enum{
     nordic_reset =                  0xF027,
     nordic_ble_tof_enable =         0xF030,
     ti_set_keep_alive =             0xF801,
+    //debug_1 =                       0xFFF1,  //#debug!
+    //debug_2 =                       0xFFF2,  //#debug!
+    //debug_3 =                       0xFFF3,  //#debug!
+    //debug_4 =                       0xFFF4,  //#debug!
+    //debug_5 =                       0xFFF5,  //#debug!
 } pkttype_t;
 
 typedef struct
 {
     uint16_t   data_len;    /**< Length of valid data. in this payload*/
-    uint8_t   p_data[NET_MESS_BUFF_SIZE];      /**< Pointer to data. */
+    uint8_t   p_data[MAX_PACKET_SIZE];      /**< Pointer to data. */
 } payload_data_t;
 
 typedef struct
@@ -57,10 +67,11 @@ typedef struct
   int  data_len;    /**< Length of valid data. in this payload*/
   uint8_t   *p_data;      /**< Pointer to data. */
   uint8_t   chunkID;  // id of the chunk
-  uip_ipaddr_t *destination; // who to send the chunk to
+  uip_ipaddr_t *p_destination; // who to send the chunk to
+  uint8_t is_first;
+  uint8_t is_last;
+  uint8_t chunk_no;
 } codeChunk_t;
-
-
 
 typedef struct
 {

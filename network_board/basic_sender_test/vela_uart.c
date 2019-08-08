@@ -21,7 +21,8 @@ PROCESS(cc2650_uart_process, "cc2650 uart process STUB");
 
 
 //fake fixed value for testing
-#define FAKE_PACKET_SIZE 100 // fixed at 200 bytes for now
+#define FAKE_PACKET_SIZE 9*11 // fixed at 200 bytes for now
+#define FAKE_PACKET_INTERVAL_S  60
 static uint16_t packetSize = FAKE_PACKET_SIZE;
 
 
@@ -50,13 +51,14 @@ PROCESS_THREAD(cc2650_uart_process, ev, data) {
   buffer.p_data = childDataBuffer;
 
   // initalize
-  cc26xx_uart_set_input(NULL); //not striclty required
+  //cc26xx_uart_set_input(NULL); //not striclty required
 
   printf("uart (fake): started\n");
 
 
   // start the main processing
   event_data_ready = process_alloc_event();
+
   buffer.p_data[0] = packetSize >> 8;
   buffer.p_data[1] = packetSize;
 
@@ -72,7 +74,7 @@ PROCESS_THREAD(cc2650_uart_process, ev, data) {
   }
 
 
-  etimer_set(&uart_new_data, 15*CLOCK_SECOND);
+  etimer_set(&uart_new_data, FAKE_PACKET_INTERVAL_S*CLOCK_SECOND);
   PROCESS_WAIT_UNTIL(etimer_expired(&uart_new_data));
   while (1) {
     printf("UART TIMER FIRED\n");
@@ -81,11 +83,12 @@ PROCESS_THREAD(cc2650_uart_process, ev, data) {
       printf("uart: posting event_data_ready\n");
       //printf("p1 %ux p2 %ux\n", buffer.p_data[0],  buffer.p_data[1]);
       process_post(&vela_sender_process, event_data_ready, &buffer);
-      etimer_set(&uart_new_data, 15*CLOCK_SECOND);
-        PROCESS_WAIT_UNTIL(etimer_expired(&uart_new_data));
+      etimer_set(&uart_new_data, FAKE_PACKET_INTERVAL_S*CLOCK_SECOND);
+      PROCESS_WAIT_UNTIL(etimer_expired(&uart_new_data));
     //}
-    //PROCESS_YIELD();
+    PROCESS_YIELD();
   }
+
   PROCESS_END();
 
 }

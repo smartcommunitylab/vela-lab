@@ -1,0 +1,5 @@
+*.map
+*.bin
+*.elf
+obj_cc26x0-cc13x0/
+

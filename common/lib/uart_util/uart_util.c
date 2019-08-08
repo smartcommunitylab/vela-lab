@@ -132,7 +132,7 @@ static uint8_t is_end_sequence(uint8_t *data){
 }
 
 #ifdef CONTIKI
-static uint32_t contiki_serial_read(uint8_t *source, uint8_t *dest, uint16_t max_len, size_t *written_size){
+/*static uint32_t contiki_serial_read(uint8_t *source, uint8_t *dest, uint16_t max_len, size_t *written_size){
 	if(max_len >= 1){
 		written_size[0] = 1;
 		dest[0] = source[0];
@@ -141,7 +141,7 @@ static uint32_t contiki_serial_read(uint8_t *source, uint8_t *dest, uint16_t max
 		written_size[0] = 0;
 		return NRF_ERROR_DATA_SIZE;
 	}
-}
+}*/
 #endif
 
 //Function for retrieving UART characters. It reacts to APP_UART_DATA_READY event
@@ -149,9 +149,9 @@ static uint32_t contiki_serial_read(uint8_t *source, uint8_t *dest, uint16_t max
 #ifndef CONTIKI
 static void process_uart_rx_data() {
 #else
-void process_uart_rx_data(uint8_t *serial_data){
+void process_uart_rx_data(uint8_t *uart_frame){
+	//static uint8_t uart_frame[UART_FRAME_MAX_LEN_BYTE];
 #endif
-	static uint8_t uart_frame[UART_FRAME_MAX_LEN_BYTE];
 	static uint8_t uart_packet[UART_PKT_PAYLOAD_MAX_LEN_SYMB+UART_PKT_TYPE_LEN_SYMB];
 	static uart_pkt_t p_packet;
 	static uint16_t idx = 0;
@@ -185,7 +185,8 @@ void process_uart_rx_data(uint8_t *serial_data){
 #ifndef CONTIKI
 		ret = nrf_serial_read(&serial_uart, &uart_frame[idx], UART_FRAME_MAX_LEN_BYTE - idx, &written_size, 0);
 #else
-		ret = contiki_serial_read(&serial_data[idx], &uart_frame[idx], UART_FRAME_MAX_LEN_BYTE - idx, &written_size);
+        written_size=1;
+		ret = NRF_SUCCESS;//contiki_serial_read(&uart_frame[idx], &uart_frame[idx], UART_FRAME_MAX_LEN_BYTE - idx, &written_size);
 #endif
 		if(written_size == 0){
 			new_status = status;
@@ -206,7 +207,8 @@ void process_uart_rx_data(uint8_t *serial_data){
 #ifndef CONTIKI
 		ret = nrf_serial_read(&serial_uart, &uart_frame[idx], UART_FRAME_MAX_LEN_BYTE - idx, &written_size, 0);
 #else
-		ret = contiki_serial_read(&serial_data[idx], &uart_frame[idx], UART_FRAME_MAX_LEN_BYTE - idx, &written_size);
+        written_size=HEX_FRAME_LEN_LEN_BYTE;
+		ret = NRF_SUCCESS;//contiki_serial_read(&uart_frame[idx], &uart_frame[idx], UART_FRAME_MAX_LEN_BYTE - idx, &written_size);
 #endif
 		if(written_size == 0){
 			new_status = status;
@@ -236,7 +238,9 @@ void process_uart_rx_data(uint8_t *serial_data){
 #ifndef CONTIKI
 		ret = nrf_serial_read(&serial_uart, &uart_frame[idx], UART_FRAME_MAX_LEN_BYTE - idx, &written_size, 0);
 #else
-		ret = contiki_serial_read(&serial_data[idx], &uart_frame[idx], UART_FRAME_MAX_LEN_BYTE - idx, &written_size);
+		//ret = contiki_serial_read(&uart_frame[idx], &uart_frame[idx], UART_FRAME_MAX_LEN_BYTE - idx, &written_size);
+        written_size=expected_lenght;
+		ret = NRF_SUCCESS;//contiki_serial_read(&uart_frame[idx], &uart_frame[idx], UART_FRAME_MAX_LEN_BYTE - idx, &written_size);
 #endif
 		if(written_size == 0){
 			new_status = status;
@@ -261,7 +265,9 @@ void process_uart_rx_data(uint8_t *serial_data){
 #ifndef CONTIKI
 			ret = nrf_serial_read(&serial_uart, &uart_frame[idx], UART_FRAME_MAX_LEN_BYTE - idx, &written_size, 0);
 #else
-			ret = contiki_serial_read(&serial_data[idx], &uart_frame[idx], UART_FRAME_MAX_LEN_BYTE - idx, &written_size); //todo: in place of idx use the calculated position for the end of tx character
+			//ret = contiki_serial_read(&uart_frame[idx], &uart_frame[idx], UART_FRAME_MAX_LEN_BYTE - idx, &written_size); //todo: in place of idx use the calculated position for the end of tx character
+            written_size=1;
+		    ret = NRF_SUCCESS;//contiki_serial_read(&uart_frame[idx], &uart_frame[idx], UART_FRAME_MAX_LEN_BYTE - idx, &written_size);
 #endif
 			if(written_size == 0){
 				new_status = status;
@@ -569,27 +575,6 @@ static void enable_uart_flow_control(void){
 
     /* enable the UART */
 	ti_lib_uart_enable(UART0_BASE);
-}
-
-static void update_isr_priority() {
-    /* disable the UART */
-    ti_lib_uart_disable(UART0_BASE);
-
-    /* Disable all UART interrupts and clear all flags */
-    /* Acknowledge UART interrupts */
-    ti_lib_int_disable(INT_UART0_COMB);
-
-     /* Clear all UART interrupts */
-    ti_lib_uart_int_clear(UART0_BASE, UART_INT_OE | UART_INT_BE | UART_INT_PE | UART_INT_FE | UART_INT_RT | UART_INT_TX | UART_INT_RX | UART_INT_CTS);
-
-    //change interrupt priority
-    IntPrioritySet(INT_UART0_COMB, INT_PRI_LEVEL7);
-
-    /* Acknowledge UART interrupts */
-    ti_lib_int_enable(INT_UART0_COMB);
-
-    /* enable the UART */
-    ti_lib_uart_enable(UART0_BASE);
 }
 #endif
 //initialize uart based on defines in uart_util.h

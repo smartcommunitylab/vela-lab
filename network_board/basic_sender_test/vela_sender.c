@@ -19,11 +19,13 @@
 #include "vela_node.h"
 #include "vela_uart.h"
 #include "vela_sender.h"
-
+#if OTA
+#include "ota-download.h"
+#endif
 #include "sys/log.h"
 #define LOG_MODULE "vela_sender"
-//#define LOG_LEVEL LOG_LEVEL_DBG
-#define LOG_LEVEL LOG_LEVEL_NONE
+#define LOG_LEVEL LOG_LEVEL_DBG
+//#define LOG_LEVEL LOG_LEVEL_NONE
 
 #ifdef BOARD_LAUNCHPAD_VELA
 #if BOARD_LAUNCHPAD_VELA==1
@@ -40,7 +42,6 @@ static struct etimer periodic_timer;
 
 static struct simple_udp_connection unicast_connection;
 static uint8_t message_number = 1;
-static uint8_t buf[MAX_PACKET_SIZE + 10];
 static uip_ipaddr_t addr;
 
 
@@ -54,14 +55,19 @@ static struct etimer keep_alive_timer;
 //static struct etimer rand_delay_timer;
 
 static uint32_t keep_alive_interval = KEEP_ALIVE_INTERVAL;
-static struct ctimer m_node_offline_timeout;
+static struct ctimer m_node_offline_timeout, reboot_delay_timer;
 
 static uint32_t time_between_sends = TIME_BETWEEN_SENDS_DEFAULT_S*CLOCK_SECOND;
+
+static uint8_t send_to_sink (uint8_t *data, int dataSize, pkttype_t pkttype, int sequenceSize );
 
 PROCESS(vela_sender_process, "vela sender process");
 PROCESS(trickle_protocol_process, "Trickle Protocol process");
 PROCESS(keep_alive_process, "keep alive process");
 
+static void reboot(void *ptr){
+  ti_lib_sys_ctrl_system_reset();
+}
 /*---------------------------------------------------------------------------*/
 /* receiver - will be called when this node receives a packet. In vela_sencer 
               we expect the contents to be pieces of a new code image.  These
@@ -77,33 +83,97 @@ receiver(struct simple_udp_connection *c,
          const uint8_t *data,
          uint16_t datalen)
 {
-  LOG_INFO("Data received on port %d from port %d with length %d at %lu\n",
-           receiver_port, sender_port, datalen, clock_time());
+  uint8_t message_number=data[2];
+  uint16_t pkttype=(((uint16_t)data[0])<<8) + (uint16_t)data[1];
+  uint16_t data_offset;
+ 
+#if OTA
+  static uint8_t last_received_chunk=0, last_received_subchunk=0;
+  static uint16_t datasize;
+  if(pkttype==ota_start_of_firmware || pkttype==ota_more_of_firmware || pkttype==ota_end_of_firmware){
+      
+      uint8_t ota_chunk_no=data[3];
+      uint8_t ota_packet_sub_chunk_no=data[4];
 
-  // DO SOMETHING WITH THE CODE CHUNK THAT ARRIVED!!!!  TODO TODO TODO 
+      if(pkttype == ota_start_of_firmware) {
+        data_offset=5;
+        last_received_chunk=0;
+        last_received_subchunk=0;
+        LOG_INFO("First packet of the firmware received.\n");
+        ota_download_init(); //TODO: is this the propper place for this? For sure it must be reinitialized after any firmware update operation (being it correctly executed or not)
+      } else if(pkttype == ota_more_of_firmware) {    
+        data_offset=5;
+      } else if(pkttype == ota_end_of_firmware) {
+        data_offset=5;
+        LOG_INFO("Last packet of the firmware received.\n");
+      }
+        
+      if(ota_chunk_no!=((last_received_chunk+1)&0xFF)){
+        LOG_WARN("ota_chunk_no is not the expected one! Discarding the packet.\n");
+        return; //TODO: send nack?
+      }
 
-}
-/*---------------------------------------------------------------------------*/
-static uip_ipaddr_t ipaddr;
-static uint8_t state;
+      if(ota_packet_sub_chunk_no!=last_received_subchunk+1){
+        LOG_WARN("ota_packet_sub_chunk_no is not the expected one! Discarding the packet.\n");
+        return; //TODO: send nack?
+      }
 
-static void
-set_global_address(void)
-{
-
-  int i;
-  uip_ip6addr(&ipaddr, UIP_DS6_DEFAULT_PREFIX, 0, 0, 0, 0, 0, 0, 0);
-  uip_ds6_set_addr_iid(&ipaddr, &uip_lladdr);
-  uip_ds6_addr_add(&ipaddr, 0, ADDR_AUTOCONF);
-
-  LOG_INFO("IPv6 addresses: ");
-  for(i = 0; i < UIP_DS6_ADDR_NB; i++) {
-    state = uip_ds6_if.addr_list[i].state;
-    if(uip_ds6_if.addr_list[i].isused &&
-       (state == ADDR_TENTATIVE || state == ADDR_PREFERRED)) {
-      LOG_INFO_6ADDR(&uip_ds6_if.addr_list[i].ipaddr);
+      datasize=datalen-data_offset;
+      last_received_subchunk=ota_packet_sub_chunk_no;
+      LOG_DBG("Firmware packet received. datasize: %u, message_number: %u, ota_chunk_no: %u, ota_packet_sub_chunk_no: %u\n",datasize,message_number,ota_chunk_no,ota_packet_sub_chunk_no);
+      /*
+      LOG_INFO("packet: 0x ");
+      for(uint16_t mmm=0;mmm<datasize;mmm++){
+        LOG_INFO_("%02x",data[data_offset+mmm]);
+      }
       LOG_INFO_("\n");
-    }
+      */
+      if(ota_download_firmware_subchunk_handler(&data[data_offset],datasize)){ //TODO: add a check on the metadata. If crc_shadow is not 0 refuse the update (only non preverified ota are accepted)
+        uint8_t ota_data[]={ota_chunk_no, 0};
+        last_received_chunk=ota_chunk_no;
+        last_received_subchunk=0;
+        if(pkttype == ota_end_of_firmware) {
+          last_received_chunk=0;
+          last_received_subchunk=0;
+
+          OTAMetadata_t ota_metadata;
+          if( get_ota_slot_metadata( active_ota_download_slot, &ota_metadata ) == 0){
+            if(validate_ota_metadata(&ota_metadata)){
+              ota_data[1]=0;    //CRC OK                
+              LOG_INFO("CRC check passed.\n");
+            }else{
+              ota_data[1]=1;    //CRC NOT OK        
+              LOG_INFO("CRC check error.\n");
+            }
+          }else{
+            ota_data[1]=2;  //memory error        
+            LOG_INFO("Memory error.\n");
+          }
+        }
+        send_to_sink(ota_data, sizeof(ota_data), ota_ack, 0);
+      }
+
+      LOG_INFO("Firmware packet processed.\n");
+      return;
+  }
+#endif
+
+  if(pkttype==ota_reboot_node){
+      data_offset=3;
+      //for(uint16_t mmm=0;mmm<datalen;mmm++){
+      //  LOG_INFO_("%02x",data[data_offset+mmm]);
+      //}
+      uint32_t reboot_delay_ms=((uint32_t)data[data_offset])<<24 | ((uint32_t)data[data_offset+1])<<16 | ((uint32_t)data[data_offset+2])<<8 | ((uint32_t)data[data_offset+3]);
+      LOG_DBG("Reboot requested with %u ms delay.", (unsigned int)reboot_delay_ms);
+
+      uint32_t delay_ticks=CLOCK_SECOND*reboot_delay_ms/1000;
+      LOG_INFO("\nRebooting the node in %u ms.\n", (unsigned int)delay_ticks*1000/CLOCK_SECOND);
+
+      ctimer_set(&reboot_delay_timer, delay_ticks, reboot, NULL);
+      return;
+  }else {
+    LOG_ERR("Unkwown packet type...");
+    return;
   }
 }
 /*---------------------------------------------------------------------------*/
@@ -112,7 +182,7 @@ static void offline_timeout_handler(void *ptr){ //when this triggers the node wi
     ctimer_restart(&m_node_offline_timeout);
   }else{
     LOG_DBG("The node is offline since more than %d minutes. The node will be reset.\n",NODE_OFFLINE_RESET_TIMEOUT_MINUTES);
-    while(1){};
+    ti_lib_sys_ctrl_system_reset();
   }
 }
 /*---------------------------------------------------------------------------*/
@@ -125,7 +195,7 @@ void vela_sender_init() {
   LOG_INFO("A timer will reset the node if it stays offline for more than %d minutes\n",NODE_OFFLINE_RESET_TIMEOUT_MINUTES);
   //    servreg_hack_init();
 
-  set_global_address();
+  //set_global_address();
 
   simple_udp_register(&unicast_connection, UDP_PORT, NULL, UDP_PORT, receiver);
 
@@ -137,7 +207,7 @@ void vela_sender_init() {
 /*---------------------------------------------------------------------------*/
 static uint8_t send_to_sink (uint8_t *data, int dataSize, pkttype_t pkttype, int sequenceSize ) {
 
-  // note that unless this is the start of a sequence of packets, sequenceSize will be ignored
+  uint8_t buf[MAX_PACKET_SIZE + APPLICATION_HEADER_SIZE];
 
   leds_toggle(LEDS_GREEN);
   if(NETSTACK_ROUTING.node_is_reachable() && NETSTACK_ROUTING.get_root_ipaddr(&addr)){
@@ -165,7 +235,7 @@ static uint8_t send_to_sink (uint8_t *data, int dataSize, pkttype_t pkttype, int
     LOG_DBG_6ADDR(&addr);
     LOG_DBG_("\n");
 
-    simple_udp_sendto(&unicast_connection, buf, totalSize, &addr);
+    simple_udp_sendto(&unicast_connection, buf, totalSize, &addr);  //this will copy the content of buff to another buffer (see uip_udp_packet_send in uip_udp_packet.c)
     leds_on(LEDS_RED);
     return 0;
   } else {
@@ -182,7 +252,7 @@ trickle_tx(void *ptr, uint8_t suppress)
 {
   LOG_DBG("Trickle TX\n");
   uip_ipaddr_copy(&trickle_conn->ripaddr, &t_ipaddr);
-  uip_udp_packet_send(trickle_conn, &trickle_msg, sizeof(trickle_msg)-sizeof(trickle_msg.payload.p_data)+trickle_msg.payload.data_len);
+  uip_udp_packet_send(trickle_conn, &trickle_msg, sizeof(trickle_msg)-sizeof(payload_data_t)+trickle_msg.payload.data_len+sizeof(trickle_msg.payload.data_len));
   uip_create_unspecified(&trickle_conn->ripaddr);
 }
 
@@ -238,37 +308,37 @@ tcpip_handler(void)
         }
         case nordic_turn_bt_off: {
           ;
-          LOG_INFO("Turning Bluetooth off...\n");
+          LOG_INFO("Turning Bluetooth off.\n");
           process_post(&cc2650_uart_process, turn_bt_off, NULL);
           break;
 	}
 	case nordic_turn_bt_on: {
 	  ;
-	  LOG_INFO("Turning Bluetooth on...\n");
+	  LOG_INFO("Turning Bluetooth on.\n");
 	  process_post(&cc2650_uart_process, turn_bt_on, NULL);
 	  break;
 	}
 	case nordic_turn_bt_on_low: {
 	  ;
-	  LOG_INFO("Turning Bluetooth on...\n");
+	  LOG_INFO("Turning Bluetooth on.\n");
 	  process_post(&cc2650_uart_process, turn_bt_on_low, NULL);
 	  break;
 	}
 	case nordic_turn_bt_on_def: {
 	  ;
-	  LOG_INFO("Turning Bluetooth on...\n");
+	  LOG_INFO("Turning Bluetooth on.\n");
 	  process_post(&cc2650_uart_process, turn_bt_on_def, NULL);
 	  break;
 	}
 	case nordic_turn_bt_on_high: {
 	  ;
-	  LOG_INFO("Turning Bluetooth on...\n");
+	  LOG_INFO("Turning Bluetooth on.\n");
 	  process_post(&cc2650_uart_process, turn_bt_on_high, NULL);
 	  break;
 	}
         case nordic_turn_bt_on_w_params: {
           ;
-          LOG_INFO("Turning Bluetooth on...\n");
+          LOG_INFO("Turning Bluetooth on.\n");
           process_post(&cc2650_uart_process, turn_bt_on_w_params, incoming->payload.p_data);
           break;
         }
@@ -278,7 +348,8 @@ tcpip_handler(void)
           PROCESS_CONTEXT_BEGIN(&keep_alive_process);
           keep_alive_interval = incoming->payload.p_data[0];
           if(keep_alive_interval > 9){
-            etimer_set(&keep_alive_timer, keep_alive_interval * CLOCK_SECOND);
+            
+            etimer_set(&keep_alive_timer, 0); //setting the timer to 0 makes it send the keep alive immediately, on the next loop the timer will use keep_alive_interval instead
           }else{
             etimer_set(&keep_alive_timer, VERY_LONG_TIMER_VALUE * CLOCK_SECOND);
             LOG_INFO("Not a valid interval, turning keep alive off\n");
@@ -352,17 +423,17 @@ PROCESS_THREAD(vela_sender_process, ev, data) {
         offset=0; // offset from the begining of the buffer to send next
         sequenceSize = (int)eventData->data_len; // amount of data in the buffer not yet sent
         while ( sequenceSize > 0 ) {
-          if (sequenceSize > MAX_PACKET_SIZE) {
+          if (sequenceSize > MAX_REPORTS_PACKET_SIZE) {
             if(offset==0) { // more than one packet to send, this is the first
-              ret = send_to_sink (&eventData->p_data[0], MAX_PACKET_SIZE,
+              ret = send_to_sink (&eventData->p_data[0], MAX_REPORTS_PACKET_SIZE,
                                   network_new_sequence, sequenceSize );
 
             } else { // this is not the first or last packet of a sequence
-              ret = send_to_sink(&eventData->p_data[offset], MAX_PACKET_SIZE,
+              ret = send_to_sink(&eventData->p_data[offset], MAX_REPORTS_PACKET_SIZE,
                                  network_active_sequence, 0 );
             }
-	    sequenceSize -= MAX_PACKET_SIZE;
-	    offset += MAX_PACKET_SIZE;
+	        sequenceSize -= MAX_REPORTS_PACKET_SIZE;
+	        offset += MAX_REPORTS_PACKET_SIZE;
 
             etimer_set(&periodic_timer, time_between_sends);
             PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
@@ -447,11 +518,9 @@ static uint16_t bat_data1;
 static uint16_t bat_data2;
 #endif
 //static network_message_t keep_alive_msg;
-static uint8_t keep_alive_data[100]; // ALM: increaated from 5 to 100 to include neighbor information
 
 /* create the list of neighbors, placed in the parameter neighborBuf.  Return the amount of data put into the buffer */
 static int prepNeighborList(uint8_t* neighborBufUint8) {
-  LOG_INFO("prepNeighborList***********************************************************************************************************************\n");
   int index = 0;
   char* neighborBuf = (char *)neighborBufUint8;
   static char tmpBuf[10];
@@ -515,7 +584,9 @@ PROCESS_THREAD(keep_alive_process, ev, data)
   while(1) {
     PROCESS_WAIT_UNTIL(etimer_expired(&keep_alive_timer));
 
-    if(keep_alive_interval > 9){
+    if(keep_alive_interval > 9){     
+      uint8_t keep_alive_data[100]; // ALM: increaated from 5 to 100 to include neighbor information
+
       etimer_set(&keep_alive_timer, keep_alive_interval * CLOCK_SECOND);
 
 #ifdef BOARD_LAUNCHPAD_VELA
@@ -554,12 +625,12 @@ PROCESS_THREAD(keep_alive_process, ev, data)
 
       // add the neighbor table information to the keepalive packet
       static int neighborLength=0; // track the size of the neighbor table in the packet
-      neighborLength = prepNeighborList(&keep_alive_data[5]) + 5; // add 5 because of the data added to the keep_alive message above
+      neighborLength = prepNeighborList(&keep_alive_data[5]); // add 5 because of the data added to the keep_alive message above
 
       ///////debugging  vvvvvvvv
       LOG_INFO("neighbor size=%d      Data:",neighborLength); 
       for (int i=5; i<neighborLength;i++) 
-	LOG_INFO_("%c",(char)keep_alive_data[i]);
+	     LOG_INFO_("%c",(char)keep_alive_data[i]);
       LOG_INFO_("\n");
       ///////debugging ^^^^^^^^
 
