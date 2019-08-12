@@ -1,0 +1,12 @@
+Test in vela with two people, one carrying 15 fake nodes (0x4f to 0x5d), the other carrying one real node (0x0002FF00000E)
+Some other nodes were probably in range (two of them were in the boxes, than the RSSI is high)
+The gateway's clock was not set
+5 nodes where there
+NODE ID:	LOCATION:
+2			park
+4			school exit
+128			usafe route
+132			between the church and the football field (safe route)
+135			walking bus start 
+
+In the same log file we first walk the safe route and then the unsafe one. The 15 fake nodes have been shut down at the school (both for safe and unsafe test)

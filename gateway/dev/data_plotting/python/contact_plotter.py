@@ -4,7 +4,8 @@ from recordtype import recordtype
 from datetime import datetime
 import struct
 import numpy as np
-readfile = open("contact.log", "r")
+import math
+readfile = open("vela-children/20190206-152830-contact.log", "r")
 lines = readfile.read().splitlines()
 readfile.close()
 
@@ -47,40 +48,51 @@ for x in range(len(lines)):
         nodes[node_index].maxRSSIs.append(maxRSSI)
         nodes[node_index].pktCounters.append(pktCounter)
 
-unique_nodes = list(set(nodes[0].ids))
-unique_nodes.extend(list(set(nodes[1].ids)))
-unique_nodes.extend(list(set(nodes[2].ids)))
-unique_nodes.extend(list(set(nodes[3].ids)))
+for i in range(len(nodes)):
+    if i == 0:
+        unique_beacons = list(set(nodes[i].ids))
+    else:
+        unique_beacons.extend(list(set(nodes[i].ids)))
 
 indexes_to_filter_out = list()
 # Every ID that is true in the if statement below will be removed from the list in the next for loop and not be plotted
 # Use this as a filter
 # To plot all beacons comment out the indexes_to_filter_out.append statement
-for x in range(len(unique_nodes)):
-    if "0000000000" not in unique_nodes[x] or ("4" not in unique_nodes[x] and "5" not in unique_nodes[x]):
-        indexes_to_filter_out.append(x)
+#for x in range(len(unique_beacons)):
+    #if "0000000000" not in unique_beacons[x] or ("4" not in unique_beacons[x] and "5" not in unique_beacons[x]):
+        #indexes_to_filter_out.append(x)
+uniques = np.unique(unique_beacons)
+print("AVAILABLE BEACONS (" + str(len(uniques)) + "):")
+print(uniques)
 
+show_only_this_beacon=["00000000005A"] # the filter does not work if more than one beacon is assigned
+for x in range(len(unique_beacons)):
+    for idf in show_only_this_beacon:
+        if idf not in unique_beacons[x]:
+            indexes_to_filter_out.append(x)
+            
 delcount = 0
 for x in range(len(indexes_to_filter_out)):
-    del unique_nodes[indexes_to_filter_out[x] - delcount]
+    del unique_beacons[indexes_to_filter_out[x] - delcount]
     delcount += 1
 
 
-print(unique_nodes)
+print(unique_beacons)
 unique_copies = list()
 
 count = 0
 ax1 = None
 plines = []
+figsize = [int(math.ceil(len(nodes)/2)), 2]
 for y in range(len(nodes)):
     count += 1
-    for x in range(len(unique_nodes)-1):
-        print("NEW LOOP")
+    for x in range(len(unique_beacons)-1):
+        #print("NEW LOOP")
         copy = Node(nodes[y].nodeid, nodes[y].timestamps.copy(), nodes[y].ids.copy(), nodes[y].lastRSSIs.copy(), nodes[y].maxRSSIs.copy(), nodes[y].pktCounters.copy())
         indexes_to_delete = list()
 
         for j in range(len(copy.ids)):
-            if copy.ids[j] != unique_nodes[x]:
+            if copy.ids[j] != unique_beacons[x]:
                 indexes_to_delete.append(j)
 
         delCount = 0
@@ -91,21 +103,21 @@ for y in range(len(nodes)):
             del copy.maxRSSIs[indexes_to_delete[j] - delCount]
             del copy.pktCounters[indexes_to_delete[j] - delCount]
             delCount += 1
-        print(copy)
+        #print(copy)
         if len(copy.ids) > 0:
             unique_copies.append(copy)
         indexes_to_delete.clear()
 
-    print(nodes[y])
+    #print(nodes[y])
     NUM_COLORS = len(nodes[y].ids)
 
 
     # fig = plt.figure()
     if ax1 is None:
-        ax = plt.subplot(2, 2, y + 1)
+        ax = plt.subplot(figsize[0], figsize[1], y + 1)
         ax1 = ax
     else:
-        ax = plt.subplot(2, 2, y + 1, sharey=ax1, sharex=ax1)
+        ax = plt.subplot(figsize[0], figsize[1], y + 1, sharey=ax1, sharex=ax1)
 
     ax.set_prop_cycle('color',plt.cm.Spectral(np.linspace(0,1,30)))
     # ax.set_prop_cycle('color', [cm(1.*i/NUM_COLORS) for i in range(NUM_COLORS)])

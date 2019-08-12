@@ -1,3 +1,5 @@
+NOTE: the log file format might have changed and these script are probably no more working and should be adapted. Please use the matlab/octave version 
+
 This folder contains 3 scripts which are usefull for debugging or analyzing the log files of the gateway.
 
 The first file, applog_plotting.py plots all the battery data and dropped packets based on the log file app.log. 
