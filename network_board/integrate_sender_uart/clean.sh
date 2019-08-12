@@ -1,7 +1,14 @@
 #!/bin/bash
-# script that cleans the build files
+# Cleans the project
 
-# remove the uart files
-rm *.bin
-rm -r build
+# ************************************************ CONFIGURATION ************************************************
+CONTIKI_ROOT=/home/giova/workspaces/GIT/contiki-ng
+BOARD=launchpad_vela/cc1350
+
+# ************************************************ BUILDING ************************************************
+export CONTIKI_ROOT=${CONTIKI_ROOT}
+export BOARD=${BOARD}
+export TARGET=cc26x0-cc13x0
+
+make clean
 
