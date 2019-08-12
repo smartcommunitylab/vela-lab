@@ -7,16 +7,8 @@
 #define OTA_DOWNLOAD_H
 
 #include "ota.h"
-//#include "contiki-net.h"
 
-//static uip_ipaddr_t ota_server_ipaddr;
-//#define OTA_SERVER_IP() uip_ip6addr(&ota_server_ipaddr, 0xbbbb, 0, 0, 0, 0, 0, 0, 0x1)
-//#define SERVER_EP "coap://[fe80::212:7402:0002:0202]" //TODO: make this not-hardcoded
-
-/* OTA Download Thread */
-//extern struct process* ota_download_th_p; // Pointer to OTA Download thread
-
-#define OTA_BUFFER_SIZE 256
+#define OTA_BUFFER_SIZE 256 //must be the same of OTA_CHUNK_SIZE in sink_receiver.c
 
 OTAMetadata_t new_firmware_metadata;
 int active_ota_download_slot;

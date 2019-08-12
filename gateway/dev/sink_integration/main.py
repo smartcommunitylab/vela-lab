@@ -277,7 +277,7 @@ class Network(object):
 
         while offset<firmwaresize and chunk_timeout_count<MAX_OTA_TIMEOUT_COUNT:
             if offset+MAX_CHUNK_SIZE<firmwaresize:
-                chunk=firmware[offset:offset+MAX_CHUNK_SIZE]
+                chunk=firmware[offset:offset+MAX_CHUNK_SIZE] #TODO IMPORTANT: I.1) use chunkNo to spit the firmware into chunks (and calculate the offset, not the opposite as it is now)
             else:
                 chunk=firmware[offset:]
 
@@ -287,7 +287,7 @@ class Network(object):
             self.sendFirmwareChunk(destination_ipv6_addr,chunk,chunk_no)
 
             #wait the response from the remote node
-            firmwareChunkDownloaded_event.wait(CHUNK_DOWNLOAD_TIMEOUT);
+            firmwareChunkDownloaded_event.wait(CHUNK_DOWNLOAD_TIMEOUT)
             if firmwareChunkDownloaded_event.isSet():
                 firmwareChunkDownloaded_event.clear()
                 time.sleep(CHUNK_INTERVAL_ADD)
@@ -297,11 +297,18 @@ class Network(object):
                     chunk_no_b=chunk_no%256
                     ackok=chunk_no_b.to_bytes(1, byteorder="big", signed=False)+zero.to_bytes(1, byteorder="big", signed=False)
                     if firmwareChunkDownloaded_event_data==ackok:
-                        chunk_no+=1
                         offset=offset+chunksize
+                        chunk_timeout_count=0
                         self.addPrint("[DEBUG] ack OK!!") #ok go on
                     else:
-                        self.addPrint("[DEBUG] ack NOT OK!!") #retry
+                        #TODO IMPORTANT: I.2) set chunkNo to the value returned by the node in the ack firmwareChunkDownloaded_event_data[0]. In this way if an ack gets lost, the OTA doesn't send the same chunk twice. Properly manage overflow!!                       
+                        self.addPrint("[DEBUG] ack NOT OK!! Err: "+str(firmwareChunkDownloaded_event_data[1])+". The chunk will be retrasmitted in a moment...")
+                        time.sleep(5) #in case a full chunk is transmitted to the node twice (because of a ota_ack loss), we might get multiple nacks for a chunk
+                        while firmwareChunkDownloaded_event.isSet():
+                            self.addPrint("[DEBUG] More than one ACK/NACK received for this firmware chunk. I should be able to recover...just give me some time")
+                            firmwareChunkDownloaded_event.clear()
+                            time.sleep(5)
+                    chunk_no+=1
                 else:   #the last chunk
                     zero=0
                     chunk_no_b=chunk_no%256
