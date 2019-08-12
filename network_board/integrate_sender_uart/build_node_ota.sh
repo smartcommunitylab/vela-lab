@@ -26,7 +26,7 @@ export BOARD=${BOARD}
 export TARGET=cc26x0-cc13x0
 export CC26XX_UART_CONF_BAUD_RATE=1000000
 export SERIAL_LINE_CONF_BUFSIZE=128
-export UIP_CONF_BUFFER_SIZE=180
+export UIP_CONF_BUFFER_SIZE=512
 
 ./copyForBuild.sh
 #compile the firmware

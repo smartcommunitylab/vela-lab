@@ -110,12 +110,14 @@ receiver(struct simple_udp_connection *c,
         
       if(ota_chunk_no!=((last_received_chunk+1)&0xFF)){
         LOG_WARN("ota_chunk_no is not the expected one! Discarding the packet.\n");
-        return; //TODO: send nack?
+        uint8_t ota_data[]={last_received_chunk, 3}; //wrong chunkNo
+        send_to_sink(ota_data, sizeof(ota_data), ota_ack, 0);
+        return;
       }
 
       if(ota_packet_sub_chunk_no!=last_received_subchunk+1){
         LOG_WARN("ota_packet_sub_chunk_no is not the expected one! Discarding the packet.\n");
-        return; //TODO: send nack?
+        return; //do not send an ack here! 
       }
 
       datasize=datalen-data_offset;
