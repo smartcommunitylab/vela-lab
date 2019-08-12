@@ -3,7 +3,6 @@ close all;
 
 % set ID_TO_ANALYZE to empty to remove the filter
 ID_TO_ANALYZE={
-%'0001020000D5';
  %  '0000FF0000F2';
  %  '0000FF0000F3';
  %  '0000FF0000F4';
@@ -17,31 +16,21 @@ ID_TO_REMOVE={
    '0000FF0000F4';
    '0000FF0000F5';
    '0000FF0000F6';
-%   '0002FF000002';
-%   '0002FF000004';
-%   '0002FF000005';
-%   '0002FF000008';
-%   '0002FF00000A';
-%   '0002FF00000C';
-%   '0002FF00000F';
-%   '000101000050';
-%   '00010300002A';
-%   '000103000037';
-%     '000102000000';
-%     '01000102E7AD';
-%     '01020000DAA7';
-%     '01020000DAA8';
-%     '01020000DBAA';
-%     '01020000E2AA';
-%     '0B03DE17FFFF';
-%     '2A2A2A04F010';
-%     '2A2A2A2A04F0';
-%     '2A2A2A2A8002';
-%     '2A2A2A2A8401';
-%     '7E0002FF0000';
-%     '0002FF000004';
-%     '0002FF00000A';
-%     '0002FF00000E'
+   '00000000004F';
+   '000000000050';
+   '000000000051';
+   '000000000052';
+   '000000000053';
+   '000000000054';
+   '000000000055';
+   '000000000056';
+   '000000000057';
+   '000000000058';
+   '000000000059';
+   '00000000005A';
+   '00000000005B';
+   '00000000005C';
+   '00000000005D';
 };
 
 ENABLE_PLOT=true;
@@ -233,6 +222,11 @@ for scannerIdx=1:size(scanners,1)
           percent=line/scanners{scannerIdx}.noOfReports*100;
           printf("\rScanner ID %d (%d of %d), %.2f percent done...",scanners{scannerIdx}.nodeID,scannerIdx,noOfScanners,percent);
         end
+        scanners{scannerIdx}.time=scanners{scannerIdx}.time(1:bidx-1,1);
+        scanners{scannerIdx}.beaconID=scanners{scannerIdx}.beaconID(1:bidx-1,1);
+        scanners{scannerIdx}.lastRSSI=scanners{scannerIdx}.lastRSSI(1:bidx-1,1);
+        scanners{scannerIdx}.maxRSSI=scanners{scannerIdx}.maxRSSI(1:bidx-1,1);
+        scanners{scannerIdx}.contactCounter=scanners{scannerIdx}.contactCounter(1:bidx-1,1);
     end
     printf("\rScanner ID %d (%d of %d), %.2f percent done...\n",scanners{scannerIdx}.nodeID,scannerIdx,noOfScanners,100);
 end
@@ -244,7 +238,6 @@ printf("Calculating report.\n");
 
 beacons_seen_by_the_network=[];
 for scannerIdx=1:size(scanners,1)
-    beacons = unique(scanners{scannerIdx}.beaconID);
     beacons_seen_by_the_network = unique([beacons_seen_by_the_network; scanners{scannerIdx}.beaconID]);
 end
 
