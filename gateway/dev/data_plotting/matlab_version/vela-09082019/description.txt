@@ -1,0 +1,8 @@
+Test VELA with Elia and Davide.
+
+Nodes have been placed in the morning, while pedibus emulation taken place in the afternoon (from 14:00).
+The most interesting logs are 20190809-141430-*.log since they contain the experiments, at the end an OTA update on node 5 and 3 have been tried. The procedure went to the end on the node 5, however the node seems to not have been updated (not sure what happened).
+
+The experiment consisted in Elia walking in a loop, a part of the loop was the safe path, while the other part was the unsafe one. This is repeated several times with different amount of nodes.
+In particular, three loops with only one beacon (ID:0000FF0000F2), three with 17 beacons (0000FF0000F2, 00000000005E-00000000006C) and one with 33 beacons (0000FF0000F2, 00000000005E-00000000006C, 000000000040-00000000004E)
+The start and finish timestamp of each trajectory are in description.pdf together with the map.
