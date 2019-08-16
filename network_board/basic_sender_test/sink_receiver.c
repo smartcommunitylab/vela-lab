@@ -296,7 +296,7 @@ PROCESS_THREAD(sink_receiver_process, ev, data)
                 if(bytesRemaining!=0){
                     LOG_INFO("WAITING ON TIMER\n");
                     if(pkt_type==ota_start_of_firmware){ //if it is the first packet of the firmware, leave more time for the node to erase the flash
-                        etimer_set(&periodic_timer, 5*CLOCK_SECOND);
+                        etimer_set(&periodic_timer, 10*CLOCK_SECOND);
                     }else{
                         etimer_set(&periodic_timer, CLOCK_SECOND/5);
                     }

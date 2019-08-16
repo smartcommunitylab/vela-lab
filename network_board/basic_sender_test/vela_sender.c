@@ -138,19 +138,7 @@ receiver(struct simple_udp_connection *c,
           last_received_chunk=0;
           last_received_subchunk=0;
 
-          OTAMetadata_t ota_metadata;
-          if( get_ota_slot_metadata( active_ota_download_slot, &ota_metadata ) == 0){
-            if(validate_ota_metadata(&ota_metadata)){
-              ota_data[1]=0;    //CRC OK                
-              LOG_INFO("CRC check passed.\n");
-            }else{
-              ota_data[1]=1;    //CRC NOT OK        
-              LOG_INFO("CRC check error.\n");
-            }
-          }else{
-            ota_data[1]=2;  //memory error        
-            LOG_INFO("Memory error.\n");
-          }
+          ota_data[1]=verify_ota_slot(active_ota_download_slot); //ota_data[1]==0 everithing ok, ota_data[1]==1 crc ok but not written (the bootloader will do it on the next reboot), ota_data[1]==-3 crc not ok
         }
         send_to_sink(ota_data, sizeof(ota_data), ota_ack, 0);
       }

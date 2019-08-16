@@ -142,7 +142,7 @@ firmwareChunkDownloaded_event=threading.Event()
 firmwareChunkDownloaded_event_data=[]
 
 MAX_CHUNK_SIZE=256
-CHUNK_DOWNLOAD_TIMEOUT=15
+CHUNK_DOWNLOAD_TIMEOUT=7
 MAX_SUBCHUNK_SIZE=128               #if MAX_SUBCHUNK_SIZE should be always strictly less than MAX_CHUNK_SIZE (if a chunk doesn't get spitted problems might arise, the case is not managed)
 if TANSMIT_ONE_CHAR_AT_THE_TIME:
     SUBCHUNK_INTERVAL=0
@@ -264,7 +264,7 @@ class Network(object):
     def sendFirmware(self, destination_ipv6_addr, firmware):
         global NO_OF_CHUNKS_IN_THE_FIRMWARE
         MAX_OTA_TIMEOUT_COUNT=10
-        EXPECT_ACK_FOR_THE_LAST_PACKET=False #in some cases the CRC check performed with the arrival of the last packet causes the node to crash because of stack overflow. In that case, the last ack won't be received, and if we don't manage this the GW consider the OTA process aborted because of timeout and repeat it.
+        EXPECT_ACK_FOR_THE_LAST_PACKET=True #in some cases the CRC check performed with the arrival of the last packet causes the node to crash because of stack overflow. In that case, the last ack won't be received, and if we don't manage this the GW consider the OTA process aborted because of timeout and repeat it.
         #Then when the memory overflow happens we can set the flag EXPECT_ACK_FOR_THE_LAST_PACKET to false so that the OTA process goes on for the rest of the network.
 
 
@@ -287,7 +287,11 @@ class Network(object):
             self.sendFirmwareChunk(destination_ipv6_addr,chunk,chunk_no)
 
             #wait the response from the remote node
-            firmwareChunkDownloaded_event.wait(CHUNK_DOWNLOAD_TIMEOUT)
+            if chunk_no==1:
+                firmwareChunkDownloaded_event.wait(10+CHUNK_DOWNLOAD_TIMEOUT) #the first packet needs more time because the OTA module is initialized
+            else:
+                firmwareChunkDownloaded_event.wait(CHUNK_DOWNLOAD_TIMEOUT)
+                
             if firmwareChunkDownloaded_event.isSet():
                 firmwareChunkDownloaded_event.clear()
                 time.sleep(CHUNK_INTERVAL_ADD)
@@ -308,18 +312,23 @@ class Network(object):
                             firmwareChunkDownloaded_event.clear()
                             time.sleep(5)
                     lastCorrectChunkReceived=firmwareChunkDownloaded_event_data[0]
-                    chunk_no=lastCorrectChunkReceived+256*int(chunk_no/256)
-                    #self.addPrint("[DEBUG]        OK WITH CHUNKNO: "+str(chunk_no))
-                    chunk_no+=1
+                    chunk_no=lastCorrectChunkReceived+256*int(chunk_no/256) + 1
                     offset=(chunk_no-1)*MAX_CHUNK_SIZE
-                else:   #the last chunk
+                else:
                     zero=0
+                    one=1
                     chunk_no_b=chunk_no%256
-                    ackok=chunk_no_b.to_bytes(1, byteorder="big", signed=False)+zero.to_bytes(1, byteorder="big", signed=False)
+                    ackok=chunk_no_b.to_bytes(1, byteorder="big", signed=False)+zero.to_bytes(1, byteorder="big", signed=False) #everithing fine on the node
+                    ackok_alt=chunk_no_b.to_bytes(1, byteorder="big", signed=False)+one.to_bytes(1, byteorder="big", signed=True) #crc ok, but there was memory overflow during CRC verification. The firmware will be vefiried on the next reboot
                     if firmwareChunkDownloaded_event_data==ackok:
                         chunk_no+=1
                         offset=offset+chunksize
                         return 0 #OTA update correctly closed
+                    elif firmwareChunkDownloaded_event_data==ackok_alt:
+                        self.addPrint("[OTA] CRC ok but not written on the node...")
+                        chunk_no+=1
+                        offset=offset+chunksize
+                        return 0 #OTA update correctly closed even if a memory overflow happened on the node during CRC verification. The firmware will be vefiried on the next reboot
                     else:
                         self.addPrint("[OTA] CRC error at the node...")
                         return 1 #crc error at the node

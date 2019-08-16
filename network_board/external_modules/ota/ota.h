@@ -23,6 +23,10 @@ extern uint8_t ota_images[3]; //  Addresses where OTA updates are stored in exte
 #define OTA_RESET_VECTOR    0x4     //  RESET ISR Vector (see )
 #define FLASH_PAGE_SIZE     0x1000
 
+#define MAX_OTA_SIZE        0x19000 //this should be the same as in cc26xx-cc13xx-ota.ld "FLASH (RX) ******** LENGTH = 0x19000"
+
+#define INTERNAL_IMAGE_SLOT 255
+
 typedef struct OTAMetadata {
   uint16_t crc;             //
   uint16_t crc_shadow;      //
@@ -54,15 +58,15 @@ int get_current_metadata( OTAMetadata_t *ota_slot_metadata  );
 
 int get_ota_slot_metadata( uint8_t ota_slot, OTAMetadata_t *ota_slot_metadata );
 
-int overwrite_ota_slot_metadata( uint8_t ota_slot, OTAMetadata_t *ota_slot_metadata );
+int8_t overwrite_ota_slot_metadata( uint8_t ota_slot, OTAMetadata_t *ota_slot_metadata );
 
 int backup_golden_image();
 
 int verify_current_firmware( OTAMetadata_t *current_firmware_metadata );
 
-int verify_ota_slot( uint8_t ota_slot );
+int8_t verify_ota_slot( uint8_t ota_slot );
 
-bool validate_ota_metadata( OTAMetadata_t *metadata );
+bool validate_ota_metadata( OTAMetadata_t *metadata, uint8_t ota_slot );
 
 int find_matching_ota_slot( uint16_t version );
 

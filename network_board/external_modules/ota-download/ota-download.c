@@ -35,8 +35,9 @@ is_download_completed() {
 
 
 void ota_download_verify_active_slot(void){
-    if(verify_ota_slot( active_ota_download_slot ) != 0){
-        LOG_ERR("Could not verify the ota firmware.\n");
+    int8_t ver_res=verify_ota_slot( active_ota_download_slot );
+    if(ver_res < 0){
+        LOG_ERR("Verification failed, error code: %d\n",ver_res);
     }
 }
 
@@ -107,30 +108,7 @@ ota_download_firmware_subchunk_handler(const uint8_t *chunk, uint32_t len)
 {
     ota_download_active = true;
     uint8_t ret=0;
-    //  (1) Parse the data payload from the CoAP response
-    //const uint8_t *chunk;
-    //int len = coap_get_payload(response, &chunk);
 
-/*    if(sub_chunk_no==1){    //this is the first sub_chunk_no of this chunk
-        if(img_req_position==0){ //normal behaviour, when sub_chunk_no==1, also img_req_position should be 0.
-            //nothing to do
-        }else{                   //the last subchunk of the previous chunk has been lost
-            ota_bytes_received-=img_req_position;   //this removes the previous subchunks to keep the consistency of ota_bytes_received in case of missing packets.
-            img_req_position=0;
-            return ret;
-        }
-    }else{                  //this isn't the first sub_chunk_no of this chunk
-        if(img_req_position!=0){ //normal behaviour, when sub_chunk_no!=1, also img_req_position should be != 0.
-            if(sub_chunk_no==ota_last_received_subchunk+1){ //the sub_chunk_no is the expected one, normal behaviour
-                //nothing to do
-            }else{              //the sub_chunk_no is not the expected one
-                return ret;     //discard the packet and return
-            }
-        }else{                  //the first subchunk of the actual chunk has been lost
-            return ret;         //discard the packet and return
-        }
-    }
-*/
     //  (2) Copy the CoAP payload into the ota_buffer
     ota_bytes_received += len;
     LOG_INFO("Received %u new bytes:  ", (unsigned int)len);
@@ -154,6 +132,9 @@ ota_download_firmware_subchunk_handler(const uint8_t *chunk, uint32_t len)
 
         LOG_INFO_("crc: 0x%04x size 0x%08x uuid 0x%08x version 0x%04x\n",(unsigned int)new_firmware_metadata.crc, (unsigned int)new_firmware_metadata.size, (unsigned int)new_firmware_metadata.uuid, (unsigned int)new_firmware_metadata.version);
         
+        if(new_firmware_metadata.crc_shadow != 0){ //non preverified images should have crc_shadow initialized to 0
+            LOG_WARN("CRC shadow is not zero. The OTA download might not be secure!");
+        }
         //  (2)  to see if we have any OTA slots already containing
         //      firmware of the same version number as the metadata has.
         active_ota_download_slot = find_matching_ota_slot( new_firmware_metadata.version );
@@ -181,10 +162,6 @@ ota_download_firmware_subchunk_handler(const uint8_t *chunk, uint32_t len)
         ret=1;
         reset_ota_buffer();
     }
-
-    //  (5) If we've made it this far, we need to do another CoAP request.
-    //ota_bytes_received = ota_bytes_saved;
-    //coap_request_count++;
 
     if(is_download_completed()){
         LOG_INFO("Download completed\n");

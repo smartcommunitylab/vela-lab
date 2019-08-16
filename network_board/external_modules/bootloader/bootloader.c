@@ -143,8 +143,8 @@ main(void)
 #endif
 
   //  (4) Is the current image valid?
-  if ( validate_ota_metadata( &current_firmware ) ) {
-    if ( ( newest_ota_slot > 0 ) && (newest_firmware.version > current_firmware.version) && validate_ota_metadata( &newest_firmware )) {
+  if ( validate_ota_metadata( &current_firmware , INTERNAL_IMAGE_SLOT) ) {
+    if ( ( newest_ota_slot > 0 ) && (newest_firmware.version > current_firmware.version) ) {
       //  If there's a newer firmware image than the current firmware, install
       //  the newer version!
 #if defined(ENABLE_BOOTLOADER_VERBOSITY) && ENABLE_BOOTLOADER_VERBOSITY==1

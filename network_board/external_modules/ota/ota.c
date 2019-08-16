@@ -101,11 +101,37 @@ crc16(uint16_t crc, uint8_t val)
 void
 print_metadata( OTAMetadata_t *metadata )
 {
+#if defined(ENABLE_BOOTLOADER_VERBOSITY) && ENABLE_BOOTLOADER_VERBOSITY==1
+
+  txt_len=sprintf(txt_buff,"Firmware Size: 0x");
+  boot_board_write_uart(txt_buff,txt_len);
+  boot_board_print_uin32_t_hex(metadata->size);
+
+  txt_len=sprintf(txt_buff,"\nFirmware Version: 0x");
+  boot_board_write_uart(txt_buff,txt_len);
+  boot_board_print_uin16_t_hex(metadata->version);
+  
+  txt_len=sprintf(txt_buff,"\nFirmware UUID: 0x");
+  boot_board_write_uart(txt_buff,txt_len);
+  boot_board_print_uin32_t_hex(metadata->uuid);
+
+  txt_len=sprintf(txt_buff,"\nFirmware CRC: 0x");
+  boot_board_write_uart(txt_buff,txt_len);
+  boot_board_print_uin16_t_hex(metadata->crc);
+
+  txt_len=sprintf(txt_buff,"\nFirmware CRC shadow: 0x");
+  boot_board_write_uart(txt_buff,txt_len);
+  boot_board_print_uin16_t_hex(metadata->crc_shadow);
+
+  txt_len=sprintf(txt_buff,"\n");
+  boot_board_write_uart(txt_buff,txt_len);
+#else
   PRINTF("Firmware Size: %#lx\n", metadata->size);
   PRINTF("Firmware Version: %#x\n", metadata->version);
   PRINTF("Firmware UUID: %#lx\n", metadata->uuid);
   PRINTF("Firmware CRC: %#x\n", metadata->crc);
   PRINTF("Firmware CRC shadow: %#x\n", metadata->crc_shadow);
+#endif
 }
 
 /*******************************************************************************
@@ -183,7 +209,7 @@ get_ota_slot_metadata( uint8_t ota_slot, OTAMetadata_t *ota_slot_metadata )
  *
  * @return  0 on success or error code
  */
-int
+int8_t
 overwrite_ota_slot_metadata( uint8_t ota_slot, OTAMetadata_t *ota_slot_metadata )
 {
   //  (1) Determine the external flash address corresponding to the OTA slot
@@ -198,43 +224,53 @@ overwrite_ota_slot_metadata( uint8_t ota_slot, OTAMetadata_t *ota_slot_metadata 
   ota_image_address <<= 12;
 
   //  (2) Get the first page of the OTA image, which contains the metadata.
-  uint8_t page_data[ FLASH_PAGE_SIZE ];
+#ifdef BOOTLOADER
+  uint8_t page_data[ FLASH_PAGE_SIZE ]; //the bootloader doesn't have ram problems, but have flash problems, and malloc doesn't fit.
+#else
+  uint8_t * page_data=(uint8_t*)malloc(FLASH_PAGE_SIZE); //when running contiki the ram is scarse and flash is large, just try to allocate.
+#endif
 
-  int eeprom_access = ext_flash_open(NULL);
-  if(!eeprom_access) {
-    PRINTF("[external-flash]:\tError - Could not access EEPROM.\n");
-    ext_flash_close(NULL);
-    return -1;
+  if(page_data!=NULL){
+      int eeprom_access = ext_flash_open(NULL);
+      if(!eeprom_access) {
+        PRINTF("[external-flash]:\tError - Could not access EEPROM.\n");
+        ext_flash_close(NULL);
+        return -1;
+      }
+
+      eeprom_access = ext_flash_read(NULL,ota_image_address, FLASH_PAGE_SIZE, (uint8_t *)&page_data);
+      if(!eeprom_access) {
+        PRINTF("[external-flash]:\tError - Could not read EEPROM.\n");
+        ext_flash_close(NULL);
+        return -1;
+      }
+
+      //  (3) Overwrite the metadata section of the first page
+      memcpy( page_data, (uint8_t *)ota_slot_metadata, OTA_METADATA_LENGTH );
+
+      //  (4) Update the ext-flash with the new page data.
+      eeprom_access = ext_flash_erase(NULL,ota_image_address, FLASH_PAGE_SIZE );
+      if(!eeprom_access) {
+        PRINTF("[external-flash]:\tError - Could not erase EEPROM.\n");
+        ext_flash_close(NULL);
+        return -1;
+      }
+
+      eeprom_access = ext_flash_write(NULL,ota_image_address, FLASH_PAGE_SIZE, page_data );
+      if(!eeprom_access) {
+        PRINTF("[external-flash]:\tError - Could not write to EEPROM.\n");
+        ext_flash_close(NULL);
+        return -1;
+      }
+#ifndef BOOTLOADER
+      free(page_data);
+#endif
+
+      ext_flash_close(NULL);
+      return 0;
+  }else{
+    return -3;
   }
-
-  eeprom_access = ext_flash_read(NULL,ota_image_address, FLASH_PAGE_SIZE, (uint8_t *)&page_data);
-  if(!eeprom_access) {
-    PRINTF("[external-flash]:\tError - Could not read EEPROM.\n");
-    ext_flash_close(NULL);
-    return -1;
-  }
-
-  //  (3) Overwrite the metadata section of the first page
-  memcpy( page_data, (uint8_t *)ota_slot_metadata, OTA_METADATA_LENGTH );
-
-  //  (4) Update the ext-flash with the new page data.
-  eeprom_access = ext_flash_erase(NULL,ota_image_address, FLASH_PAGE_SIZE );
-  if(!eeprom_access) {
-    PRINTF("[external-flash]:\tError - Could not erase EEPROM.\n");
-    ext_flash_close(NULL);
-    return -1;
-  }
-
-  eeprom_access = ext_flash_write(NULL,ota_image_address, FLASH_PAGE_SIZE, page_data );
-  if(!eeprom_access) {
-    PRINTF("[external-flash]:\tError - Could not write to EEPROM.\n");
-    ext_flash_close(NULL);
-    return -1;
-  }
-
-  ext_flash_close(NULL);
-
-  return 0;
 }
 
 /*******************************************************************************
@@ -280,7 +316,7 @@ verify_current_firmware( OTAMetadata_t *current_firmware_metadata )
   uint32_t firmware_address = (CURRENT_FIRMWARE<<12) + OTA_METADATA_SPACE;
   uint32_t firmware_end_address = firmware_address + (current_firmware_metadata->size); //18413 ottenuto da arm-none-eabi-size vela_node.elf
 
-#if defined(ENABLE_BOOTLOADER_VERBOSITY) && ENABLE_BOOTLOADER_VERBOSITY==1
+#if defined(BOOTLOADER) && defined(ENABLE_BOOTLOADER_VERBOSITY) && ENABLE_BOOTLOADER_VERBOSITY==1
   txt_len=sprintf(txt_buff,"firmware_address: 0x");
   boot_board_write_uart(txt_buff,txt_len);
   boot_board_print_uin32_t_hex(firmware_address);
@@ -333,7 +369,7 @@ verify_current_firmware( OTAMetadata_t *current_firmware_metadata )
   imageCRC = crc16(imageCRC, 0);
   imageCRC = crc16(imageCRC, 0);
 
-#if defined(ENABLE_BOOTLOADER_VERBOSITY) && ENABLE_BOOTLOADER_VERBOSITY==1
+#if defined(BOOTLOADER) && defined(ENABLE_BOOTLOADER_VERBOSITY) && ENABLE_BOOTLOADER_VERBOSITY==1
   txt_len=sprintf(txt_buff,"CRC Calculated: 0x");
   boot_board_write_uart(txt_buff,txt_len);
   boot_board_print_uin16_t_hex(imageCRC);
@@ -354,6 +390,19 @@ verify_current_firmware( OTAMetadata_t *current_firmware_metadata )
   return 0;
 }
 
+bool is_metadata_erased(OTAMetadata_t *metadata){
+  uint8_t *metadata_ptr = (uint8_t *)metadata;
+  int b = OTA_METADATA_LENGTH;
+  while (b--) {
+    //PRINTF("%u: %u, ", b, *(uint8_t *)metadata);
+    if ( *metadata_ptr++ != 0xff ) {
+      //  We encountered a non-erased byte.  There's some non-trivial data here.
+      return false;
+    }
+  }
+  return true;
+}
+
 /*******************************************************************************
  * @fn      verify_ota_slot
  *
@@ -365,11 +414,23 @@ verify_current_firmware( OTAMetadata_t *current_firmware_metadata )
  *
  * @return  0 for success or error code
  */
-int
+int8_t
 verify_ota_slot( uint8_t ota_slot )
 {
   //  (1) Determine the external flash address corresponding to the OTA slot
   uint32_t ota_image_address;
+
+#if defined(BOOTLOADER) && defined(ENABLE_BOOTLOADER_VERBOSITY) && ENABLE_BOOTLOADER_VERBOSITY==1
+  txt_len=sprintf(txt_buff,"Verifying ota slot ");
+  boot_board_write_uart(txt_buff,txt_len);
+  boot_board_print_uin8_t_hex(ota_slot);
+
+  txt_len=sprintf(txt_buff,"\n");
+  boot_board_write_uart(txt_buff,txt_len);
+#else
+  PRINTF("Verifying ota slot %#x\n", ota_slot);
+#endif
+
   if ( ota_slot ) {
     //  If ota_slot >= 1, it means we're looking for an OTA download
     ota_image_address = ota_images[ (ota_slot-1) ];
@@ -382,7 +443,15 @@ verify_ota_slot( uint8_t ota_slot )
   //  (2) Read the metadata of the corresponding OTA slot
   OTAMetadata_t ota_metadata;
   while( get_ota_slot_metadata( ota_slot, &ota_metadata ) );
+  
+  if(is_metadata_erased(&ota_metadata)){
+    return -2; //metadata is not populated
+  }
+
   print_metadata( &ota_metadata );
+  if(ota_metadata.size>MAX_OTA_SIZE){
+    return -2; //metadata is not populated or populated with invalid data.
+  }
 
   //  (3) Compute the CRC16 over the entire image
   uint16_t imageCRC = 0;
@@ -391,7 +460,13 @@ verify_ota_slot( uint8_t ota_slot )
 
   int eeprom_access = ext_flash_open(NULL);
   if(!eeprom_access) {
+
+#if defined(BOOTLOADER) && defined(ENABLE_BOOTLOADER_VERBOSITY) && ENABLE_BOOTLOADER_VERBOSITY==1
+    txt_len=sprintf(txt_buff,"[external-flash]:\tError - Could not access EEPROM.\n");
+    boot_board_write_uart(txt_buff,txt_len);
+#else
     PRINTF("[external-flash]:\tError - Could not access EEPROM.\n");
+#endif
     ext_flash_close(NULL);
     return -1;
   }
@@ -403,7 +478,13 @@ verify_ota_slot( uint8_t ota_slot )
 
     eeprom_access = ext_flash_read(NULL,ota_image_address, 4, _word);
     if(!eeprom_access) {
+
+#if defined(BOOTLOADER) && defined(ENABLE_BOOTLOADER_VERBOSITY) && ENABLE_BOOTLOADER_VERBOSITY==1
+      txt_len=sprintf(txt_buff,"[external-flash]:\tError - Could not read EEPROM.\n");
+      boot_board_write_uart(txt_buff,txt_len);
+#else
       PRINTF("[external-flash]:\tError - Could not read EEPROM.\n");
+#endif
       ext_flash_close(NULL);
       return -1;
     }
@@ -426,7 +507,7 @@ verify_ota_slot( uint8_t ota_slot )
 
   ext_flash_close(NULL);
 
-#if defined(ENABLE_BOOTLOADER_VERBOSITY) && ENABLE_BOOTLOADER_VERBOSITY==1
+#if defined(BOOTLOADER) && defined(ENABLE_BOOTLOADER_VERBOSITY) && ENABLE_BOOTLOADER_VERBOSITY==1
   txt_len=sprintf(txt_buff,"CRC Calculated: 0x");
   boot_board_write_uart(txt_buff,txt_len);
   boot_board_print_uin16_t_hex(imageCRC);
@@ -439,17 +520,25 @@ verify_ota_slot( uint8_t ota_slot )
 
   //  (6) Update the CRC shadow with our newly calculated value
   ota_metadata.crc_shadow = imageCRC;
-#if 0 //bad way to verify CRC. in order to use this method, OTA needs to be preverified however if the upload process gets broken before the end and the device reboots, it might brick.
-  if(ota_metadata.crc!=ota_metadata.crc_shadow){ //writing the crc_shadow in overwrite_ota_slot_metadata, requires a 4096Bytes buffer and it overflows. If the CRC is found to not match, just erase the slot
-    PRINTF("CRC check not passed! Erasing the slot %u\n",ota_slot);
-    erase_ota_image(ota_slot);
-  }
-#else
-  //  (4) Finally, update Metadata stored in ext-flash
- // while( overwrite_ota_slot_metadata( ota_slot, &ota_metadata ) );
 
-   return overwrite_ota_slot_metadata( ota_slot, &ota_metadata );
-#endif
+  uint8_t is_image_valid;
+  if( ota_metadata.crc==imageCRC ){
+    is_image_valid=1;
+    PRINTF("Image is valid.\n");
+  }else{
+    is_image_valid=0;
+    PRINTF("Image is not valid.\n");
+  }
+  
+  int8_t overwrite_ret=overwrite_ota_slot_metadata( ota_slot, &ota_metadata );
+  
+  if(is_image_valid==1 && overwrite_ret==0){
+    return 0; //everthing fine
+  }else if(is_image_valid==1 && overwrite_ret < 0){
+    return 1; //the crc check is ok, but it didn't manage to overwrite the metadata in the external flash
+  }else{
+    return overwrite_ret; //the crc is not on and the it didn't manage to overwrite the metadata in the external flash
+  }
 }
 
 /*******************************************************************************
@@ -461,7 +550,7 @@ verify_ota_slot( uint8_t ota_slot )
  * @return  True if the OTA slot is populated and valid.  Otherwise, false.
  */
 bool
-validate_ota_metadata( OTAMetadata_t *metadata )
+validate_ota_metadata( OTAMetadata_t *metadata, uint8_t ota_slot )
 {
   //  (1) Is the OTA slot erased?
   //      First, we check to see if every byte in the metadata is 0xFF.
@@ -489,7 +578,12 @@ validate_ota_metadata( OTAMetadata_t *metadata )
     return true;
   }
 
-  //  If we get this far, all metadata bytes were cleared (0xff)
+  // last trial is to reverify the image. If it didn't manage to write the crc_shadow, we retry here.
+  if(ota_slot != INTERNAL_IMAGE_SLOT && verify_ota_slot(ota_slot)==0){ //given that this is the last trial, accept as valid only verification that ends up with no issues (if partial verification is accepted we might burn the internal flash with crc_shadow=0, and this brakes the boot)
+    return true;
+  }
+  
+  //  If we get this far, all metadata bytes were not valid
   return false;
 }
 
@@ -515,7 +609,7 @@ find_matching_ota_slot( uint16_t version )
     while( get_ota_slot_metadata( slot, &ota_slot_metadata ) );
 
     //  (2) Is this slot empty? If yes, skip.
-    if ( validate_ota_metadata( &ota_slot_metadata ) == false ) {
+    if ( validate_ota_metadata( &ota_slot_metadata , slot ) == false ) {
       continue;
     }
 
@@ -555,7 +649,7 @@ find_empty_ota_slot()
     while( get_ota_slot_metadata( slot, &ota_slot_metadata ) );
 
     //  (2) Is this slot invalid? If yes, let's treat it as empty.
-    if ( validate_ota_metadata( &ota_slot_metadata ) == false ) {
+    if ( validate_ota_metadata( &ota_slot_metadata , slot ) == false ) {
       return slot;
     }
   }
@@ -589,7 +683,7 @@ find_oldest_ota_image()
     while( get_ota_slot_metadata( slot, &ota_slot_metadata ) );
 
     //  (3) Is this slot populated? If not, skip.
-    if ( validate_ota_metadata( &ota_slot_metadata) == false ) {
+    if ( validate_ota_metadata( &ota_slot_metadata, slot ) == false ) {
       continue;
     }
 
@@ -632,7 +726,7 @@ find_newest_ota_image()
     while( get_ota_slot_metadata( slot, &ota_slot_metadata ) );
 
     //  (2) Is this slot populated? If not, skip.
-    if ( validate_ota_metadata( &ota_slot_metadata) == false ) {
+    if ( validate_ota_metadata( &ota_slot_metadata, slot ) == false ) {
       continue;
     }
 
