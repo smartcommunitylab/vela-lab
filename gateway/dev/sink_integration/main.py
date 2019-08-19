@@ -467,8 +467,6 @@ class Network(object):
                   "| 3      disable bluetooth\n"
                   "| 4      bt_def\n"
                   "| 5      bt_with_params\n"
-                  "| 6      enable battery info\n"
-                  "| 7      disable battery info\n"
                   "| 8      reset nordic\n"
                   "| 9      set time between sends\n"
                   "| >9     set keep alive interval in seconds")
@@ -542,6 +540,11 @@ class Network(object):
     def processUARTError(self):
         self.__uartLogLines=self.__uartLogLines+1
 
+    def processFWMetadata(self, label, fw_metadata_crc_str, fw_metadata_crc_shadow_str, fw_metadata_size_str, fw_metadata_uuid_str, fw_metadata_version_str):
+        n = self.getNode(label)
+        if n != None:
+            n.fwMetadataHandler(fw_metadata_crc_str, fw_metadata_crc_shadow_str, fw_metadata_size_str, fw_metadata_uuid_str, fw_metadata_version_str)
+
     def resetNodeTimeout(self, label):
         n = self.getNode(label)
         if n != None:
@@ -577,14 +580,7 @@ class Network(object):
 class Node(object):
 
     # The class "constructor" - It's actually an initializer
-    def __init__(self, label):
-        self.lock = threading.Lock()
-        self.name = label
-        self.lastTrickleCount = 0
-        self.lastMessageTime = float(time.time())
-        self.online=True
-
-    def __init__(self, label, trickleCount):
+    def __init__(self, label, trickleCount=0):
         self.lock = threading.Lock()
         self.name = label
         self.lastTrickleCount = trickleCount
@@ -596,6 +592,11 @@ class Node(object):
         self.batteryTemperature = None
         self.amountOfBTReports = 0
         self.online=True
+        self.fw_crc=None
+        self.fw_crc_shadow=None
+        self.fw_size=None
+        self.fw_uuid=None
+        self.fw_version=None
 
     def updateTrickleCount(self,trickleCount):
         with self.lock:
@@ -632,6 +633,14 @@ class Node(object):
             self.amountOfBTReports = self.amountOfBTReports + 1
             self.lastMessageTime = float(time.time())
 
+    def fwMetadataHandler(self, fw_metadata_crc_str, fw_metadata_crc_shadow_str, fw_metadata_size_str, fw_metadata_uuid_str, fw_metadata_version_str):
+        with self.lock:
+            self.fw_crc=fw_metadata_crc_str
+            self.fw_crc_shadow=fw_metadata_crc_shadow_str
+            self.fw_size=fw_metadata_size_str
+            self.fw_uuid=fw_metadata_uuid_str
+            self.fw_version=fw_metadata_version_str
+
     def getLastMessageElapsedTime(self):
         now = float(time.time())
         return now-self.lastMessageTime
@@ -664,7 +673,7 @@ class PacketType(IntEnum):
     network_new_sequence =          0x0100
     network_active_sequence =       0x0101
     network_last_sequence =         0x0102
-    network_bat_data =              0x0200
+    network_bat_data =              0x0200  #deprecated (merged with keepalive)
     network_set_time_between_send = 0x0601
     network_request_ping =          0xF000
     network_respond_ping =          0xF001
@@ -675,7 +684,7 @@ class PacketType(IntEnum):
     nordic_turn_bt_on_low =         0xF023  #deprecated
     nordic_turn_bt_on_def =         0xF024
     nordic_turn_bt_on_high =        0xF025  #deprecated
-    ti_set_batt_info_int =          0xF026
+    ti_set_batt_info_int =          0xF026 #deprecated (merged with keepalive)
     nordic_reset =                  0xF027
     nordic_ble_tof_enable =         0xF030
     ti_set_keep_alive =             0xF801
@@ -776,13 +785,15 @@ def handle_user_input():
                 net.addPrint("[USER_INPUT] Turn bluetooth on with parameters: scan_int="+str(SCAN_INTERVAL_MS)+"ms, scan_win="+str(SCAN_WINDOW_MS)+"ms, timeout="+str(SCAN_TIMEOUT_S)+"s, report_int="+str(REPORT_TIMEOUT_S)+"s")
                 net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_turn_bt_on_w_params, payload),forced)
             elif user_input == 6:
-                bat_info_interval_s = 90
-                net.addPrint("[USER_INPUT] Enable battery info with interval: "+str(bat_info_interval_s))
-                net.sendNewTrickle(build_outgoing_serial_message(PacketType.ti_set_batt_info_int, bat_info_interval_s.to_bytes(1, byteorder="big", signed=False)),forced)
+                net.addPrint("[USER_INPUT] Deprecated command, ignored!")
+                #bat_info_interval_s = 90
+                #net.addPrint("[USER_INPUT] Enable battery info with interval: "+str(bat_info_interval_s))
+                #net.sendNewTrickle(build_outgoing_serial_message(PacketType.ti_set_batt_info_int, bat_info_interval_s.to_bytes(1, byteorder="big", signed=False)),forced)
             elif user_input == 7:
-                bat_info_interval_s = 0
-                net.addPrint("[USER_INPUT] Disable battery info")
-                net.sendNewTrickle(build_outgoing_serial_message(PacketType.ti_set_batt_info_int, bat_info_interval_s.to_bytes(1, byteorder="big", signed=False)),forced)
+                net.addPrint("[USER_INPUT] Deprecated command, ignored!")
+                #bat_info_interval_s = 0
+                #net.addPrint("[USER_INPUT] Disable battery info")
+                #net.sendNewTrickle(build_outgoing_serial_message(PacketType.ti_set_batt_info_int, bat_info_interval_s.to_bytes(1, byteorder="big", signed=False)),forced)
             elif user_input == 8:
                 net.addPrint("[USER_INPUT] Reset nordic")
                 net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_reset, None),forced)
@@ -1049,7 +1060,7 @@ try:
                                 net.processBTReportMessage(str(messageSequenceList[seqid].nodeid))
                                 del messageSequenceList[seqid]
 
-                        elif PacketType.network_bat_data == pkttype:
+                        elif PacketType.network_bat_data == pkttype: #deprecated, will be removed soon
                             batCapacity = float(int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False)) 
                             cursor+=2
                             batSoC = float(int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False)) / 10 
@@ -1080,18 +1091,63 @@ try:
                                 net.addPrint("  [PACKET DECODE] Node id "+ str(nodeid)+" wrong ping payload: %d" % payload )
 
                         elif PacketType.network_keep_alive == pkttype:
-                            cap = float(int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False)) 
-                            cursor+=2
-                            batAvgVoltage = float(int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False))/1000 
-                            cursor+=2
-                            trickle_count = int.from_bytes(line[cursor:cursor+1], byteorder="big", signed=False) 
-                            cursor+=1
+                            new_keepalive=True
+                            if new_keepalive:
+                                batCapacity = float(int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False)) 
+                                cursor+=2
+                                batSoC = float(int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False)) / 10 
+                                cursor+=2
+                                bytesELT = line[cursor:cursor+2] #ser.read(2)
+                                cursor+=2
+                                batELT = str(timedelta(minutes=int.from_bytes(bytesELT, byteorder="big", signed=False)))[:-3] # Convert minutes to hours and minutes
+                                batAvgConsumption = float(int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=True)) / 10 
+                                cursor+=2
+                                batAvgVoltage = float(int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False))/1000 
+                                cursor+=2
+                                batAvgTemp = float(int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=True)) / 100 
+                                cursor+=2
+                                
+                                fw_metadata_crc_int = int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False)
+                                cursor+=2
+                                fw_metadata_crc_shadow_int = int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False)
+                                cursor+=2
+                                fw_metadata_size_int = int.from_bytes(line[cursor:cursor+4], byteorder="big", signed=False)
+                                cursor+=4
+                                fw_metadata_uuid_int = int.from_bytes(line[cursor:cursor+4], byteorder="big", signed=False)
+                                cursor+=4
+                                fw_metadata_version_int = int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False)
+                                cursor+=2
+                                       
+                                fw_metadata_crc_str = "{0}".format(hex(fw_metadata_crc_int))
+                                fw_metadata_crc_shadow_str = "{0}".format(hex(fw_metadata_crc_shadow_int))
+                                fw_metadata_size_str = "{0}".format(hex(fw_metadata_size_int))
+                                fw_metadata_uuid_str = "{0}".format(hex(fw_metadata_uuid_int))
+                                fw_metadata_version_str = "{0}".format(hex(fw_metadata_version_int))
 
-                            net.processKeepAliveMessage(str(nodeid), trickle_count, batAvgVoltage, cap)
+                                trickle_count = int.from_bytes(line[cursor:cursor+1], byteorder="big", signed=False) 
+                                cursor+=1
+
+                                net.addPrint("  [PACKET DECODE] Firmware metadata: crc: "+fw_metadata_crc_str+" crc_shadow: "+fw_metadata_crc_shadow_str+" size: "+fw_metadata_size_str+" uuid: "+fw_metadata_uuid_str+" version: "+fw_metadata_version_str)
+
+                                net.processKeepAliveMessage(str(nodeid), trickle_count, batAvgVoltage, batCapacity)
+                                net.processBatteryDataMessage(str(nodeid), batAvgVoltage, batCapacity, batSoC, batAvgConsumption, batAvgTemp)
+                                net.processFWMetadata(str(nodeid), fw_metadata_crc_str, fw_metadata_crc_shadow_str, fw_metadata_size_str, fw_metadata_uuid_str, fw_metadata_version_str)
+                            else:
+                                batCapacity = float(int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False)) 
+                                cursor+=2
+                                batCapacity = float(int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False))/1000 
+                                cursor+=2
+
+                                trickle_count = int.from_bytes(line[cursor:cursor+1], byteorder="big", signed=False) 
+                                cursor+=1
+
+                                net.processKeepAliveMessage(str(nodeid), trickle_count, batAvgVoltage, batCapacity)
+
+
                             if printVerbosity > 1:
-                                net.addPrint("  [PACKET DECODE] Keep alive packet. Cap: "+ str(cap) +" Voltage: "+ str(batAvgVoltage*1000) +" Trickle count: "+ str(trickle_count))
+                                net.addPrint("  [PACKET DECODE] Keep alive packet. Cap: "+ str(batCapacity) +" Voltage: "+ str(batAvgVoltage*1000) +" Trickle count: "+ str(trickle_count))
 
-                            if len(line)>5:
+                            if len(line)>cursor:
                                 nbr_info=line[cursor:-1]
                                 net.addPrint("  [PACKET DECODE] nbr info: "+nbr_info.decode("utf-8"))
                                 

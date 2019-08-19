@@ -17,11 +17,11 @@ PROCESS_NAME (vela_sender_process);
 #define KEEP_ALIVE_INTERVAL 		20
 
 // the event to be raised between the uart and the sender
-process_event_t event_buffer_empty;
+//process_event_t event_buffer_empty;
 //event to send keep alive packet
-process_event_t keep_alive_;
-process_event_t event_bat_data_ready;
-process_event_t event_new_keep_alive_time;
+//process_event_t keep_alive_;
+//process_event_t event_bat_data_ready;
+//process_event_t event_new_keep_alive_time;
 
 // to initialize the fake_uart
 void vela_sender_init();

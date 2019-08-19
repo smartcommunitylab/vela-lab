@@ -21,6 +21,7 @@
 #include "vela_sender.h"
 #if OTA
 #include "ota-download.h"
+#include "ota.h"
 #endif
 #include "sys/log.h"
 #define LOG_MODULE "vela_sender"
@@ -338,7 +339,6 @@ tcpip_handler(void)
           PROCESS_CONTEXT_BEGIN(&keep_alive_process);
           keep_alive_interval = incoming->payload.p_data[0];
           if(keep_alive_interval > 9){
-            
             etimer_set(&keep_alive_timer, 0); //setting the timer to 0 makes it send the keep alive immediately, on the next loop the timer will use keep_alive_interval instead
           }else{
             etimer_set(&keep_alive_timer, VERY_LONG_TIMER_VALUE * CLOCK_SECOND);
@@ -347,7 +347,9 @@ tcpip_handler(void)
           PROCESS_CONTEXT_END(&keep_alive_process);
           break;
         }
-        case ti_set_batt_info_int: {
+        case ti_set_batt_info_int:  //deprecated
+          break;
+          /*{
           ;
           if(incoming->payload.p_data[0] != 0){
             LOG_INFO("Enabling battery info report with interval %u\n",incoming->payload.p_data[0]);
@@ -356,7 +358,7 @@ tcpip_handler(void)
           }
           process_post(&vela_node_process, set_battery_info_interval, incoming->payload.p_data);
           break;
-        }
+        }*/
         case network_set_time_between_sends: {
           uint16_t time_between_sends_ms = (incoming->payload.p_data[0]<<8) | incoming->payload.p_data[1];
           time_between_sends = time_between_sends_ms*(CLOCK_SECOND/1000.0);
@@ -400,7 +402,7 @@ PROCESS_THREAD(vela_sender_process, ev, data) {
   NETSTACK_MAC.on();
   //etimer_set(&pause_timer, TIME_BETWEEN_SENDS_DEFAULT);   //what's this?
 
-  event_buffer_empty = process_alloc_event();
+  //event_buffer_empty = process_alloc_event();
   //event_bat_data_ready = process_alloc_event();
 
   LOG_INFO("unicast: started\n");
@@ -451,14 +453,14 @@ PROCESS_THREAD(vela_sender_process, ev, data) {
 	  response.payload.p_data[0] = temp[0];
 	  send_to_sink(response); */
       }
-      if(ev == event_bat_data_ready) {
-        LOG_INFO("Received battery data event\n");
-        send_to_sink((uint8_t*)data, 12, network_bat_data, 0);
+      //if(ev == event_bat_data_ready) {
+      //  LOG_INFO("Received battery data event\n");
+      //  send_to_sink((uint8_t*)data, 12, network_bat_data, 0);
         /*        bat_message.pkttype = network_bat_data;
 		  memcpy(bat_message.payload.p_data, data, 12);
 		  bat_message.payload.data_len = 12;
 		  send_to_sink(bat_message);*/
-      }
+      //}
     }
   PROCESS_END();
 }
@@ -498,19 +500,8 @@ PROCESS_THREAD(trickle_protocol_process, ev, data)
   PROCESS_END();
 }
 
-#ifdef BOARD_LAUNCHPAD_VELA
-#if BOARD_LAUNCHPAD_VELA==1
-static uint16_t REP_CAP_mAh;
-static uint16_t AVG_voltage_mV;
-#endif
-#else
-static uint16_t bat_data1;
-static uint16_t bat_data2;
-#endif
-//static network_message_t keep_alive_msg;
-
 /* create the list of neighbors, placed in the parameter neighborBuf.  Return the amount of data put into the buffer */
-static int prepNeighborList(uint8_t* neighborBufUint8) {
+static uint16_t prepNeighborList(uint8_t* neighborBufUint8) {
   int index = 0;
   char* neighborBuf = (char *)neighborBufUint8;
   static char tmpBuf[10];
@@ -526,9 +517,9 @@ static int prepNeighborList(uint8_t* neighborBufUint8) {
 	    
       //index += log_6addr_compact_snprint(neighborBuf, buflen, rpl_get_global_address()); // insert the ID of this node
       if (curr_instance.dag.rank == RPL_INFINITE_RANK) {
-	index += snprintf(neighborBuf+index, buflen-index, "i");  // error rank if not yet set for this node
+	    index += snprintf(neighborBuf+index, buflen-index, "i");  // error rank if not yet set for this node
       } else {
-	index += snprintf(neighborBuf+index, buflen-index, "%5u",curr_instance.dag.rank);  // rank of this node
+	    index += snprintf(neighborBuf+index, buflen-index, "%5u",curr_instance.dag.rank);  // rank of this node
       }
       
       // start cycling through the neighbors
@@ -536,25 +527,25 @@ static int prepNeighborList(uint8_t* neighborBufUint8) {
       
 
       while(nbr != NULL) {
-	if (rpl_neighbor_is_parent(nbr)) {  // identify as potential parent, or just neighbor
-	  index += snprintf(neighborBuf+index, buflen-index, " P"); // neighbor is a potential parent 
-	} else {
-	  index += snprintf(neighborBuf+index, buflen-index, " N"); // neighbor is NOT a potential parent
-	}
-	if (curr_instance.dag.preferred_parent == nbr) { // identify as the current parent or not
-	  index += snprintf(neighborBuf+index, buflen-index, "*:"); // neighbor is the curent parent
-	}  else {
-	  index += snprintf(neighborBuf+index, buflen-index, ":"); // neighbor is NOT the current parent
-	}
+	    if (rpl_neighbor_is_parent(nbr)) {  // identify as potential parent, or just neighbor
+	      index += snprintf(neighborBuf+index, buflen-index, " P"); // neighbor is a potential parent 
+	    } else {
+	      index += snprintf(neighborBuf+index, buflen-index, " N"); // neighbor is NOT a potential parent
+	    }
+	    if (curr_instance.dag.preferred_parent == nbr) { // identify as the current parent or not
+	      index += snprintf(neighborBuf+index, buflen-index, "*:"); // neighbor is the curent parent
+	    }  else {
+	      index += snprintf(neighborBuf+index, buflen-index, ":"); // neighbor is NOT the current parent
+	    }
 
-	addressLen = log_6addr_compact_snprint(tmpBuf, 10, rpl_neighbor_get_ipaddr(nbr)); // get the ID of the neighbor
-	neighborBuf[index] = tmpBuf[addressLen-1]; // insert neighbor's id
-	index++;
-	//index += log_6addr_compact_snprint(neighborBuf+index, buflen-index, rpl_neighbor_get_ipaddr(nbr)); // insert ID of the neighbor
+	    addressLen = log_6addr_compact_snprint(tmpBuf, 10, rpl_neighbor_get_ipaddr(nbr)); // get the ID of the neighbor
+	    neighborBuf[index] = tmpBuf[addressLen-1]; // insert neighbor's id
+	    index++;
+	    //index += log_6addr_compact_snprint(neighborBuf+index, buflen-index, rpl_neighbor_get_ipaddr(nbr)); // insert ID of the neighbor
 	
-	index += snprintf(neighborBuf+index, buflen-index, "%5u",nbr->rank);  // rank of the neighbor
+	    index += snprintf(neighborBuf+index, buflen-index, "%5u",nbr->rank);  // rank of the neighbor
 
-	nbr = nbr_table_next(rpl_neighbors, nbr);
+	    nbr = nbr_table_next(rpl_neighbors, nbr);
       }
 
       
@@ -563,73 +554,127 @@ static int prepNeighborList(uint8_t* neighborBufUint8) {
   return index;
 }
 
-
 PROCESS_THREAD(keep_alive_process, ev, data)
 {
   PROCESS_BEGIN();
   etimer_set(&keep_alive_timer, keep_alive_interval * CLOCK_SECOND);
 
-  //keep_alive_msg.pkttype = network_keep_alive;
-  //keep_alive_msg.payload.data_len = 5;
   while(1) {
+
+    clock_time_t keep_alive_timer_value=0;
+
     PROCESS_WAIT_UNTIL(etimer_expired(&keep_alive_timer));
 
-    if(keep_alive_interval > 9){     
-      uint8_t keep_alive_data[100]; // ALM: increaated from 5 to 100 to include neighbor information
+    if(keep_alive_interval > 9){
 
-      etimer_set(&keep_alive_timer, keep_alive_interval * CLOCK_SECOND);
+        uint16_t REP_CAP_mAh=0, REP_SOC_permillis=0, TTE_minutes=0, AVG_voltage_mV=0;
+        int16_t AVG_current_100uA=0, AVG_temp_10mDEG=0;
+        uint8_t keep_alive_data[100]; // ALM: increaated from 5 to 100 to include neighbor information
+        uint16_t c=0;
 
 #ifdef BOARD_LAUNCHPAD_VELA
 #if BOARD_LAUNCHPAD_VELA==1
-      REP_CAP_mAh = max_17260_sensor.value(MAX_17260_SENSOR_TYPE_REP_CAP);
-      AVG_voltage_mV =  max_17260_sensor.value(MAX_17260_SENSOR_TYPE_AVG_V);
-      keep_alive_data[0] = (uint8_t)(REP_CAP_mAh >> 8);
-      keep_alive_data[1] = (uint8_t)REP_CAP_mAh;
-      keep_alive_data[2] = (uint8_t)(AVG_voltage_mV >> 8);
-      keep_alive_data[3] = (uint8_t)AVG_voltage_mV;
-      keep_alive_data[4] = trickle_msg.pktnum;
-
-      /*            keep_alive_msg.payload.p_data[0] = (uint8_t)(REP_CAP_mAh >> 8);
-		    keep_alive_msg.payload.p_data[1] = (uint8_t)REP_CAP_mAh;
-		    keep_alive_msg.payload.p_data[2] = (uint8_t)(AVG_voltage_mV >> 8);
-		    keep_alive_msg.payload.p_data[3] = (uint8_t)AVG_voltage_mV;
-		    keep_alive_msg.payload.p_data[4] = trickle_msg.pktnum;*/
-
+        REP_CAP_mAh = max_17260_sensor.value(MAX_17260_SENSOR_TYPE_REP_CAP);
+        REP_SOC_permillis = max_17260_sensor.value(
+		                     MAX_17260_SENSOR_TYPE_REP_SOC);
+        TTE_minutes = max_17260_sensor.value(MAX_17260_SENSOR_TYPE_TTE);
+        AVG_current_100uA = max_17260_sensor.value(MAX_17260_SENSOR_TYPE_AVG_I);
+        AVG_voltage_mV = max_17260_sensor.value(
+		                  MAX_17260_SENSOR_TYPE_AVG_V);
+        AVG_temp_10mDEG = max_17260_sensor.value(MAX_17260_SENSOR_TYPE_AVG_TEMP);
+        LOG_DBG("Remaining battery capacity = %d mAh ", REP_CAP_mAh);
+        LOG_DBG_("or %d.%d %%. ", (uint16_t) (REP_SOC_permillis / 10), REP_SOC_permillis % 10);
+        LOG_DBG_("Remaining runtime with this consumption: %d hours and %d minutes. ", TTE_minutes / 60, TTE_minutes % 60);
+        if (AVG_current_100uA > 0) {
+            LOG_DBG_("Avg current %d.%d mA ", AVG_current_100uA / 10, AVG_current_100uA % 10);
+        } else {
+            LOG_DBG_("Avg current -%d.%d mA ", -AVG_current_100uA / 10, -AVG_current_100uA % 10);
+        }
+        LOG_DBG_("Avg voltage = %d mV ", AVG_voltage_mV);
+        if (AVG_temp_10mDEG > 0)
+        {
+          LOG_DBG_("Avg temp %d.%d °C ", AVG_temp_10mDEG / 100, AVG_temp_10mDEG % 100);
+        }
+        else
+        {
+          LOG_DBG_("Avg temp %d.%d °C ", -AVG_temp_10mDEG / 100, -AVG_temp_10mDEG % 100);
+        }
+        LOG_DBG_("\n");
 #endif
 #else
-      bat_data1=0;
-      bat_data2=0;
-      keep_alive_data[0] = (uint8_t)(bat_data1 >> 8);
-      keep_alive_data[1] = (uint8_t)bat_data1;
-      keep_alive_data[2] = (uint8_t)(bat_data2 >> 8);
-      keep_alive_data[3] = (uint8_t)bat_data2;
-      keep_alive_data[4] = trickle_msg.pktnum;
-
-      /*      keep_alive_msg.payload.p_data[0] = (uint8_t)(bat_data1 >> 8);
-	      keep_alive_msg.payload.p_data[1] = (uint8_t)bat_data1;
-	      keep_alive_msg.payload.p_data[2] = (uint8_t)(bat_data2 >> 8);
-	      keep_alive_msg.payload.p_data[3] = (uint8_t)bat_data2;
-	      keep_alive_msg.payload.p_data[4] = trickle_msg.pktnum; */
+        REP_CAP_mAh++; REP_SOC_permillis++; TTE_minutes++; AVG_voltage_mV++; AVG_current_100uA++; AVG_temp_10mDEG++;
 #endif
+        //STORE BATTERY DATA IN KEEPALIVE PAYLOAD
+        keep_alive_data[c++] = (uint8_t)(REP_CAP_mAh >> 8);                             //0
+        keep_alive_data[c++] = (uint8_t)REP_CAP_mAh;                                    //1
+        keep_alive_data[c++] = (uint8_t)(REP_SOC_permillis >> 8);                       //2
+        keep_alive_data[c++] = (uint8_t)REP_SOC_permillis;                              //3
+        keep_alive_data[c++] = (uint8_t)(TTE_minutes >> 8);                             //4
+        keep_alive_data[c++] = (uint8_t)TTE_minutes;                                    //5
+        keep_alive_data[c++] = (uint8_t)(AVG_current_100uA >> 8);                       //6
+        keep_alive_data[c++] = (uint8_t)AVG_current_100uA;                              //7
+        keep_alive_data[c++] = (uint8_t)(AVG_voltage_mV >> 8);                          //8
+        keep_alive_data[c++] = (uint8_t)AVG_voltage_mV;                                 //9
+        keep_alive_data[c++] = (uint8_t)(AVG_temp_10mDEG >> 8);                         //10
+        keep_alive_data[c++] = (uint8_t)AVG_temp_10mDEG;                                //11
 
+#if OTA
+        OTAMetadata_t runningFirmware_metadata;
+        get_current_metadata(&runningFirmware_metadata);
+
+        //STORE RUNNING FIRMWARE METADATA IN KEEPALIVE PAYLOAD
+        keep_alive_data[c++] = (uint8_t)(runningFirmware_metadata.crc >> 8);            //12
+        keep_alive_data[c++] = (uint8_t)runningFirmware_metadata.crc;                   //13
+        keep_alive_data[c++] = (uint8_t)(runningFirmware_metadata.crc_shadow >> 8);     //14
+        keep_alive_data[c++] = (uint8_t)runningFirmware_metadata.crc_shadow;            //15
+        keep_alive_data[c++] = (uint8_t)(runningFirmware_metadata.size >> 24);          //16
+        keep_alive_data[c++] = (uint8_t)(runningFirmware_metadata.size >> 16);          //17
+        keep_alive_data[c++] = (uint8_t)(runningFirmware_metadata.size >> 8);           //18
+        keep_alive_data[c++] = (uint8_t)runningFirmware_metadata.size;                  //19
+        keep_alive_data[c++] = (uint8_t)(runningFirmware_metadata.uuid >> 24);          //20
+        keep_alive_data[c++] = (uint8_t)(runningFirmware_metadata.uuid >> 16);          //21
+        keep_alive_data[c++] = (uint8_t)(runningFirmware_metadata.uuid >> 8);           //22
+        keep_alive_data[c++] = (uint8_t)runningFirmware_metadata.uuid;                  //23
+        keep_alive_data[c++] = (uint8_t)(runningFirmware_metadata.version >> 8);        //24
+        keep_alive_data[c++] = (uint8_t)runningFirmware_metadata.version;               //25
+#else   
+        keep_alive_data[c++] = 0;                                                       //12
+        keep_alive_data[c++] = 0;                                                       //13
+        keep_alive_data[c++] = 0;                                                       //14
+        keep_alive_data[c++] = 0;                                                       //15
+        keep_alive_data[c++] = 0;                                                       //16
+        keep_alive_data[c++] = 0;                                                       //17
+        keep_alive_data[c++] = 0;                                                       //18
+        keep_alive_data[c++] = 0;                                                       //19
+        keep_alive_data[c++] = 0;                                                       //20
+        keep_alive_data[c++] = 0;                                                       //21
+        keep_alive_data[c++] = 0;                                                       //22
+        keep_alive_data[c++] = 0;                                                       //23
+        keep_alive_data[c++] = 0;                                                       //24
+        keep_alive_data[c++] = 0;                                                       //25
+#endif
+        keep_alive_data[c++] = trickle_msg.pktnum;                                      //26
 
       // add the neighbor table information to the keepalive packet
-      static int neighborLength=0; // track the size of the neighbor table in the packet
-      neighborLength = prepNeighborList(&keep_alive_data[5]); // add 5 because of the data added to the keep_alive message above
+      uint16_t neighborLength=0; // track the size of the neighbor table in the packet
+      neighborLength = prepNeighborList(&keep_alive_data[c]);
 
       ///////debugging  vvvvvvvv
-      LOG_INFO("neighbor size=%d      Data:",neighborLength); 
-      for (int i=5; i<neighborLength;i++) 
-	     LOG_INFO_("%c",(char)keep_alive_data[i]);
+      LOG_INFO("neighbor size=%d Data:",neighborLength); 
+      for (uint16_t i=0; i<neighborLength;i++)
+	     LOG_INFO_("%c",(char)keep_alive_data[c+i]);
       LOG_INFO_("\n");
       ///////debugging ^^^^^^^^
 
       // need to send the 5 bytes of the standard keepalive PLUS the lenght of the neighbor table      
-      send_to_sink(keep_alive_data, neighborLength+5, network_keep_alive,0);
+      send_to_sink(keep_alive_data, c+neighborLength, network_keep_alive,0);
+      keep_alive_timer_value=keep_alive_interval * CLOCK_SECOND;
 
     }else{
-      etimer_set(&keep_alive_timer, VERY_LONG_TIMER_VALUE * CLOCK_SECOND); //NOTE: the etimer seems to not reset the expired status, then once stopped the execution keeps looping inside the while(1). Setting it to an high value is a workaround
+      keep_alive_timer_value=VERY_LONG_TIMER_VALUE * CLOCK_SECOND; //NOTE: the etimer seems to not reset the expired status, then once stopped the execution keeps looping inside the while(1). Setting it to an high value is a workaround
     }
+
+    etimer_set(&keep_alive_timer, keep_alive_timer_value);
 
   }
   PROCESS_END();
