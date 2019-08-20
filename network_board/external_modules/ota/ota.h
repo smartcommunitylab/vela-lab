@@ -62,7 +62,7 @@ int8_t overwrite_ota_slot_metadata( uint8_t ota_slot, OTAMetadata_t *ota_slot_me
 
 int backup_golden_image();
 
-int verify_current_firmware( OTAMetadata_t *current_firmware_metadata );
+int8_t verify_current_firmware( OTAMetadata_t *current_firmware_metadata );
 
 int8_t verify_ota_slot( uint8_t ota_slot );
 

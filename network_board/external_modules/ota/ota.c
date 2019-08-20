@@ -265,10 +265,23 @@ overwrite_ota_slot_metadata( uint8_t ota_slot, OTAMetadata_t *ota_slot_metadata 
 #ifndef BOOTLOADER
       free(page_data);
 #endif
-
       ext_flash_close(NULL);
+
+#if defined(ENABLE_BOOTLOADER_VERBOSITY) && ENABLE_BOOTLOADER_VERBOSITY==1
+      txt_len=sprintf(txt_buff,"[external-flash] Metadata overwritten!.\n");
+      boot_board_write_uart(txt_buff,txt_len);
+#else
+      PRINTF("[external-flash] Metadata overwritten!.\n");
+#endif
       return 0;
   }else{
+#if defined(ENABLE_BOOTLOADER_VERBOSITY) && ENABLE_BOOTLOADER_VERBOSITY==1
+    txt_len=sprintf(txt_buff,"[WARNING] Cannot allocate enough space to perform metadata overwrite, skipping it.\n");
+    boot_board_write_uart(txt_buff,txt_len);
+#else
+    PRINTF("[WARNING] Cannot allocate enough space to perform metadata overwrite, skipping it.\n");
+#endif
+    
     return -3;
   }
 }
@@ -307,7 +320,7 @@ backup_golden_image()
  *
  * @return  0 for success or error code
  */
-int
+int8_t
 verify_current_firmware( OTAMetadata_t *current_firmware_metadata )
 {
   PRINTF("Recomputing CRC16 on internal flash image within range [0x2000, 0x1B000).\n");
@@ -387,7 +400,12 @@ verify_current_firmware( OTAMetadata_t *current_firmware_metadata )
   while(  FlashProgram( (uint8_t *)current_firmware_metadata, (CURRENT_FIRMWARE<<12), OTA_METADATA_LENGTH )
   != FAPI_STATUS_SUCCESS );
 
-  return 0;
+
+  if(current_firmware_metadata->crc_shadow == current_firmware_metadata->crc){
+    return 0;
+  }else{
+    return -1;
+  }
 }
 
 bool is_metadata_erased(OTAMetadata_t *metadata){
@@ -522,22 +540,35 @@ verify_ota_slot( uint8_t ota_slot )
   ota_metadata.crc_shadow = imageCRC;
 
   uint8_t is_image_valid;
-  if( ota_metadata.crc==imageCRC ){
+
+  if( ota_metadata.crc==ota_metadata.crc_shadow ){
     is_image_valid=1;
+#if defined(BOOTLOADER) && defined(ENABLE_BOOTLOADER_VERBOSITY) && ENABLE_BOOTLOADER_VERBOSITY==1
+    txt_len=sprintf(txt_buff,"Image is valid.\n");
+    boot_board_write_uart(txt_buff,txt_len);
+#else
     PRINTF("Image is valid.\n");
+#endif
   }else{
     is_image_valid=0;
+#if defined(BOOTLOADER) && defined(ENABLE_BOOTLOADER_VERBOSITY) && ENABLE_BOOTLOADER_VERBOSITY==1
+    txt_len=sprintf(txt_buff,"Image is not valid.\n");
+    boot_board_write_uart(txt_buff,txt_len);
+#else
     PRINTF("Image is not valid.\n");
+#endif
   }
   
-  int8_t overwrite_ret=overwrite_ota_slot_metadata( ota_slot, &ota_metadata );
+  int8_t overwrite_ret = overwrite_ota_slot_metadata( ota_slot, &ota_metadata );
   
-  if(is_image_valid==1 && overwrite_ret==0){
-    return 0; //everthing fine
-  }else if(is_image_valid==1 && overwrite_ret < 0){
-    return 1; //the crc check is ok, but it didn't manage to overwrite the metadata in the external flash
+  if(is_image_valid!=1){
+    return -5;          //the crc is not ok (I don't care the rest)
   }else{
-    return overwrite_ret; //the crc is not on and the it didn't manage to overwrite the metadata in the external flash
+    if(overwrite_ret==0){
+        return 0;       //everthing fine
+    }else{
+        return 1;      //the crc is ok but metadata is not written
+    }
   }
 }
 
@@ -580,6 +611,7 @@ validate_ota_metadata( OTAMetadata_t *metadata, uint8_t ota_slot )
 
   // last trial is to reverify the image. If it didn't manage to write the crc_shadow, we retry here.
   if(ota_slot != INTERNAL_IMAGE_SLOT && verify_ota_slot(ota_slot)==0){ //given that this is the last trial, accept as valid only verification that ends up with no issues (if partial verification is accepted we might burn the internal flash with crc_shadow=0, and this brakes the boot)
+    get_ota_slot_metadata( ota_slot,metadata );
     return true;
   }
   
@@ -729,7 +761,7 @@ find_newest_ota_image()
     if ( validate_ota_metadata( &ota_slot_metadata, slot ) == false ) {
       continue;
     }
-
+    
     //  (3) Is this the newest non-Golden Image image we've found thus far?
     if ( ota_slot_metadata.version > newest_firmware_version ) {
       newest_ota_slot = slot;
