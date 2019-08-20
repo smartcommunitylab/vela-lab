@@ -1135,7 +1135,7 @@ try:
                             else:
                                 batCapacity = float(int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False)) 
                                 cursor+=2
-                                batCapacity = float(int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False))/1000 
+                                batAvgVoltage = float(int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False))/1000 
                                 cursor+=2
 
                                 trickle_count = int.from_bytes(line[cursor:cursor+1], byteorder="big", signed=False) 
