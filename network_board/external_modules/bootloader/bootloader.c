@@ -100,7 +100,14 @@ main(void)
 #endif
 
   //  (2) Verify the current firmware! (Recompute the CRC over the internal flash image)
-  verify_current_firmware( &current_firmware );
+  bool curr_fw_valid = verify_current_firmware( &current_firmware ) == 0;
+  if(curr_fw_valid){
+      txt_len=sprintf(txt_buff,"Current firmware (in the internal flash) IS valid!\n");
+      boot_board_write_uart(txt_buff,txt_len);
+  }else{
+      txt_len=sprintf(txt_buff,"Current firmware (in the internal flash) IS NOT valid!\n");
+      boot_board_write_uart(txt_buff,txt_len);
+  }
 
   //  (3) Are there any newer firmware images in ext-flash?
   uint8_t newest_ota_slot = find_newest_ota_image();
