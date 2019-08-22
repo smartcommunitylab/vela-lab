@@ -55,7 +55,7 @@ ser = serial.Serial()
 ser.port = SERIAL_PORT
 ser.baudrate = BAUD_RATE
 ser.timeout = 100
-TANSMIT_ONE_CHAR_AT_THE_TIME=True
+TANSMIT_ONE_CHAR_AT_THE_TIME=False
 #ser.inter_byte_timeout = 0.1 #not the space between stop/start condition
 
 MessageSequence = recordtype("MessageSequence","timestamp,nodeid,lastPktnum,sequenceSize,datacounter,datalist,latestTime")
@@ -711,7 +711,7 @@ class USER_INPUT_THREAD(threading.Thread):
 
     def run(self):
         while self.__loop:
-            try:
+            #try:
                 ble_tof_enabled=False
                 input_str = input()
                 if len(input_str)>=2 and input_str[0] == 'f':
@@ -818,121 +818,9 @@ class USER_INPUT_THREAD(threading.Thread):
                     interval = user_input
                     net.addPrint("[USER_INPUT] Set keep alive interval to "+ str(interval) + "s")
                     net.sendNewTrickle(build_outgoing_serial_message(PacketType.ti_set_keep_alive, interval.to_bytes(1, byteorder="big", signed=False)),forced)
-            except Exception as e:
-                net.addPrint("[USER_INPUT] Read failed. Read data: "+ input_str)
-                pass
-
-def handle_user_input():
-    ble_tof_enabled=False
-    while 1:
-        try:
-            input_str = input()
-            if len(input_str)>=2 and input_str[0] == 'f':
-                forced=True
-                user_input = int(input_str[1:])
-            else:
-                if input_str=='h':
-                    if net.showHelp:
-                        net.showHelp=False
-                    else:
-                        net.showHelp=True
-
-                    net.printNetworkStatus()
-                    continue
-                elif input_str=='r':
-                    net.resetCounters()
-                    net.printNetworkStatus()
-                    continue
-                elif input_str=='t':
-                    net.resetTrickle()
-                    net.printNetworkStatus()
-                    continue
-                elif input_str=='f':
-                    net.addPrint("[USER_INPUT] Firmware update start.")
-                    net.startFirmwareUpdate()
-                    continue
-                elif input_str=='b':
-                    net.addPrint("[USER_INPUT] Network reboot requested!")
-                    net.rebootNetwork(5000)
-                    continue
-                else:
-                    forced=False
-                    user_input = int(input_str)
-
-            if user_input == 1:
-                payload = 233
-                net.addPrint("[USER_INPUT] Ping request")
-                net.sendNewTrickle(build_outgoing_serial_message(PacketType.network_request_ping, payload.to_bytes(1, byteorder="big", signed=False)),forced)
-            elif user_input == 2:
-                net.addPrint("[USER_INPUT] Turn bluetooth on")
-                net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_turn_bt_on, None),forced)
-            elif user_input == 3:
-                net.addPrint("[USER_INPUT] Turn bluetooth off")
-                net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_turn_bt_off, None),forced)
-            #elif user_input == 4:
-            #    net.addPrint("Turning bt on low")
-            #    appLogger.debug("[SENDING] Enable Bluetooth LOW")
-            #    net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_turn_bt_on_low, None),forced)
-            #elif user_input == 4:
-            #    net.addPrint("[USER_INPUT] Turn bluetooth on with default settings stored on the nodes")
-            #    net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_turn_bt_on_def, None),forced)
-            #elif user_input == 6:
-            #    net.addPrint("Turning bt on high")
-            #    appLogger.debug("[SENDING] Enable Bluetooth HIGH")
-            #    net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_turn_bt_on_high, None),forced)
-            elif user_input == 4:
-                if ble_tof_enabled:
-                    net.addPrint("[USER_INPUT] disabling ble tof")
-                    ble_tof_enabled=False
-                else:
-                    net.addPrint("[USER_INPUT] enabling ble tof")
-                    ble_tof_enabled=True
-                
-                net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_ble_tof_enable, ble_tof_enabled.to_bytes(1, byteorder="big", signed=False)),forced)
-                    
-            elif user_input == 5:
-                SCAN_INTERVAL_MS = 1500
-                SCAN_WINDOW_MS = 1500
-                SCAN_TIMEOUT_S = 0
-                REPORT_TIMEOUT_S = 15
-
-                active_scan = 1
-                scan_interval = int(SCAN_INTERVAL_MS*1000/625)
-                scan_window = int(SCAN_WINDOW_MS*1000/625)
-                timeout = int(SCAN_TIMEOUT_S)
-                report_timeout_ms = int(REPORT_TIMEOUT_S*1000)
-                bactive_scan = active_scan.to_bytes(1, byteorder="big", signed=False)
-                bscan_interval = scan_interval.to_bytes(2, byteorder="big", signed=False)
-                bscan_window = scan_window.to_bytes(2, byteorder="big", signed=False)
-                btimeout = timeout.to_bytes(2, byteorder="big", signed=False)
-                breport_timeout_ms = report_timeout_ms.to_bytes(4, byteorder="big", signed=False)
-                payload = bactive_scan + bscan_interval + bscan_window + btimeout + breport_timeout_ms
-                net.addPrint("[USER_INPUT] Turn bluetooth on with parameters: scan_int="+str(SCAN_INTERVAL_MS)+"ms, scan_win="+str(SCAN_WINDOW_MS)+"ms, timeout="+str(SCAN_TIMEOUT_S)+"s, report_int="+str(REPORT_TIMEOUT_S)+"s")
-                net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_turn_bt_on_w_params, payload),forced)
-            elif user_input == 6:
-                net.addPrint("[USER_INPUT] Deprecated command, ignored!")
-                #bat_info_interval_s = 90
-                #net.addPrint("[USER_INPUT] Enable battery info with interval: "+str(bat_info_interval_s))
-                #net.sendNewTrickle(build_outgoing_serial_message(PacketType.ti_set_batt_info_int, bat_info_interval_s.to_bytes(1, byteorder="big", signed=False)),forced)
-            elif user_input == 7:
-                net.addPrint("[USER_INPUT] Deprecated command, ignored!")
-                #bat_info_interval_s = 0
-                #net.addPrint("[USER_INPUT] Disable battery info")
-                #net.sendNewTrickle(build_outgoing_serial_message(PacketType.ti_set_batt_info_int, bat_info_interval_s.to_bytes(1, byteorder="big", signed=False)),forced)
-            elif user_input == 8:
-                net.addPrint("[USER_INPUT] Reset nordic")
-                net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_reset, None),forced)
-            elif user_input == 9:
-                time_between_send_ms = 0
-                time_between_send = time_between_send_ms.to_bytes(2, byteorder="big", signed=False)
-                net.addPrint("[USER_INPUT] Set time between sends to "+ str(time_between_send_ms) + "ms")
-                net.sendNewTrickle(build_outgoing_serial_message(PacketType.network_set_time_between_send, time_between_send),forced)
-            elif user_input > 9:
-                interval = user_input
-                net.addPrint("[USER_INPUT] Set keep alive interval to "+ str(interval) + "s")
-                net.sendNewTrickle(build_outgoing_serial_message(PacketType.ti_set_keep_alive, interval.to_bytes(1, byteorder="big", signed=False)),forced)
-        except ValueError:
-            net.addPrint("[USER_INPUT] Read failed. Read data: "+ input_str)
+            #except Exception as e:
+            #    net.addPrint("[USER_INPUT] Read failed. Read data: "+ input_str)
+            #    pass
 
 def build_outgoing_serial_message(pkttype, ser_payload):
     payload_size = 0
@@ -940,10 +828,21 @@ def build_outgoing_serial_message(pkttype, ser_payload):
     if ser_payload is not None:
         payload_size = len(ser_payload)
 
+    #the packet data starts with the size of the payload
     packet = payload_size.to_bytes(length=1, byteorder='big', signed=False) + pkttype.to_bytes(length=2, byteorder='big', signed=False)
 
+    #add the payload
     if ser_payload is not None:
         packet=packet+ser_payload
+
+    #calculate the payload checksum
+    cs=0
+    for c in ser_payload:                                       #calculate the checksum on the payload and the len field
+        cs+=int.from_bytes([c], "big", signed=False) 
+    cs=cs%256                                                   #trunkate to 8 bit
+
+    #add the checksum
+    packet=packet+ cs.to_bytes(1, byteorder='big', signed=False)
 
     ascii_packet=''.join('%02X'%i for i in packet)
 

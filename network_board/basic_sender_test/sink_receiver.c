@@ -384,7 +384,17 @@ PROCESS_THREAD(uart_reader_process, ev, data)
         idx+=16;
 
 	    payload_size=byte_array[idx++];
-
+        
+        
+        uint8_t cs=0;                
+        for(uint16_t ii=0;ii<payload_size;ii++){
+            cs+=byte_array[idx+ii];
+        }
+        if(cs!=byte_array[payload_size]){
+            LOG_WARN("CRC ERROR (calculated %d, received %d), discarding the serial packet!\n",cs,byte_array[payload_size]);
+            continue;
+        }
+        
         if(is_broadcast(&outgoing_network_message_ipaddr)){
 
 	        trickle_msg.pkttype = ((uint16_t) byte_array[idx++]) << 8;
