@@ -5,7 +5,6 @@ import logging
 from recordtype import recordtype
 from enum import IntEnum, unique
 from datetime import timedelta
-import _thread
 import readchar
 import os
 import sys
@@ -143,10 +142,10 @@ firmwareChunkDownloaded_event_data=[]
 
 MAX_CHUNK_SIZE=256
 CHUNK_DOWNLOAD_TIMEOUT=7
-MAX_SUBCHUNK_SIZE=128               #if MAX_SUBCHUNK_SIZE should be always strictly less than MAX_CHUNK_SIZE (if a chunk doesn't get spitted problems might arise, the case is not managed)
+MAX_SUBCHUNK_SIZE=128               #MAX_SUBCHUNK_SIZE should be always strictly less than MAX_CHUNK_SIZE (if a chunk doesn't get spitted problems might arise, the case is not managed)
 if TANSMIT_ONE_CHAR_AT_THE_TIME:
-    SUBCHUNK_INTERVAL=0
-    CHUNK_INTERVAL_ADD=0
+    SUBCHUNK_INTERVAL=0.02
+    CHUNK_INTERVAL_ADD=0.01
 else:
     SUBCHUNK_INTERVAL=0.02 #with 0.1 it is stable, less who knows? 0.03 -> no error in 3 ota downloads. 0.02 no apparten problem...
     CHUNK_INTERVAL_ADD=0.01
@@ -281,18 +280,20 @@ class Network(object):
             else:
                 chunk=firmware[offset:]
 
-            self.addPrint("[DEBUG] sending firmware chunk number: "+str(chunk_no) + "/"+str(NO_OF_CHUNKS_IN_THE_FIRMWARE))
+            self.addPrint("[DEBUG] sending firmware chunk number: "+str(chunk_no) + "/"+str(NO_OF_CHUNKS_IN_THE_FIRMWARE)+" - "+str((int(chunk_no*10000/NO_OF_CHUNKS_IN_THE_FIRMWARE))/100)+"%")
             
             chunksize=len(chunk)
             self.sendFirmwareChunk(destination_ipv6_addr,chunk,chunk_no)
-
+            
+            self.addPrint("[DEBUG] Chunk sent, waiting ack...")
+            
             #wait the response from the remote node
             if chunk_no==1:
-                firmwareChunkDownloaded_event.wait(10+CHUNK_DOWNLOAD_TIMEOUT) #the first packet needs more time because the OTA module is initialized
+                time_to_wait=10+CHUNK_DOWNLOAD_TIMEOUT #the first packet needs more time because the OTA module is initialized
             else:
-                firmwareChunkDownloaded_event.wait(CHUNK_DOWNLOAD_TIMEOUT)
-                
-            if firmwareChunkDownloaded_event.isSet():
+                time_to_wait=CHUNK_DOWNLOAD_TIMEOUT
+                            
+            if firmwareChunkDownloaded_event.wait(time_to_wait):
                 firmwareChunkDownloaded_event.clear()
                 time.sleep(CHUNK_INTERVAL_ADD)
 
@@ -304,15 +305,18 @@ class Network(object):
                         #offset=offset+chunksize
                         chunk_timeout_count=0
                         self.addPrint("[DEBUG] ack OK!!") #ok go on
+                        lastCorrectChunkReceived=chunk_no
                     else:                   
                         self.addPrint("[DEBUG] ack NOT OK!! Err: "+str(firmwareChunkDownloaded_event_data[1])+". The chunk will be retrasmitted in a moment...")
                         time.sleep(5) #in case a full chunk is transmitted to the node twice (because of a ota_ack loss), we might get multiple nacks for a chunk
                         while firmwareChunkDownloaded_event.isSet():
                             self.addPrint("[DEBUG] More than one ACK/NACK received for this firmware chunk. I should be able to recover...just give me some time")
                             firmwareChunkDownloaded_event.clear()
+                            lastCorrectChunkReceived=firmwareChunkDownloaded_event_data[0]+256*int(chunk_no/256)
                             time.sleep(5)
-                    lastCorrectChunkReceived=firmwareChunkDownloaded_event_data[0]
-                    chunk_no=lastCorrectChunkReceived+256*int(chunk_no/256) + 1
+
+                    chunk_no=lastCorrectChunkReceived + 1
+                    self.addPrint("[DEBUG] I'll send chunk_no: "+str(chunk_no)+" in a moment")
                     offset=(chunk_no-1)*MAX_CHUNK_SIZE
                 else:
                     zero=0
@@ -333,7 +337,6 @@ class Network(object):
                         self.addPrint("[OTA] CRC error at the node...")
                         return 1 #crc error at the node
             else:
-                firmwareChunkDownloaded_event.clear()
                 if chunk_no == NO_OF_CHUNKS_IN_THE_FIRMWARE and not EXPECT_ACK_FOR_THE_LAST_PACKET: #the last packet
                     return 0 #OTA update correctly closed
                 chunk_timeout_count+=1
@@ -358,10 +361,11 @@ class Network(object):
                 sub_chunk=chunk[offset:]
                 offset=chunksize
             
-            #self.addPrint("[DEBUG] sending firmware subchunk number: "+str(sub_chunk_no) + "/"+str(NO_OF_SUB_CHUNKS_IN_THIS_CHUNK))           
+            self.addPrint("[DEBUG] sending firmware subchunk number: "+str(sub_chunk_no) + "/"+str(NO_OF_SUB_CHUNKS_IN_THIS_CHUNK))           
 
             self.sendFirmwareSubChunk(destination_ipv6_addr, sub_chunk,chunk_no,sub_chunk_no)
-            time.sleep(SUBCHUNK_INTERVAL)
+            if sub_chunk_no != NO_OF_SUB_CHUNKS_IN_THIS_CHUNK:
+                time.sleep(SUBCHUNK_INTERVAL)
 
     def sendFirmwareSubChunk(self, destination_ipv6_addr, sub_chunk, chunk_no, sub_chunk_no):
         global NO_OF_CHUNKS_IN_THE_FIRMWARE
@@ -393,8 +397,9 @@ class Network(object):
         destination_addr_ascii_encoded=destination_addr_ascii.encode('utf-8')
         message=destination_addr_ascii_encoded+message
 
+        net.addPrint("[APPLICATION] Ripple message going to be sent...")
         send_serial_msg(message)
-        #net.addPrint("[APPLICATION] Ripple message: 0x {0} send".format((message).hex()))
+        net.addPrint("[APPLICATION] Ripple message sent.")
 
 
     def sendNewTrickle(self, message,forced=False):
@@ -697,6 +702,126 @@ class PacketType(IntEnum):
 def cls():
     os.system('cls' if os.name=='nt' else 'clear')
 
+class USER_INPUT_THREAD(threading.Thread):
+    def __init__(self, threadID, name):
+        threading.Thread.__init__(self)
+        self.threadID= threadID
+        self.name = name
+        self.__loop=True
+
+    def run(self):
+        while self.__loop:
+            try:
+                ble_tof_enabled=False
+                input_str = input()
+                if len(input_str)>=2 and input_str[0] == 'f':
+                    forced=True
+                    user_input = int(input_str[1:])
+                else:
+                    if input_str=='h':
+                        if net.showHelp:
+                            net.showHelp=False
+                        else:
+                            net.showHelp=True
+
+                        net.printNetworkStatus()
+                        continue
+                    elif input_str=='r':
+                        net.resetCounters()
+                        net.printNetworkStatus()
+                        continue
+                    elif input_str=='t':
+                        net.resetTrickle()
+                        net.printNetworkStatus()
+                        continue
+                    elif input_str=='f':
+                        net.addPrint("[USER_INPUT] Firmware update start.")
+                        net.startFirmwareUpdate()
+                        continue
+                    elif input_str=='b':
+                        net.addPrint("[USER_INPUT] Network reboot requested!")
+                        net.rebootNetwork(5000)
+                        continue
+                    else:
+                        forced=False
+                        user_input = int(input_str)
+
+                if user_input == 1:
+                    payload = 233
+                    net.addPrint("[USER_INPUT] Ping request")
+                    net.sendNewTrickle(build_outgoing_serial_message(PacketType.network_request_ping, payload.to_bytes(1, byteorder="big", signed=False)),forced)
+                elif user_input == 2:
+                    net.addPrint("[USER_INPUT] Turn bluetooth on")
+                    net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_turn_bt_on, None),forced)
+                elif user_input == 3:
+                    net.addPrint("[USER_INPUT] Turn bluetooth off")
+                    net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_turn_bt_off, None),forced)
+                #elif user_input == 4:
+                #    net.addPrint("Turning bt on low")
+                #    appLogger.debug("[SENDING] Enable Bluetooth LOW")
+                #    net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_turn_bt_on_low, None),forced)
+                #elif user_input == 4:
+                #    net.addPrint("[USER_INPUT] Turn bluetooth on with default settings stored on the nodes")
+                #    net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_turn_bt_on_def, None),forced)
+                #elif user_input == 6:
+                #    net.addPrint("Turning bt on high")
+                #    appLogger.debug("[SENDING] Enable Bluetooth HIGH")
+                #    net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_turn_bt_on_high, None),forced)
+                elif user_input == 4:
+                    if ble_tof_enabled:
+                        net.addPrint("[USER_INPUT] disabling ble tof")
+                        ble_tof_enabled=False
+                    else:
+                        net.addPrint("[USER_INPUT] enabling ble tof")
+                        ble_tof_enabled=True
+                    
+                    net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_ble_tof_enable, ble_tof_enabled.to_bytes(1, byteorder="big", signed=False)),forced)
+                        
+                elif user_input == 5:
+                    SCAN_INTERVAL_MS = 1500
+                    SCAN_WINDOW_MS = 1500
+                    SCAN_TIMEOUT_S = 0
+                    REPORT_TIMEOUT_S = 15
+
+                    active_scan = 1
+                    scan_interval = int(SCAN_INTERVAL_MS*1000/625)
+                    scan_window = int(SCAN_WINDOW_MS*1000/625)
+                    timeout = int(SCAN_TIMEOUT_S)
+                    report_timeout_ms = int(REPORT_TIMEOUT_S*1000)
+                    bactive_scan = active_scan.to_bytes(1, byteorder="big", signed=False)
+                    bscan_interval = scan_interval.to_bytes(2, byteorder="big", signed=False)
+                    bscan_window = scan_window.to_bytes(2, byteorder="big", signed=False)
+                    btimeout = timeout.to_bytes(2, byteorder="big", signed=False)
+                    breport_timeout_ms = report_timeout_ms.to_bytes(4, byteorder="big", signed=False)
+                    payload = bactive_scan + bscan_interval + bscan_window + btimeout + breport_timeout_ms
+                    net.addPrint("[USER_INPUT] Turn bluetooth on with parameters: scan_int="+str(SCAN_INTERVAL_MS)+"ms, scan_win="+str(SCAN_WINDOW_MS)+"ms, timeout="+str(SCAN_TIMEOUT_S)+"s, report_int="+str(REPORT_TIMEOUT_S)+"s")
+                    net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_turn_bt_on_w_params, payload),forced)
+                elif user_input == 6:
+                    net.addPrint("[USER_INPUT] Deprecated command, ignored!")
+                    #bat_info_interval_s = 90
+                    #net.addPrint("[USER_INPUT] Enable battery info with interval: "+str(bat_info_interval_s))
+                    #net.sendNewTrickle(build_outgoing_serial_message(PacketType.ti_set_batt_info_int, bat_info_interval_s.to_bytes(1, byteorder="big", signed=False)),forced)
+                elif user_input == 7:
+                    net.addPrint("[USER_INPUT] Deprecated command, ignored!")
+                    #bat_info_interval_s = 0
+                    #net.addPrint("[USER_INPUT] Disable battery info")
+                    #net.sendNewTrickle(build_outgoing_serial_message(PacketType.ti_set_batt_info_int, bat_info_interval_s.to_bytes(1, byteorder="big", signed=False)),forced)
+                elif user_input == 8:
+                    net.addPrint("[USER_INPUT] Reset nordic")
+                    net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_reset, None),forced)
+                elif user_input == 9:
+                    time_between_send_ms = 0
+                    time_between_send = time_between_send_ms.to_bytes(2, byteorder="big", signed=False)
+                    net.addPrint("[USER_INPUT] Set time between sends to "+ str(time_between_send_ms) + "ms")
+                    net.sendNewTrickle(build_outgoing_serial_message(PacketType.network_set_time_between_send, time_between_send),forced)
+                elif user_input > 9:
+                    interval = user_input
+                    net.addPrint("[USER_INPUT] Set keep alive interval to "+ str(interval) + "s")
+                    net.sendNewTrickle(build_outgoing_serial_message(PacketType.ti_set_keep_alive, interval.to_bytes(1, byteorder="big", signed=False)),forced)
+            except Exception as e:
+                net.addPrint("[USER_INPUT] Read failed. Read data: "+ input_str)
+                pass
+
 def handle_user_input():
     ble_tof_enabled=False
     while 1:
@@ -900,7 +1025,10 @@ def check_for_packetdrop(nodeid, pktnum):
 def to_byte(hex_text):
     return binascii.unhexlify(hex_text)
 
-_thread.start_new_thread(handle_user_input, ())
+user_input_thread=USER_INPUT_THREAD(4,"user input thread")
+user_input_thread.setDaemon(True)
+user_input_thread.start()
+
 net = Network()
 
 net.addPrint("[APPLICATION] Starting...")
