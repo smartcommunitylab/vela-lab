@@ -711,7 +711,7 @@ class USER_INPUT_THREAD(threading.Thread):
 
     def run(self):
         while self.__loop:
-            #try:
+            try:
                 ble_tof_enabled=False
                 input_str = input()
                 if len(input_str)>=2 and input_str[0] == 'f':
@@ -818,9 +818,9 @@ class USER_INPUT_THREAD(threading.Thread):
                     interval = user_input
                     net.addPrint("[USER_INPUT] Set keep alive interval to "+ str(interval) + "s")
                     net.sendNewTrickle(build_outgoing_serial_message(PacketType.ti_set_keep_alive, interval.to_bytes(1, byteorder="big", signed=False)),forced)
-            #except Exception as e:
-            #    net.addPrint("[USER_INPUT] Read failed. Read data: "+ input_str)
-            #    pass
+            except Exception as e:
+                net.addPrint("[USER_INPUT] Read failed. Read data: "+ input_str)
+                pass
 
 def build_outgoing_serial_message(pkttype, ser_payload):
     payload_size = 0
