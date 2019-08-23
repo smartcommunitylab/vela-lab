@@ -302,7 +302,6 @@ class Network(object):
                     chunk_no_b=chunk_no%256
                     ackok=chunk_no_b.to_bytes(1, byteorder="big", signed=False)+zero.to_bytes(1, byteorder="big", signed=False)
                     if firmwareChunkDownloaded_event_data==ackok:
-                        #offset=offset+chunksize
                         chunk_timeout_count=0
                         self.addPrint("[DEBUG] ack OK!!") #ok go on
                         lastCorrectChunkReceived=chunk_no
@@ -326,12 +325,12 @@ class Network(object):
                     ackok_alt=chunk_no_b.to_bytes(1, byteorder="big", signed=False)+one.to_bytes(1, byteorder="big", signed=True) #crc ok, but there was memory overflow during CRC verification. The firmware will be vefiried on the next reboot
                     if firmwareChunkDownloaded_event_data==ackok:
                         chunk_no+=1
-                        offset=offset+chunksize
+                        offset=(chunk_no-1)*MAX_CHUNK_SIZE
                         return 0 #OTA update correctly closed
                     elif firmwareChunkDownloaded_event_data==ackok_alt:
                         self.addPrint("[OTA] CRC ok but not written on the node...")
                         chunk_no+=1
-                        offset=offset+chunksize
+                        offset=(chunk_no-1)*MAX_CHUNK_SIZE
                         return 0 #OTA update correctly closed even if a memory overflow happened on the node during CRC verification. The firmware will be vefiried on the next reboot
                     else:
                         self.addPrint("[OTA] CRC error at the node...")
