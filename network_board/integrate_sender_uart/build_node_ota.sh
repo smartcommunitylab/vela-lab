@@ -13,7 +13,7 @@
 CONTIKI_ROOT=/home/giova/workspaces/GIT/contiki-ng
 BOARD=launchpad_vela/cc1350
 
-OTA_VERSION=0x0021  #NB: in order to have the firmware recognized as the LATEST and conseguently making the nodes to load it, version number should be higher than the installed one.
+OTA_VERSION=0x0022  #NB: in order to have the firmware recognized as the LATEST and conseguently making the nodes to load it, version number should be higher than the installed one.
 OTA_UUID=0xabcd1234
 OTA_PRE_VERIFIED=0  #NB: for GOLDEN IMAGE and in general when firmware is going to be loaded through the debugger, set this to 1. For OTA updates set this to 0 - ATTENTION: this not would be true in an ideal world. It appeared that overwriting the OTA metadata onboard requires too much ram that we don't have. For this reason set always set OTA_PRE_VERIFIED=1, the ota will be anyway verified, and if the CRC doesn't match the ota slot will be erased (see verify_ota_slot(...) in ota.c).
 

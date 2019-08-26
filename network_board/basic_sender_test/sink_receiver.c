@@ -385,40 +385,35 @@ PROCESS_THREAD(uart_reader_process, ev, data)
 
 	    payload_size=byte_array[idx++];
         
-        
+        uint16_t pkttype;
+        pkttype = ((uint16_t) byte_array[idx++]) << 8;
+	    pkttype |= byte_array[idx++];  
+
         uint8_t cs=0;                
         for(uint16_t ii=0;ii<payload_size;ii++){
             cs+=byte_array[idx+ii];
         }
-        if(cs!=byte_array[payload_size]){
-            LOG_WARN("CRC ERROR (calculated %d, received %d), discarding the serial packet!\n",cs,byte_array[payload_size]);
+
+        if(cs!=byte_array[idx+payload_size]){
+            LOG_WARN("CRC ERROR (calculated %d, received %d), discarding the serial packet!\n",cs,byte_array[idx+payload_size]);
             continue;
         }
         
         if(is_broadcast(&outgoing_network_message_ipaddr)){
 
-	        trickle_msg.pkttype = ((uint16_t) byte_array[idx++]) << 8;
-	        trickle_msg.pkttype |= byte_array[idx++];
+            trickle_msg.pkttype=pkttype;
 	        trickle_msg.pktnum++;
 	        trickle_msg.payload.data_len=payload_size;
 	        memcpy(trickle_msg.payload.p_data, &byte_array[NET_MESS_MSGADDR_LEN+NET_MESS_MSGTYPE_LEN+NET_MESS_MSGLEN_LEN], payload_size);
 
             LOG_INFO("Trickle change. Counter: %u, pkttype: 0x%04x, payload.data_len: 0x%02x\n",trickle_msg.pktnum, trickle_msg.pkttype,trickle_msg.payload.data_len);
-//            for(uint8_t i = 0; i < payload_size; i++){
-//                LOG_INFO("payload[%u] 0x%02x",i,trickle_msg.payload.p_data[i]);
-//            }
-//            LOG_INFO("\n");
 	        
             trickle_timer_reset_event(&tt);
             
 	        leds_toggle(LEDS_RED);
         }else{
             static uint16_t subchunk_offset = 0;
-            uint16_t pkttype;
             static uint8_t is_first=0, is_last=0, last_received_subchunk=0;
-
-            pkttype = ((uint16_t) byte_array[idx++]) << 8;
-	        pkttype |= byte_array[idx++];
 
             if(pkttype==ota_start_of_firmware || pkttype==ota_more_of_firmware || pkttype==ota_end_of_firmware){ //using all these packet types might be reduntand, but it adds a very little cost and it makes the transfer safer
 

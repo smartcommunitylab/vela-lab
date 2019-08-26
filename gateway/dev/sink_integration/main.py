@@ -55,7 +55,7 @@ ser = serial.Serial()
 ser.port = SERIAL_PORT
 ser.baudrate = BAUD_RATE
 ser.timeout = 100
-TANSMIT_ONE_CHAR_AT_THE_TIME=False
+TANSMIT_ONE_CHAR_AT_THE_TIME=False   #Setting this to true makes the communication from the gateway to the sink more reliable
 #ser.inter_byte_timeout = 0.1 #not the space between stop/start condition
 
 MessageSequence = recordtype("MessageSequence","timestamp,nodeid,lastPktnum,sequenceSize,datacounter,datalist,latestTime")
@@ -226,7 +226,7 @@ class Network(object):
     def startFirmwareUpdate(self,autoreboot=False):
         REBOOT_DELAY=5
         nodes_updated=[]
-        MAX_OTA_ATTEMPTS=10
+        MAX_OTA_ATTEMPTS=100
         for n in self.__nodes:
             attempts=0
             destination_ipv6_addr=int(n.name,16)
@@ -262,7 +262,7 @@ class Network(object):
 
     def sendFirmware(self, destination_ipv6_addr, firmware):
         global NO_OF_CHUNKS_IN_THE_FIRMWARE
-        MAX_OTA_TIMEOUT_COUNT=10
+        MAX_OTA_TIMEOUT_COUNT=100
         EXPECT_ACK_FOR_THE_LAST_PACKET=True #in some cases the CRC check performed with the arrival of the last packet causes the node to crash because of stack overflow. In that case, the last ack won't be received, and if we don't manage this the GW consider the OTA process aborted because of timeout and repeat it.
         #Then when the memory overflow happens we can set the flag EXPECT_ACK_FOR_THE_LAST_PACKET to false so that the OTA process goes on for the rest of the network.
 
@@ -280,7 +280,7 @@ class Network(object):
             else:
                 chunk=firmware[offset:]
 
-            self.addPrint("[DEBUG] sending firmware chunk number: "+str(chunk_no) + "/"+str(NO_OF_CHUNKS_IN_THE_FIRMWARE)+" - "+str((int(chunk_no*10000/NO_OF_CHUNKS_IN_THE_FIRMWARE))/100)+"%")
+            self.addPrint("[DEBUG] sending firmware chunk number: "+str(chunk_no) + "/"+str(NO_OF_CHUNKS_IN_THE_FIRMWARE)+" - "+str((int((offset+MAX_CHUNK_SIZE)*10000/firmwaresize))/100)+"%")
             
             chunksize=len(chunk)
             self.sendFirmwareChunk(destination_ipv6_addr,chunk,chunk_no)
@@ -300,13 +300,13 @@ class Network(object):
                 if chunk_no != NO_OF_CHUNKS_IN_THE_FIRMWARE: #not the last chunk
                     zero=0
                     chunk_no_b=chunk_no%256
-                    ackok=chunk_no_b.to_bytes(1, byteorder="big", signed=False)+zero.to_bytes(1, byteorder="big", signed=False)
+                    ackok=chunk_no_b.to_bytes(1, byteorder="big", signed=False)+zero.to_bytes(1, byteorder="big", signed=True)
                     if firmwareChunkDownloaded_event_data==ackok:
                         chunk_timeout_count=0
-                        self.addPrint("[DEBUG] ack OK!!") #ok go on
+                        self.addPrint("[DEBUG] OTA ack OK!!") #ok go on
                         lastCorrectChunkReceived=chunk_no
                     else:                   
-                        self.addPrint("[DEBUG] ack NOT OK!! Err: "+str(firmwareChunkDownloaded_event_data[1])+". The chunk will be retrasmitted in a moment...")
+                        self.addPrint("[DEBUG] OTA ack NOT OK!! Err: "+str(firmwareChunkDownloaded_event_data[1])+". The chunk will be retrasmitted in a moment...")
                         time.sleep(5) #in case a full chunk is transmitted to the node twice (because of a ota_ack loss), we might get multiple nacks for a chunk
                         while firmwareChunkDownloaded_event.isSet():
                             self.addPrint("[DEBUG] More than one ACK/NACK received for this firmware chunk. I should be able to recover...just give me some time")
@@ -315,13 +315,13 @@ class Network(object):
                             time.sleep(5)
 
                     chunk_no=lastCorrectChunkReceived + 1
-                    self.addPrint("[DEBUG] I'll send chunk_no: "+str(chunk_no)+" in a moment")
+                    #self.addPrint("[DEBUG] I'll send chunk_no: "+str(chunk_no)+" in a moment")
                     offset=(chunk_no-1)*MAX_CHUNK_SIZE
                 else:
                     zero=0
                     one=1
                     chunk_no_b=chunk_no%256
-                    ackok=chunk_no_b.to_bytes(1, byteorder="big", signed=False)+zero.to_bytes(1, byteorder="big", signed=False) #everithing fine on the node
+                    ackok=chunk_no_b.to_bytes(1, byteorder="big", signed=False)+zero.to_bytes(1, byteorder="big", signed=True) #everithing fine on the node
                     ackok_alt=chunk_no_b.to_bytes(1, byteorder="big", signed=False)+one.to_bytes(1, byteorder="big", signed=True) #crc ok, but there was memory overflow during CRC verification. The firmware will be vefiried on the next reboot
                     if firmwareChunkDownloaded_event_data==ackok:
                         chunk_no+=1
@@ -360,7 +360,7 @@ class Network(object):
                 sub_chunk=chunk[offset:]
                 offset=chunksize
             
-            self.addPrint("[DEBUG] sending firmware subchunk number: "+str(sub_chunk_no) + "/"+str(NO_OF_SUB_CHUNKS_IN_THIS_CHUNK))           
+            #self.addPrint("[DEBUG] sending firmware subchunk number: "+str(sub_chunk_no) + "/"+str(NO_OF_SUB_CHUNKS_IN_THIS_CHUNK))           
 
             self.sendFirmwareSubChunk(destination_ipv6_addr, sub_chunk,chunk_no,sub_chunk_no)
             if sub_chunk_no != NO_OF_SUB_CHUNKS_IN_THIS_CHUNK:
@@ -396,9 +396,9 @@ class Network(object):
         destination_addr_ascii_encoded=destination_addr_ascii.encode('utf-8')
         message=destination_addr_ascii_encoded+message
 
-        net.addPrint("[APPLICATION] Ripple message going to be sent...")
+        #net.addPrint("[APPLICATION] Ripple message going to be sent...")
         send_serial_msg(message)
-        net.addPrint("[APPLICATION] Ripple message sent.")
+        #net.addPrint("[APPLICATION] Ripple message sent.")
 
 
     def sendNewTrickle(self, message,forced=False):
@@ -657,14 +657,14 @@ class Node(object):
     def printNodeInfo(self):
         if self.online:
             if self.batteryConsumption != None:
-                print("| %3s | %3.2fV %3.0f%% %4.0fmAh %6.1fmA  %5.1f°    |  %3.0f     |  %3d    |%5d  |" % (str(self.name[-6:]), self.batteryVoltage, self.batterySoc, self.batteryCapacity, self.batteryConsumption, self.batteryTemperature, self.getLastMessageElapsedTime(), self.lastTrickleCount, self.amountOfBTReports))
+                print("| %3s | %3.2fV %3.0f%% %4.0fmAh %6.1fmA  %5.1f°    |  %6.0f  |  %5d  |%5d  |" % (str(self.name[-6:]), self.batteryVoltage, self.batterySoc, self.batteryCapacity, self.batteryConsumption, self.batteryTemperature, self.getLastMessageElapsedTime(), self.lastTrickleCount, self.amountOfBTReports))
             else:
-                print("| %3s | %3.2fV                                  |  %3.0f     |  %3d    |%5d  |" % (str(self.name[-6:]), self.batteryVoltage, self.getLastMessageElapsedTime(), self.lastTrickleCount, self.amountOfBTReports))
+                print("| %3s | %3.2fV                                  |  %6.0f  |  %5d  |%5d  |" % (str(self.name[-6:]), self.batteryVoltage, self.getLastMessageElapsedTime(), self.lastTrickleCount, self.amountOfBTReports))
         else:
             if self.batteryConsumption != None:
-                print("| %3s*| %3.2fV %3.0f%% %4.0fmAh %6.1fmA  %5.1f°    |  %3.0f     |  %3d    |%5d  |" % (str(self.name[-6:]), self.batteryVoltage, self.batterySoc, self.batteryCapacity, self.batteryConsumption, self.batteryTemperature, self.getLastMessageElapsedTime(), self.lastTrickleCount, self.amountOfBTReports))
+                print("| %3s*| %3.2fV %3.0f%% %4.0fmAh %6.1fmA  %5.1f°    |  %6.0f  |  %5d  |%5d  |" % (str(self.name[-6:]), self.batteryVoltage, self.batterySoc, self.batteryCapacity, self.batteryConsumption, self.batteryTemperature, self.getLastMessageElapsedTime(), self.lastTrickleCount, self.amountOfBTReports))
             else:
-                print("| %3s*| %3.2fV                                  |  %3.0f     |  %3d    |%5d  |" % (str(self.name[-6:]), self.batteryVoltage, self.getLastMessageElapsedTime(), self.lastTrickleCount, self.amountOfBTReports))
+                print("| %3s*| %3.2fV                                  |  %6.0f  |  %5d  |%5d  |" % (str(self.name[-6:]), self.batteryVoltage, self.getLastMessageElapsedTime(), self.lastTrickleCount, self.amountOfBTReports))
 
 
 @unique
@@ -839,10 +839,13 @@ def build_outgoing_serial_message(pkttype, ser_payload):
     for c in ser_payload:                                       #calculate the checksum on the payload and the len field
         cs+=int.from_bytes([c], "big", signed=False) 
     cs=cs%256                                                   #trunkate to 8 bit
-
+    
+    #net.addPrint("[DEBUG] Packet checksum: "+str(cs))
+    
     #add the checksum
-    packet=packet+ cs.to_bytes(1, byteorder='big', signed=False)
+    packet=packet+cs.to_bytes(1, byteorder='big', signed=False)
 
+    #net.addPrint("[DEBUG] Packet : "+str(packet))
     ascii_packet=''.join('%02X'%i for i in packet)
 
     return ascii_packet.encode('utf-8')
