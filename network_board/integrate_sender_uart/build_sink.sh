@@ -5,7 +5,7 @@
 # ************************************************ CONFIGURATION ************************************************
 CONTIKI_ROOT=/home/giova/workspaces/GIT/contiki-ng
 #BOARD=launchpad_vela/cc1350
-BOARD=launchpad_vela/cc2650
+BOARD=launchpad_vela/cc1350
 
 # ************************************************ BUILDING ************************************************
 export CONTIKI_ROOT=${CONTIKI_ROOT}
