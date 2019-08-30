@@ -43,7 +43,7 @@ function proximity_events_json=proximity_detect(filename, text_verbosity, image_
   dataArray = textscan(fileID, formatSpec, -1,"Whitespace","","Delimiter","","EndOfLine",'\n');
   fclose(fileID);
   if text_verbosity>=VERBOSITY_INFO
-    printf("File imported.\n\n");
+    printf("File imported.\n");
   endif
   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   text_preallocation_size=100000;
@@ -101,7 +101,7 @@ function proximity_events_json=proximity_detect(filename, text_verbosity, image_
   log_time=log_time(1:valid_line-1,:);
   log_data=log_data(1:valid_line-1,:);
   if text_verbosity>=VERBOSITY_INFO
-    printf("\nPackets parsed.\n\n");
+    printf("\nPackets parsed.\n");
   endif
   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   if text_verbosity>=VERBOSITY_INFO
@@ -171,7 +171,7 @@ function proximity_events_json=proximity_detect(filename, text_verbosity, image_
   endif
   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   if text_verbosity>=VERBOSITY_INFO
-    printf("\nAnalyzing...\n");
+    printf("Extracting contacts data...\n");
   endif
   unique_filtered=[];
   for scannerIdx=1:size(scanners,1)
@@ -245,7 +245,7 @@ function proximity_events_json=proximity_detect(filename, text_verbosity, image_
       endif
   endfor
   if text_verbosity>=VERBOSITY_INFO
-    printf("Analysis done.\n");
+    printf("Contacts extracted.\n");
   endif
   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   if text_verbosity>=VERBOSITY_REPORT
@@ -304,7 +304,11 @@ function proximity_events_json=proximity_detect(filename, text_verbosity, image_
     endfor
   endif
   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
+  
+  if text_verbosity>=VERBOSITY_INFO
+    printf("Analyzing contact data. Extracting node status...\n");
+  endif
+  
   APPROACHING=1;
   STEADY=0;
   MOVING_AWAY=-1;
@@ -352,12 +356,24 @@ function proximity_events_json=proximity_detect(filename, text_verbosity, image_
               #the window is not valid
               scanners{scannerIdx}.beaconStatus(idxs_list_w(end))=WAS_OUT_OF_RANGE;
             endif
-          endfor
+          endfor    
+          if text_verbosity>=VERBOSITY_INFO
+            printf("\rScanner ID %d (%d of %d), beaconID %s (%d of %d)...", scanners{scannerIdx}.nodeID, scannerIdx, size(scanners,1), beaconID{1}, b_idx, size(beacons,1));
+          endif
       endfor
+      if text_verbosity>=VERBOSITY_INFO
+        printf("done\n");
+      endif
   endfor
-  
+  if text_verbosity>=VERBOSITY_INFO
+    printf("Node status extracted.\n");
+  endif
   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+  if text_verbosity>=VERBOSITY_INFO
+    printf("Analyzing node status. Detecting proximity events...\n");
+  endif
+  
   DETECTOR_IDLE=0;
   DETECTOR_DETECTING=1;
   DETECTOR_DETECTED=2;
@@ -484,6 +500,10 @@ function proximity_events_json=proximity_detect(filename, text_verbosity, image_
       endfor
   endfor
 
+  if text_verbosity>=VERBOSITY_INFO
+    printf("Proximity events extracted.\n");
+  endif
+  
   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
   if(ENABLE_PLOT)
@@ -624,11 +644,11 @@ function proximity_events_json=proximity_detect(filename, text_verbosity, image_
   endif
 
   jsonFilename="json_events.txt";
-  proximity_events_json=savejson("proximity_events",proximity_events,jsonFilename);
-  %% Open the text file.
-  %fileID = fopen(jsonFilename,'w');
-  %fprintf(fileID,"%s",proximity_events_json);
-  %fclose(fileID);
   
+  proximity_events_json=savejson("proximity_events",proximity_events,jsonFilename);
+  
+  if text_verbosity>=VERBOSITY_INFO
+    printf("Output is stored in: %s\n",jsonFilename)
+  endif
   return
 endfunction

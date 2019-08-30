@@ -1,7 +1,16 @@
-clear
-close all
+#!/usr/bin/flatpak run org.octave.Octave -qf
 
-filename="vela-09082019/20190809-141430-contact.log";
+run_from_cmd_line=true;
+if run_from_cmd_line
+  arg_list = argv ();
+  if size(arg_list,1)<1
+    error("Please provide the contact log file path as argument.");
+  else
+    filename=arg_list{1};
+  endif
+else
+  filename="vela-09082019/20190809-141430-contact.log";
+endif
 
 text_verbosity=1;
 image_verbosity=0; #plots work nicely only with only one beacon (use id_to_analyze to filter the desired one)

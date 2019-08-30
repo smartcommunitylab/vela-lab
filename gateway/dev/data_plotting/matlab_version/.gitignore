@@ -1,3 +1,4 @@
 *.fig
 json_events.txt
 *.gif
+octave-workspace
