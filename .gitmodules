@@ -1,0 +1,4 @@
+[submodule "gateway/dev/data_plotting/matlab_version/jsonlab"]
+	path = gateway/dev/data_plotting/matlab_version/jsonlab
+	url = https://github.com/fangq/jsonlab.git
+
