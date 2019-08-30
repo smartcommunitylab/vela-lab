@@ -2,7 +2,7 @@
 # Cleans the project
 
 # ************************************************ CONFIGURATION ************************************************
-CONTIKI_ROOT=/home/giova/workspaces/GIT/contiki-ng
+CONTIKI_ROOT=/home/e3da/workspaces/git/contiki-ng
 BOARD=launchpad_vela/cc1350
 
 # ************************************************ BUILDING ************************************************

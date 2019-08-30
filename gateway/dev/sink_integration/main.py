@@ -14,6 +14,9 @@ import shutil
 import binascii
 import struct
 import math
+import pexpect
+import json
+import traceback
 
 START_CHAR = '02'
 #START_BUF = '2a2a2a'  # this is not really a buffer
@@ -96,46 +99,76 @@ printVerbosity = 10
 
 LOG_LEVEL = logging.DEBUG
 
-formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s', datefmt='%Y/%m/%d %H:%M:%S')
-timestr = time.strftime("%Y%m%d-%H%M%S")
 
-nameConsoleLog = "consoleLogger"
-filenameConsoleLog = timestr + "-console.log"
-fullpathConsoleLog = logfolderpath+filenameConsoleLog
-consolloghandler = logging.FileHandler(fullpathConsoleLog)
-consolloghandler.setFormatter(formatter)
-consoleLogger = logging.getLogger(nameConsoleLog)
-consoleLogger.setLevel(LOG_LEVEL)
-consoleLogger.addHandler(consolloghandler)
 
-nameUARTLog = "UARTLogger"
-filenameUARTLog = timestr + "-UART.log"
-fullpathUARTLog = logfolderpath+filenameUARTLog
-handler = logging.FileHandler(fullpathUARTLog)
-handler.setFormatter(formatter)
-UARTLogger = logging.getLogger(nameUARTLog)
-UARTLogger.setLevel(LOG_LEVEL)
-UARTLogger.addHandler(handler)
+def initialize_log():
+    global filenameConsoleLog
+    global fullpathConsoleLog
+    global consoleLogger
 
-nameContactLog = "contactLogger"
-filenameContactLog = timestr + "-contact.log"
-fullpathContactLog = logfolderpath+filenameContactLog
-contactlog_handler = logging.FileHandler(fullpathContactLog)
-contact_formatter = logging.Formatter('%(message)s')
-contactlog_handler.setFormatter(contact_formatter)
-contactLogger = logging.getLogger(nameContactLog)
-contactLogger.setLevel(LOG_LEVEL)
-contactLogger.addHandler(contactlog_handler)
+    global filenameUARTLog
+    global fullpathUARTLog
+    global UARTLogger
 
-nameErrorLog = "errorLogger"
-filenameErrorLog = timestr + "-errorLogger.log"
-fullpathErrorLog = logfolderpath+filenameErrorLog
-errorlog_handler = logging.FileHandler(fullpathErrorLog)
-errorlog_formatter= logging.Formatter('%(message)s')
-errorlog_handler.setFormatter(errorlog_formatter)
-errorLogger = logging.getLogger(nameErrorLog)
-errorLogger.setLevel(LOG_LEVEL)
-errorLogger.addHandler(errorlog_handler)
+    global filenameContactLog
+    global fullpathContactLog
+    global contactLogger
+
+    global filenameErrorLog
+    global fullpathErrorLog
+    global errorLogger
+
+
+    formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s', datefmt='%Y/%m/%d %H:%M:%S')
+    timestr = time.strftime("%Y%m%d-%H%M%S")
+
+    nameConsoleLog = "consoleLogger"
+    filenameConsoleLog = timestr + "-console.log"
+    fullpathConsoleLog = logfolderpath+filenameConsoleLog
+    consolloghandler = logging.FileHandler(fullpathConsoleLog)
+    consolloghandler.setFormatter(formatter)
+    consoleLogger = logging.getLogger(nameConsoleLog)
+    consoleLogger.setLevel(LOG_LEVEL)
+    consoleLogger.addHandler(consolloghandler)
+
+    nameUARTLog = "UARTLogger"
+    filenameUARTLog = timestr + "-UART.log"
+    fullpathUARTLog = logfolderpath+filenameUARTLog
+    handler = logging.FileHandler(fullpathUARTLog)
+    handler.setFormatter(formatter)
+    UARTLogger = logging.getLogger(nameUARTLog)
+    UARTLogger.setLevel(LOG_LEVEL)
+    UARTLogger.addHandler(handler)
+
+    nameContactLog = "contactLogger"
+    filenameContactLog = timestr + "-contact.log"
+    fullpathContactLog = logfolderpath+filenameContactLog
+    contactlog_handler = logging.FileHandler(fullpathContactLog)
+    contact_formatter = logging.Formatter('%(message)s')
+    contactlog_handler.setFormatter(contact_formatter)
+    contactLogger = logging.getLogger(nameContactLog)
+    contactLogger.setLevel(LOG_LEVEL)
+    contactLogger.addHandler(contactlog_handler)
+
+    nameErrorLog = "errorLogger"
+    filenameErrorLog = timestr + "-errorLogger.log"
+    fullpathErrorLog = logfolderpath+filenameErrorLog
+    errorlog_handler = logging.FileHandler(fullpathErrorLog)
+    errorlog_formatter= logging.Formatter('%(message)s')
+    errorlog_handler.setFormatter(errorlog_formatter)
+    errorLogger = logging.getLogger(nameErrorLog)
+    errorLogger.setLevel(LOG_LEVEL)
+    errorLogger.addHandler(errorlog_handler)
+
+def close_logs():
+    global consoleLogger
+    global UARTLogger
+    global contactLogger
+    global errorLogger
+
+    logging.shutdown()
+
+initialize_log()
 
 firmwareChunkDownloaded_event=threading.Event()
 firmwareChunkDownloaded_event_data=[]
@@ -150,6 +183,110 @@ else:
     SUBCHUNK_INTERVAL=0.02 #with 0.1 it is stable, less who knows? 0.03 -> no error in 3 ota downloads. 0.02 no apparten problem...
     CHUNK_INTERVAL_ADD=0.01
 REBOOT_INTERVAL=0.5
+
+octave_files_folder="../data_plotting/matlab_version" #./
+contact_log_file_folder=logfolderpath #./
+#contact_log_filename="vela-09082019/20190809-141430-contact_cut.log" #filenameContactLog #"vela-09082019/20190809-141430-contact_cut.log"
+octave_launch_command="octave -qf"
+detector_octave_script="run_detector.m"
+events_file_json="json_events.txt"
+
+PROCESS_INTERVAL=10*60
+ENABLE_PROCESS_OUTPUT_ON_CONSOLE=True
+
+def start_poximity_detection():
+    global filenameContactLog
+    global proximity_detector_in_queue
+
+    file_to_process=filenameContactLog
+    close_logs()
+    initialize_log()
+    proximity_detector_in_queue.append(file_to_process)
+
+class PROXIMITY_DETECTOR_POLL_THREAD(threading.Thread):
+    def __init__(self, threadID, name):
+        threading.Thread.__init__(self)
+        self.threadID= threadID
+        self.name = name
+        self.__loop=True
+
+
+    def run(self):
+        time.sleep(PROCESS_INTERVAL)
+        start_poximity_detection()
+
+
+class PROXIMITY_DETECTOR_THREAD(threading.Thread):
+    def __init__(self, threadID, name):
+        threading.Thread.__init__(self)
+        self.threadID= threadID
+        self.name = name
+        self.__loop=True
+        self.file_processed=True
+
+    def get_result(self):
+        with open(octave_files_folder+'/'+events_file_json) as f: # Use file to refer to the file object
+            data=f.read()
+            return json.loads(data)
+        return None
+
+    def on_processed(self):
+        net.addPrint("[EVENT EXTRACTOR] Contact log file processed!")
+        self.file_processed=True
+        #octave_process.kill(0)
+        jdata=self.get_result()
+        evts=jdata["proximity_events"]
+
+        if evts!=None:
+            self.on_events(evts)
+            os.remove(octave_files_folder+'/'+events_file_json) #remove the file to avoid double processing of it
+
+            evts=None
+        else:
+            net.addPrint("[EVENT EXTRACTOR] No event foud!")
+    
+    def on_events(self,evts):
+        with open("event_store.txt", "a") as f:
+            #json.dump(evts,f)
+            f.write(datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S')+" "+str(evts)+"\n")
+        net.addPrint("[EVENT EXTRACTOR] Events: "+str(evts[0:3])) #NOTE: At this point the variable evts contains the proximity events. As example I plot the first 10
+        
+
+    def run(self):
+        
+        octave_process=None
+        
+        octave_to_log_folder_r_path=os.path.relpath(contact_log_file_folder, octave_files_folder)
+
+        while self.__loop:
+            try:
+                if self.file_processed:
+                    file_to_process=proximity_detector_in_queue.popleft()
+                    self.file_processed=False
+
+                    command=octave_launch_command+" "+detector_octave_script+" "+octave_to_log_folder_r_path+'/'+file_to_process
+                    net.addPrint("[EVENT EXTRACTOR] Sending this command: "+command)
+                    octave_process=pexpect.spawnu(command,echo=False,cwd=octave_files_folder)
+
+                if ENABLE_PROCESS_OUTPUT_ON_CONSOLE:
+                    octave_process.expect("\n",timeout=60)
+                    octave_return=octave_process.before.split('\r')
+                    for s in octave_return:
+                        if len(s)>0:
+                            net.addPrint("[EVENT EXTRACTOR] OCTAVE>>"+s)
+                else:
+                    octave_process.expect(pexpect.EOF,timeout=5)
+                    self.on_processed()
+
+            except pexpect.exceptions.TIMEOUT:
+                net.addPrint("[EVENT EXTRACTOR] Octave is processing...")
+                pass
+            except pexpect.exceptions.EOF:
+                self.on_processed()
+                pass
+            except IndexError:
+                time.sleep(1)
+                pass
 
 class Network(object):
 
@@ -709,6 +846,7 @@ class USER_INPUT_THREAD(threading.Thread):
         self.__loop=True
 
     def run(self):
+        global proximity_detector_in_queue
         while self.__loop:
             try:
                 ble_tof_enabled=False
@@ -740,6 +878,10 @@ class USER_INPUT_THREAD(threading.Thread):
                     elif input_str=='b':
                         net.addPrint("[USER_INPUT] Network reboot requested!")
                         net.rebootNetwork(5000)
+                        continue
+                    elif input_str=='p':
+                        net.addPrint("[USER_INPUT] Process contacts log!")
+                        start_poximity_detection()
                         continue
                     else:
                         forced=False
@@ -819,6 +961,7 @@ class USER_INPUT_THREAD(threading.Thread):
                     net.sendNewTrickle(build_outgoing_serial_message(PacketType.ti_set_keep_alive, interval.to_bytes(1, byteorder="big", signed=False)),forced)
             except Exception as e:
                 net.addPrint("[USER_INPUT] Read failed. Read data: "+ input_str)
+                traceback.print_exc()
                 pass
 
 def build_outgoing_serial_message(pkttype, ser_payload):
@@ -930,10 +1073,19 @@ user_input_thread=USER_INPUT_THREAD(4,"user input thread")
 user_input_thread.setDaemon(True)
 user_input_thread.start()
 
+proximity_detector_in_queue=deque()
+proximity_detector_thread=PROXIMITY_DETECTOR_THREAD(5,"proximity detection process")
+proximity_detector_thread.setDaemon(True)
+proximity_detector_thread.start()
+
+
+proximity_detec_poll_thread=PROXIMITY_DETECTOR_POLL_THREAD(6,"periodic proximity detection trigger process")
+proximity_detec_poll_thread.setDaemon(True)
+proximity_detec_poll_thread.start()
+
 net = Network()
 
 net.addPrint("[APPLICATION] Starting...")
-net.addPrint("[APPLICATION] Logs are in: %s" %logfolderpath)
 
 if ser.is_open:
     net.addPrint("[UART] Serial Port already open! "+ ser.port + " open before initialization... closing first")

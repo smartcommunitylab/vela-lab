@@ -8,12 +8,12 @@ import json
 octave_files_folder="../data_plotting/matlab_version" #./
 contact_log_file_folder="log" #./
 contact_log_filename="vela-09082019/20190809-141430-contact.log"
-octave_launch_command="/usr/bin/flatpak run org.octave.Octave -qf"
+octave_launch_command="octave -qf"
 detector_octave_script="run_detector.m"
 events_file_json="json_events.txt"
 
-PROCESS_INTERVAL=60
-ENABLE_PROCESS_OUTPUT_ON_CONSOLE=False
+PROCESS_INTERVAL=10*60
+ENABLE_PROCESS_OUTPUT_ON_CONSOLE=True
 
 class PROXIMITY_DETECTOR_THREAD(threading.Thread):
     def __init__(self, threadID, name):
