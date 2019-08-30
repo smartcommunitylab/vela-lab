@@ -1,0 +1,8 @@
+2019/08/09 16:02:57 INFO [APPLICATION] Starting...
+2019/08/09 16:02:57 INFO [APPLICATION] Logs are in: /home/e3da/workspaces/git/vela-lab/gateway/dev/sink_integration/log/
+2019/08/09 16:02:57 INFO [UART] Serial Port closed! Trying to open port: /dev/ttyACM0
+2019/08/09 16:02:57 INFO [UART] Serial Port open!
+2019/08/09 16:03:00 INFO [UART] Not a packet: b'[INFO: sink_receiver] received from fd00::212:4b00:f29:a603 size=42  num=195\n'
+2019/08/09 16:03:00 INFO [NODEID FD0000000000000002124B000F29A603] pkttype 0xf010, pktnum 195
+2019/08/09 16:03:00 INFO   [PACKET DECODE] Keep alive packet. Cap: 212.0 Voltage: 3992.0 Trickle count: 6
+2019/08/09 16:03:00 INFO   [PACKET DECODE] nbr info: 3  256 P*:4  128 N:1  256 N:5  43

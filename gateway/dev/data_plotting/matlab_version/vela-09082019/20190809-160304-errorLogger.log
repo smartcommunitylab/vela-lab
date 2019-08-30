@@ -1,0 +1,4 @@
+b'[INFO: sink_receiver] received from fd00::212:4b00:f29:a603 size=42  num=196\n'
+b'[INFO: sink_receiver] received from fd00::212:4b00:f29:cf01 size=51  num=188\n'
+b'[INFO: sink_receiver] received from fd00::212:4b00:bc9:dd05 size=42  num=98\n'
+b'[INFO: sink_receiver] received from fd00::212:4b00:f29:a603 size=42  num=197\n'

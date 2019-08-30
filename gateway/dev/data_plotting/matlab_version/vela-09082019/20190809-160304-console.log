@@ -1,0 +1,20 @@
+2019/08/09 16:03:04 INFO [APPLICATION] Starting...
+2019/08/09 16:03:04 INFO [APPLICATION] Logs are in: /home/e3da/workspaces/git/vela-lab/gateway/dev/sink_integration/log/
+2019/08/09 16:03:04 INFO [UART] Serial Port closed! Trying to open port: /dev/ttyACM0
+2019/08/09 16:03:04 INFO [UART] Serial Port open!
+2019/08/09 16:03:10 INFO [UART] Not a packet: b'[INFO: sink_receiver] received from fd00::212:4b00:f29:a603 size=42  num=196\n'
+2019/08/09 16:03:10 INFO [NODEID FD0000000000000002124B000F29A603] pkttype 0xf010, pktnum 196
+2019/08/09 16:03:10 INFO   [PACKET DECODE] Keep alive packet. Cap: 212.0 Voltage: 3990.0 Trickle count: 6
+2019/08/09 16:03:10 INFO   [PACKET DECODE] nbr info: 3  256 P*:4  128 N:1  256 N:5  43
+2019/08/09 16:03:13 INFO [UART] Not a packet: b'[INFO: sink_receiver] received from fd00::212:4b00:f29:cf01 size=51  num=188\n'
+2019/08/09 16:03:13 INFO [NODEID FD0000000000000002124B000F29CF01] pkttype 0xf010, pktnum 188
+2019/08/09 16:03:13 INFO   [PACKET DECODE] Keep alive packet. Cap: 1555.0 Voltage: 4122.0 Trickle count: 6
+2019/08/09 16:03:13 INFO   [PACKET DECODE] nbr info: 1  256 P*:4  128 N:3  256 N:5  418 N:66553
+2019/08/09 16:03:13 INFO [UART] Not a packet: b'[INFO: sink_receiver] received from fd00::212:4b00:bc9:dd05 size=42  num=98\n'
+2019/08/09 16:03:13 INFO [NODEID FD0000000000000002124B000BC9DD05] pkttype 0xf010, pktnum 98
+2019/08/09 16:03:13 INFO   [PACKET DECODE] Keep alive packet. Cap: 1936.0 Voltage: 3952.0 Trickle count: 6
+2019/08/09 16:03:13 INFO   [PACKET DECODE] nbr info: 5  416 P*:1  288 N:665535 P:3  25
+2019/08/09 16:03:21 INFO [UART] Not a packet: b'[INFO: sink_receiver] received from fd00::212:4b00:f29:a603 size=42  num=197\n'
+2019/08/09 16:03:21 INFO [NODEID FD0000000000000002124B000F29A603] pkttype 0xf010, pktnum 197
+2019/08/09 16:03:21 INFO   [PACKET DECODE] Keep alive packet. Cap: 212.0 Voltage: 3989.0 Trickle count: 6
+2019/08/09 16:03:21 INFO   [PACKET DECODE] nbr info: 3  256 P*:4  128 N:1  256 N:5  43
