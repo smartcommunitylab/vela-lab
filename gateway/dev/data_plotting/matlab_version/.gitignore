@@ -2,3 +2,5 @@
 json_events.txt
 *.gif
 octave-workspace
+log/
+other_logs/

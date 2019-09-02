@@ -78,7 +78,7 @@ function proximity_events_json=proximity_detect(filename, text_verbosity, image_
     
     nodeID_len=32;
     nodeID_ = data(1,1:nodeID_len);
-    nodeID_trunksize=2;
+    nodeID_trunksize=6;
     nodeID=hexstr2int(nodeID_(1,end-nodeID_trunksize+1:end));
     
     origin=nodeID;
@@ -113,25 +113,25 @@ function proximity_events_json=proximity_detect(filename, text_verbosity, image_
 
   #scanners=cell(EXPECTED_AMOUNT_OF_NODES,1);
   nodesIdxes=[];  %this is used to ease the search of the index, otherwise it should iterate over scanners.scannerIdx
-  packets_to_analyze=size(log_data,1);
-  for lineNo=1:packets_to_analyze
-    if size(log_data{lineNo,1},2)>14
-        usefull_part = log_data{lineNo};
+  reports_to_analyze=size(log_data,1);
+  for reportNo=1:reports_to_analyze
+    if size(log_data{reportNo,1},2)>14
+        usefull_part = log_data{reportNo};
         
-        offset=1;
+        #offset=1;
         
         nodeID_len=32;
-        nodeID=log_origin(lineNo);
-        offset=offset+nodeID_len;
+        nodeID=log_origin(reportNo);
+        #offset=offset+nodeID_len;
         
         pkt_type_len=4;
-        offset=offset+pkt_type_len;
+        #offset=offset+pkt_type_len;
         
         pkt_num_len=2;
-        offset=offset+pkt_num_len;
+        #offset=offset+pkt_num_len;
         
-        contactsData=usefull_part(1,offset:end);
-        offset=offset+nodeID_len;
+        contactsData=usefull_part; #(1,offset:end);
+        #offset=offset+nodeID_len;
         
         scannerIdx=find(nodesIdxes==nodeID);
         if isempty(scannerIdx)
@@ -155,12 +155,12 @@ function proximity_events_json=proximity_detect(filename, text_verbosity, image_
         endwhile
         
     else
-        warning('Short line found: %s',log_data{lineNo});
+        warning('Short line found: %s',log_data{reportNo});
     endif
     
     if text_verbosity>=VERBOSITY_INFO
-      if(mod(lineNo,100)==0)
-        percent=lineNo/packets_to_analyze*100;
+      if(mod(reportNo,100)==0)
+        percent=reportNo/reports_to_analyze*100;
         printf("\r%.2f percent analyzed...",percent);
       endif
     endif
@@ -201,19 +201,19 @@ function proximity_events_json=proximity_detect(filename, text_verbosity, image_
       scanners{scannerIdx}.contactCounter=zeros(scanners{scannerIdx}.noOfContacts,1);
       bidx = 1;
       
-      for lineNo = 1:scanners{scannerIdx}.noOfReports
+      for reportNo = 1:scanners{scannerIdx}.noOfReports
       
           cur = 1;
-          timestamp=timestamps(lineNo);
-          while cur < size(contactsData{lineNo},2)
-              beaconID=contactsData{lineNo}(cur:cur+11);
+          timestamp=timestamps(reportNo);
+          while cur < size(contactsData{reportNo},2)
+              beaconID=contactsData{reportNo}(cur:cur+11);
               cur=cur+12;
               
-              lastRSSI=typecast(uint8(sscanf(contactsData{lineNo}(cur:cur+1),'%x')), 'int8');
+              lastRSSI=typecast(uint8(sscanf(contactsData{reportNo}(cur:cur+1),'%x')), 'int8');
               cur=cur+2;
-              maxRSSI=typecast(uint8(sscanf(contactsData{lineNo}(cur:cur+1),'%x')), 'int8');
+              maxRSSI=typecast(uint8(sscanf(contactsData{reportNo}(cur:cur+1),'%x')), 'int8');
               cur=cur+2;
-              contactCounter=uint8(hexstr2int(contactsData{lineNo}(cur:cur+1)));
+              contactCounter=uint8(hexstr2int(contactsData{reportNo}(cur:cur+1)));
               cur=cur+2;
 
               isBeaconValid = (isempty(ID_TO_ANALYZE) || sum(strcmp(ID_TO_ANALYZE,beaconID))) && (isempty(ID_TO_REMOVE) || ~sum(strcmp(ID_TO_REMOVE,beaconID)) );
@@ -229,9 +229,9 @@ function proximity_events_json=proximity_detect(filename, text_verbosity, image_
               endif
           endwhile
           if text_verbosity>=VERBOSITY_INFO
-            if(mod(lineNo,10)==0)
-              percent=lineNo/scanners{scannerIdx}.noOfReports*100;
-              printf("\rScanner ID %d (%d of %d), %.2f percent done...",scanners{scannerIdx}.nodeID,scannerIdx,noOfScanners,percent);
+            if(mod(reportNo,10)==0)
+              percent=reportNo/scanners{scannerIdx}.noOfReports*100;
+              printf("\rScanner ID %06x (%d of %d), %.2f percent done...",scanners{scannerIdx}.nodeID,scannerIdx,noOfScanners,percent);
             endif
           endif
           scanners{scannerIdx}.t=scanners{scannerIdx}.t(1:bidx-1,1);
@@ -241,7 +241,7 @@ function proximity_events_json=proximity_detect(filename, text_verbosity, image_
           scanners{scannerIdx}.contactCounter=scanners{scannerIdx}.contactCounter(1:bidx-1,1);
       endfor
       if text_verbosity>=VERBOSITY_INFO
-        printf("\rScanner ID %d (%d of %d), %.2f percent done...\n",scanners{scannerIdx}.nodeID,scannerIdx,noOfScanners,100);
+        printf("\rScanner ID %06x (%d of %d), %.2f percent done...\n",scanners{scannerIdx}.nodeID,scannerIdx,noOfScanners,100);
       endif
   endfor
   if text_verbosity>=VERBOSITY_INFO
@@ -267,7 +267,7 @@ function proximity_events_json=proximity_detect(filename, text_verbosity, image_
     %FIRST LINE
     printf('| Beacon       |');
     for scannerIdx=1:size(scanners,1)
-        printf(' NodeID : %3d   |',scanners{scannerIdx}.nodeID);
+        printf(' NodeID: %06x |',scanners{scannerIdx}.nodeID);
     endfor
     printf(' GRAND TOTAL    |\n');
 
@@ -302,6 +302,7 @@ function proximity_events_json=proximity_detect(filename, text_verbosity, image_
         printf('          %5d |',sum(noOfReport(b_idx,:)));
         printf('\n');
     endfor
+    printf('\n');
   endif
   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   
@@ -314,6 +315,10 @@ function proximity_events_json=proximity_detect(filename, text_verbosity, image_
   MOVING_AWAY=-1;
   WAS_OUT_OF_RANGE=-2;
   UNDETECTED=-Inf;
+  
+  REPORT_INTERVAL_S=15;
+  ENABLE_HIGH_SPEED_MODE=true; #enables a different threshold based also on d_max and not only on d_time.
+  HSM_DELTA_RSSI_THRESHOLD=10;
   
   for scannerIdx=1:size(scanners,1)
       beacons = unique(scanners{scannerIdx}.beaconID);
@@ -330,6 +335,13 @@ function proximity_events_json=proximity_detect(filename, text_verbosity, image_
           
           W_LEN=3;  #analysis window length. Unit is number of reports (i.e. the report interval)
           W_INC=1;  #analysis window increment. Unit is number of reports (i.e. the report interval)
+          
+          scanners{scannerIdx}.beaconStatus(1,1)=WAS_OUT_OF_RANGE;
+          scanners{scannerIdx}.beaconStatus(2,1)=WAS_OUT_OF_RANGE;
+          if ENABLE_HIGH_SPEED_MODE && diff(maxRSSI(1:2,1))>HSM_DELTA_RSSI_THRESHOLD
+            scanners{scannerIdx}.beaconStatus(idxs_list(2,1))=APPROACHING;
+          endif
+        
           for w=1:W_INC:size(t,1)-W_LEN+1
             idxs_list_w=idxs_list(w:w+W_LEN-1);
             time_w_s=t(w:w+W_LEN-1)*24*60*60;
@@ -338,14 +350,14 @@ function proximity_events_json=proximity_detect(filename, text_verbosity, image_
             contactCounter_w=contactCounter(w:w+W_LEN-1);
             
             d_time=diff(time_w_s);
-            REPORT_INTERVAL_S=15;
-            if max(d_time)<REPORT_INTERVAL_S*2.5
+            d_max=diff(maxRSSI_w);
+                       
+            if max(d_time)<REPORT_INTERVAL_S*2.5 || (ENABLE_HIGH_SPEED_MODE && (d_max(end,1)>HSM_DELTA_RSSI_THRESHOLD || d_max(end,1)<-HSM_DELTA_RSSI_THRESHOLD))
               #the window is valid
-              d_max=diff(maxRSSI_w);
-              if size(find(d_max>0),1)==size(d_max,1) #all d_max samples are above 0
+              if size(find(d_max>0),1)==size(d_max,1) || (ENABLE_HIGH_SPEED_MODE && d_max(end,1)>HSM_DELTA_RSSI_THRESHOLD) #all d_max samples are above 0 or the differential of max rssi is above 10dB
                 #the beacon is getting closer to the scanner
                 scanners{scannerIdx}.beaconStatus(idxs_list_w(end))=APPROACHING;
-              elseif size(find(d_max<0),1)==size(d_max,1) #all d_max samples are below 0
+              elseif size(find(d_max<0),1)==size(d_max,1) || (ENABLE_HIGH_SPEED_MODE && d_max(end,1)<-HSM_DELTA_RSSI_THRESHOLD)#all d_max samples are below 0 or the differential of max rssi is below -10dB
                 #the beacon is moving away from the scanner
                 scanners{scannerIdx}.beaconStatus(idxs_list_w(end))=MOVING_AWAY;
               else #some d_max samples are above 0 some below
@@ -358,7 +370,7 @@ function proximity_events_json=proximity_detect(filename, text_verbosity, image_
             endif
           endfor    
           if text_verbosity>=VERBOSITY_INFO
-            printf("\rScanner ID %d (%d of %d), beaconID %s (%d of %d)...", scanners{scannerIdx}.nodeID, scannerIdx, size(scanners,1), beaconID{1}, b_idx, size(beacons,1));
+            printf("\rScanner ID %06x (%d of %d), beaconID %s (%d of %d)...", scanners{scannerIdx}.nodeID, scannerIdx, size(scanners,1), beaconID{1}, b_idx, size(beacons,1));
           endif
       endfor
       if text_verbosity>=VERBOSITY_INFO
@@ -476,7 +488,7 @@ function proximity_events_json=proximity_detect(filename, text_verbosity, image_
                 scanners{scannerIdx}.proximity_events(b_idx).t_end(end+1)=evt_end_t;
                 
                 #create and store proximity events
-                evt.scannerID=evt_source;
+                evt.scannerID=sprintf("%06x",evt_source);
                 evt.t_start=int64(evt_start_t*24*60*60*1000);
                 evt.t_end=int64(evt_end_t*24*60*60*1000);
                 evt.t=int64(evt_t*24*60*60*1000);
@@ -519,7 +531,7 @@ function proximity_events_json=proximity_detect(filename, text_verbosity, image_
           beacons = unique(scanners{scannerIdx}.beaconID);
           
           figure(scannerIdx);
-          #hold off;
+          hold off;
           
           for b_idx = 1:size(beacons,1)
               beaconID=beacons(b_idx);
@@ -579,11 +591,7 @@ function proximity_events_json=proximity_detect(filename, text_verbosity, image_
               if min_rssi<MIN_RSSI
                 warning("%d samples under RSSI graph limits",sum(lastRSSI<MIN_RSSI)+sum(maxRSSI<MIN_RSSI))
               endif
-              
-              if strcomp(scanners{scannerIdx}.proximity_events(b_idx).beaconID,beaconID)
-                error("dio cane")
-              endif
-              
+                          
               evt_t=scanners{scannerIdx}.proximity_events(b_idx).t;
               evt_rssi=scanners{scannerIdx}.proximity_events(b_idx).rssi;
               evt_start_t=scanners{scannerIdx}.proximity_events(b_idx).t_start;
@@ -600,11 +608,7 @@ function proximity_events_json=proximity_detect(filename, text_verbosity, image_
                 #line end point
                 duration_line.t(end+1)=evt_end_t(evt_i);
                 duration_line.value(end+1)=evt_rssi(evt_i);
-                
-                #line interruption in between two events
-                #duration_line.t(end+1)=(evt_start_t(evt_i)+evt_end_t(evt_i))/2;
-                #duration_line.value(end+1)=NaN;
-                
+                               
                 h=line((duration_line.t-zero_t)*24*60,duration_line.value);
                 RSSI_EVENT_THRESHOLD=-65;
                 
@@ -631,7 +635,7 @@ function proximity_events_json=proximity_detect(filename, text_verbosity, image_
               endfor
           endfor
           figure(scannerIdx);
-          titlestr=sprintf('ScannerID: %d',scanners{scannerIdx}.nodeID);
+          titlestr=sprintf('ScannerID: %06x',scanners{scannerIdx}.nodeID);
           title(titlestr)
 
       endfor

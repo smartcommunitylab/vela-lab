@@ -105,18 +105,22 @@ def initialize_log():
     global filenameConsoleLog
     global fullpathConsoleLog
     global consoleLogger
+    global consolelog_handler
 
     global filenameUARTLog
     global fullpathUARTLog
     global UARTLogger
+    global uartlog_handler
 
     global filenameContactLog
     global fullpathContactLog
     global contactLogger
+    global contactlog_handler
 
     global filenameErrorLog
     global fullpathErrorLog
     global errorLogger
+    global errorlog_handler
 
 
     formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s', datefmt='%Y/%m/%d %H:%M:%S')
@@ -125,20 +129,20 @@ def initialize_log():
     nameConsoleLog = "consoleLogger"
     filenameConsoleLog = timestr + "-console.log"
     fullpathConsoleLog = logfolderpath+filenameConsoleLog
-    consolloghandler = logging.FileHandler(fullpathConsoleLog)
-    consolloghandler.setFormatter(formatter)
+    consolelog_handler = logging.FileHandler(fullpathConsoleLog)
+    consolelog_handler.setFormatter(formatter)
     consoleLogger = logging.getLogger(nameConsoleLog)
     consoleLogger.setLevel(LOG_LEVEL)
-    consoleLogger.addHandler(consolloghandler)
+    consoleLogger.addHandler(consolelog_handler)
 
     nameUARTLog = "UARTLogger"
     filenameUARTLog = timestr + "-UART.log"
     fullpathUARTLog = logfolderpath+filenameUARTLog
-    handler = logging.FileHandler(fullpathUARTLog)
-    handler.setFormatter(formatter)
+    uartlog_handler = logging.FileHandler(fullpathUARTLog)
+    uartlog_handler.setFormatter(formatter)
     UARTLogger = logging.getLogger(nameUARTLog)
     UARTLogger.setLevel(LOG_LEVEL)
-    UARTLogger.addHandler(handler)
+    UARTLogger.addHandler(uartlog_handler)
 
     nameContactLog = "contactLogger"
     filenameContactLog = timestr + "-contact.log"
@@ -161,12 +165,33 @@ def initialize_log():
     errorLogger.addHandler(errorlog_handler)
 
 def close_logs():
+    global filenameConsoleLog
+    global fullpathConsoleLog
     global consoleLogger
+    global consolelog_handler
+
+
+    global filenameUARTLog
+    global fullpathUARTLog
     global UARTLogger
+    global uartlog_handler
+
+    global filenameContactLog
+    global fullpathContactLog
     global contactLogger
+    global contactlog_handler
+
+    global filenameErrorLog
+    global fullpathErrorLog
     global errorLogger
+    global errorlog_handler
 
     logging.shutdown()
+
+    consoleLogger.removeHandler(consolelog_handler)
+    UARTLogger.removeHandler(uartlog_handler)
+    contactLogger.removeHandler(contactlog_handler)
+    errorLogger.removeHandler(errorlog_handler)
 
 initialize_log()
 
@@ -212,8 +237,9 @@ class PROXIMITY_DETECTOR_POLL_THREAD(threading.Thread):
 
 
     def run(self):
-        time.sleep(PROCESS_INTERVAL)
-        start_poximity_detection()
+        while self.__loop:
+            time.sleep(PROCESS_INTERVAL)
+            start_poximity_detection()
 
 
 class PROXIMITY_DETECTOR_THREAD(threading.Thread):
@@ -979,8 +1005,9 @@ def build_outgoing_serial_message(pkttype, ser_payload):
 
     #calculate the payload checksum
     cs=0
-    for c in ser_payload:                                       #calculate the checksum on the payload and the len field
-        cs+=int.from_bytes([c], "big", signed=False) 
+    if ser_payload!=None:
+        for c in ser_payload:                                       #calculate the checksum on the payload and the len field
+            cs+=int.from_bytes([c], "big", signed=False) 
     cs=cs%256                                                   #trunkate to 8 bit
     
     #net.addPrint("[DEBUG] Packet checksum: "+str(cs))
