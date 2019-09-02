@@ -10,7 +10,7 @@
 # to clean run ./clean.sh
 
 # ************************************************ CONFIGURATION ************************************************
-CONTIKI_ROOT=/home/e3da/workspaces/git/contiki-ng
+CONTIKI_ROOT=../contiki-ng
 BOARD=launchpad_vela/cc1350
 
 OTA_VERSION=0x0023  #NB: in order to have the firmware recognized as the LATEST and conseguently making the nodes to load it, version number should be higher than the installed one.
@@ -35,7 +35,10 @@ make "$@" vela_node V=0 OTA=1 NODE=1 CONTIKI_PROJECT=vela_node
 if [ $recompile_bootloader -eq 1 ]
 then
     THIS_FOLDER=$PWD
+    export CONTIKI_ROOT_ABS=$(python -c "import os.path; print os.path.abspath('${CONTIKI_ROOT}')")
+
     cd ./../external_modules/bootloader/
+    
     #compile the bootloader
     make clean
     make bootloader.bin CLEAR_OTA_SLOTS=${CLEAR_OTA_SLOTS} BURN_GOLDEN_IMAGE=${BURN_GOLDEN_IMAGE}

@@ -15,8 +15,8 @@ CFLAGS += -DUIP_CONF_BUFFER_SIZE=$(UIP_CONF_BUFFER_SIZE)
 
 #COMMON_DIR_REL_PATH=$(shell python -c "import os.path; print os.path.relpath('${COMMON_DIR}', '${CONTIKI}')")
 #PROJ_DIR_REL_PATH=$(shell python -c "import os.path; print os.path.relpath('./../external_modules', '${CONTIKI}')")
-COMMON_DIR_REL_PATH=../vela-lab/common
-PROJ_DIR_REL_PATH=../vela-lab/network_board/external_modules
+COMMON_DIR_REL_PATH=../../common
+PROJ_DIR_REL_PATH=../external_modules
 $(info $$COMMON_DIR_REL_PATH is: ${COMMON_DIR_REL_PATH})
 $(info $$PROJ_DIR_REL_PATH is: ${PROJ_DIR_REL_PATH})
 

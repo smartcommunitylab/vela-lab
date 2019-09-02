@@ -3,7 +3,7 @@
 # to clean run ./clean.sh
 
 # ************************************************ CONFIGURATION ************************************************
-CONTIKI_ROOT=/home/giova/workspaces/GIT/contiki-ng
+CONTIKI_ROOT=../contiki-ng
 #BOARD=launchpad_vela/cc1350
 BOARD=launchpad_vela/cc1350
 

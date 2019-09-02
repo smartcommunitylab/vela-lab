@@ -2,3 +2,7 @@
 	path = gateway/dev/data_plotting/matlab_version/jsonlab
 	url = https://github.com/fangq/jsonlab.git
 
+[submodule "network_board/contiki-ng"]
+	path = network_board/contiki-ng
+	url = https://dgiovane@bitbucket.org/dgiovane/contiki-ng.git
+

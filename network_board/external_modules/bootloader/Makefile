@@ -7,7 +7,7 @@ ${error BOARD not specified!!}
 endif
 #BOARD=launchpad_vela/cc2650 #TODO: These variables should be set as arguments
 #TARGET=cc26x0-cc13x0
-CONTIKI=${CONTIKI_ROOT}
+CONTIKI=${CONTIKI_ROOT_ABS}
 
 CC      = arm-none-eabi-gcc
 CPP     = arm-none-eabi-cpp
@@ -28,7 +28,9 @@ SREC_CAT = srec_cat
 #CONTIKI = ../../..
 OTA_SOURCE = ../ota
 
-CPU_ABS_PATH = $(CONTIKI)/arch/cpu/cc26x0-cc13x0
+CPU_ABS_PATH=$(CONTIKI)/arch/cpu/cc26x0-cc13x0
+#CPU_ABS_PATH=$(shell python -c "import os.path; print os.path.abspath('$(CPU_REL_PATH)')")
+
 TARGET=cc26x0-cc13x0
 $(info CPU_ABS_PATH is: ${CPU_ABS_PATH})
 OBJECTDIR=obj_$(TARGET)

@@ -10,7 +10,7 @@
 # to clean run ./clean.sh
 
 # ************************************************ CONFIGURATION ************************************************
-CONTIKI_ROOT=/home/giova/workspaces/GIT/contiki-ng
+CONTIKI_ROOT=../contiki-ng
 BOARD=launchpad_vela/cc2650
 
 OTA_VERSION=0x000C  #NB: in order to have the firmware recognized as the LATEST and conseguently making the nodes to load it, version number should be higher than the installed one.

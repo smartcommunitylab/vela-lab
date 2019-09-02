@@ -2,10 +2,7 @@
 # this build script builds the firmware discarding OTA. It can be usefull for debugging and if OTA have problems
 # to clean run ./clean.sh
 
-CONTIKI_ROOT={absolute_path_to_contiki}
-
-
-export CONTIKI_ROOT=/home/giova/workspaces/GIT/contiki-ng
+export CONTIKI_ROOT=../contiki-ng
 export BOARD=launchpad_vela/cc2650
 export TARGET=cc26x0-cc13x0
 export CC26XX_UART_CONF_BAUD_RATE=1000000
