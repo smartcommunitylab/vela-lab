@@ -8,7 +8,7 @@ import json
 octave_files_folder="../data_plotting/matlab_version" #./
 contact_log_file_folder="log" #./
 contact_log_filename="vela-09082019/20190809-141430-contact.log"
-octave_launch_command="octave -qf"
+octave_launch_command="/usr/bin/flatpak run org.octave.Octave -qf"
 detector_octave_script="run_detector.m"
 events_file_json="json_events.txt"
 

@@ -336,39 +336,44 @@ function proximity_events_json=proximity_detect(filename, text_verbosity, image_
           W_LEN=3;  #analysis window length. Unit is number of reports (i.e. the report interval)
           W_INC=1;  #analysis window increment. Unit is number of reports (i.e. the report interval)
           
-          scanners{scannerIdx}.beaconStatus(1,1)=WAS_OUT_OF_RANGE;
-          scanners{scannerIdx}.beaconStatus(2,1)=WAS_OUT_OF_RANGE;
-          if ENABLE_HIGH_SPEED_MODE && diff(maxRSSI(1:2,1))>HSM_DELTA_RSSI_THRESHOLD
-            scanners{scannerIdx}.beaconStatus(idxs_list(2,1))=APPROACHING;
-          endif
-        
-          for w=1:W_INC:size(t,1)-W_LEN+1
-            idxs_list_w=idxs_list(w:w+W_LEN-1);
-            time_w_s=t(w:w+W_LEN-1)*24*60*60;
-            lastRSSI_w=lastRSSI(w:w+W_LEN-1);
-            maxRSSI_w=maxRSSI(w:w+W_LEN-1);
-            contactCounter_w=contactCounter(w:w+W_LEN-1);
-            
-            d_time=diff(time_w_s);
-            d_max=diff(maxRSSI_w);
-                       
-            if max(d_time)<REPORT_INTERVAL_S*2.5 || (ENABLE_HIGH_SPEED_MODE && (d_max(end,1)>HSM_DELTA_RSSI_THRESHOLD || d_max(end,1)<-HSM_DELTA_RSSI_THRESHOLD))
-              #the window is valid
-              if size(find(d_max>0),1)==size(d_max,1) || (ENABLE_HIGH_SPEED_MODE && d_max(end,1)>HSM_DELTA_RSSI_THRESHOLD) #all d_max samples are above 0 or the differential of max rssi is above 10dB
-                #the beacon is getting closer to the scanner
-                scanners{scannerIdx}.beaconStatus(idxs_list_w(end))=APPROACHING;
-              elseif size(find(d_max<0),1)==size(d_max,1) || (ENABLE_HIGH_SPEED_MODE && d_max(end,1)<-HSM_DELTA_RSSI_THRESHOLD)#all d_max samples are below 0 or the differential of max rssi is below -10dB
-                #the beacon is moving away from the scanner
-                scanners{scannerIdx}.beaconStatus(idxs_list_w(end))=MOVING_AWAY;
-              else #some d_max samples are above 0 some below
-                #probably the beacon is roaming around the scanner
-                scanners{scannerIdx}.beaconStatus(idxs_list_w(end))=STEADY;
+          if size(idxs_list,1)>=W_LEN
+              scanners{scannerIdx}.beaconStatus(1,1)=WAS_OUT_OF_RANGE;
+              scanners{scannerIdx}.beaconStatus(2,1)=WAS_OUT_OF_RANGE;
+              if ENABLE_HIGH_SPEED_MODE && diff(maxRSSI(1:2,1))>HSM_DELTA_RSSI_THRESHOLD
+                scanners{scannerIdx}.beaconStatus(idxs_list(2,1))=APPROACHING;
               endif
-            else
-              #the window is not valid
-              scanners{scannerIdx}.beaconStatus(idxs_list_w(end))=WAS_OUT_OF_RANGE;
-            endif
-          endfor    
+            
+              for w=1:W_INC:size(t,1)-W_LEN+1
+                idxs_list_w=idxs_list(w:w+W_LEN-1);
+                time_w_s=t(w:w+W_LEN-1)*24*60*60;
+                lastRSSI_w=lastRSSI(w:w+W_LEN-1);
+                maxRSSI_w=maxRSSI(w:w+W_LEN-1);
+                contactCounter_w=contactCounter(w:w+W_LEN-1);
+                
+                d_time=diff(time_w_s);
+                d_max=diff(maxRSSI_w);
+                           
+                if max(d_time)<REPORT_INTERVAL_S*2.5 || (ENABLE_HIGH_SPEED_MODE && (d_max(end,1)>HSM_DELTA_RSSI_THRESHOLD || d_max(end,1)<-HSM_DELTA_RSSI_THRESHOLD))
+                  #the window is valid
+                  if size(find(d_max>0),1)==size(d_max,1) || (ENABLE_HIGH_SPEED_MODE && d_max(end,1)>HSM_DELTA_RSSI_THRESHOLD) #all d_max samples are above 0 or the differential of max rssi is above 10dB
+                    #the beacon is getting closer to the scanner
+                    scanners{scannerIdx}.beaconStatus(idxs_list_w(end))=APPROACHING;
+                  elseif size(find(d_max<0),1)==size(d_max,1) || (ENABLE_HIGH_SPEED_MODE && d_max(end,1)<-HSM_DELTA_RSSI_THRESHOLD)#all d_max samples are below 0 or the differential of max rssi is below -10dB
+                    #the beacon is moving away from the scanner
+                    scanners{scannerIdx}.beaconStatus(idxs_list_w(end))=MOVING_AWAY;
+                  else #some d_max samples are above 0 some below
+                    #probably the beacon is roaming around the scanner
+                    scanners{scannerIdx}.beaconStatus(idxs_list_w(end))=STEADY;
+                  endif
+                else
+                  #the window is not valid
+                  scanners{scannerIdx}.beaconStatus(idxs_list_w(end))=WAS_OUT_OF_RANGE;
+                endif
+              endfor
+          else
+            # in this case there are few reports containing this beacon.
+            # maybe it is the case of pushing the contatc information anyway?
+          endif
           if text_verbosity>=VERBOSITY_INFO
             printf("\rScanner ID %06x (%d of %d), beaconID %s (%d of %d)...", scanners{scannerIdx}.nodeID, scannerIdx, size(scanners,1), beaconID{1}, b_idx, size(beacons,1));
           endif
