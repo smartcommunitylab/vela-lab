@@ -251,9 +251,13 @@ class PROXIMITY_DETECTOR_THREAD(threading.Thread):
         self.file_processed=True
 
     def get_result(self):
-        with open(octave_files_folder+'/'+events_file_json) as f: # Use file to refer to the file object
-            data=f.read()
-            return json.loads(data)
+        try:
+            with open(octave_files_folder+'/'+events_file_json) as f: # Use file to refer to the file object
+                data=f.read()
+                return json.loads(data)
+        except OSError:
+            return None
+            
         return None
 
     def on_processed(self):
@@ -261,16 +265,20 @@ class PROXIMITY_DETECTOR_THREAD(threading.Thread):
         self.file_processed=True
         #octave_process.kill(0)
         jdata=self.get_result()
-        evts=jdata["proximity_events"]
+        try:
+            evts=jdata["proximity_events"]
 
-        if evts!=None:
-            self.on_events(evts)
-            os.remove(octave_files_folder+'/'+events_file_json) #remove the file to avoid double processing of it
+            if evts!=None:
+                self.on_events(evts)
+                os.remove(octave_files_folder+'/'+events_file_json) #remove the file to avoid double processing of it
 
-            evts=None
-        else:
+                evts=None
+            else:
+                net.addPrint("[EVENT EXTRACTOR] No event foud!")
+        except KeyError:
             net.addPrint("[EVENT EXTRACTOR] No event foud!")
-    
+            return
+
     def on_events(self,evts):
         with open("event_store.txt", "a") as f:
             #json.dump(evts,f)
