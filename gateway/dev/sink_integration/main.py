@@ -20,7 +20,7 @@ import traceback
 
 START_CHAR = '02'
 #START_BUF = '2a2a2a'  # this is not really a buffer
-BAUD_RATE = 1000000 #921600 #1000000
+BAUD_RATE = 57600 #921600 #1000000
 SERIAL_PORT = "/dev/ttyS0" #"/dev/ttyACM0" #"/dev/ttyS0"
 
 if len(sys.argv)>1:
@@ -321,6 +321,9 @@ class PROXIMITY_DETECTOR_THREAD(threading.Thread):
             except IndexError:
                 time.sleep(1)
                 pass
+
+
+
 
 class Network(object):
 
@@ -623,17 +626,17 @@ class Network(object):
         if CLEAR_CONSOLE:
             cls()
 
-        print("|------------------------------------------------------------------------------|")
-        print("|--------------------------|  Network size %3s log lines %4s |----------------|" %(str(netSize), self.__uartLogLines))
-        print("|------------| Trickle: min %3d; max %3d; exp %3d; queue size %2d |-------------|" %(self.__netMinTrickle, self.__netMaxTrickle, self.__expTrickle, len(self.__trickleQueue)))
-        print("|------------------------------------------------------------------------------|")
-        print("| NodeID | Battery                                | Last     | Trick   |  #BT  |")
-        print("|        | Volt   SoC Capacty    Cons    Temp     | seen[s]  | Count   |  Rep  |")
+        print("|-----------------------------------------------------------------------------------------|")
+        print("|--------------------------|  Network size %3s log lines %7s |------------------------|" %(str(netSize), self.__uartLogLines))
+        print("|-----------------| Trickle: min %3d; max %3d; exp %3d; queue size %2d |-------------------|" %(self.__netMinTrickle, self.__netMaxTrickle, self.__expTrickle, len(self.__trickleQueue)))
+        print("|-----------------------------------------------------------------------------------------|")
+        print("| NodeID | Battery                                | firmware | Last     | Trick   |  #BT  |")
+        print("|        | Volt   SoC Capacty    Cons    Temp     | version  | seen[s]  | Count   |  Rep  |")
         #print("|           |                 |                     |             |            |")
         for n in self.__nodes:
             n.printNodeInfo()
         #print("|           |                 |                     |             |            |")
-        print("|------------------------------------------------------------------------------|")
+        print("|-----------------------------------------------------------------------------------------|")
         if self.showHelp:
             print("|    AVAILABLE COMMANDS:")
             print("| key    command\n|")
@@ -646,10 +649,10 @@ class Network(object):
                   "| 9      set time between sends\n"
                   "| >9     set keep alive interval in seconds")
         else:
-            print("|     h+enter    : Show available commands                                     |")
-        print("|------------------------------------------------------------------------------|")
-        print("|------------------|            CONSOLE                     |------------------|")
-        print("|------------------------------------------------------------------------------|")
+            print("|     h+enter    : Show available commands                                                |")
+        print("|-----------------------------------------------------------------------------------------|")
+        print("|-----------------------|            CONSOLE                     |------------------------|")
+        print("|-----------------------------------------------------------------------------------------|")
 
         terminalSize = shutil.get_terminal_size(([80,20]))
         if net.showHelp:
@@ -665,20 +668,26 @@ class Network(object):
             for l in self.__consoleBuffer:
                 print(l)
 
-    def processKeepAliveMessage(self, label, trickleCount, batteryVoltage, capacity):
+    def processKeepAliveMessage(self, label, battery_data, fw_metadata, nbr_string=None):
         n = self.getNode(label)
         if n != None:
-            n.updateTrickleCount(trickleCount)
-            n.updateBatteryVoltage(batteryVoltage)
-            n.updateBatteryCapacity(capacity)
             n.online=True 
         else:
             n=Node(label, trickleCount)
-            n.updateBatteryVoltage(batteryVoltage)
-            n.updateBatteryCapacity(capacity)
             self.addNode(n)
             
+        n.updateTrickleCount(trickleCount)
+        n.updateBatteryVoltage(battery_data["voltage"])
+        n.updateBatteryCapacity(battery_data["capacity"])
+        n.updateBatteryTemperature(battery_data["temperature"])
+        n.updateBatterySOC(battery_data["state_of_charge"])
+        n.updateBatteryConsumption(battery_data["consumption"])
+        n.updateBatteryELT(battery_data["capacity"])
 
+        n.fwMetadataHandler(fw_metadata["crc"], fw_metadata["crc_shadow"], fw_metadata["size"], fw_metadata["uuid"], fw_metadata["version"])
+
+        n.updateNbrString(nbr_string)
+        
         if len(self.__trickleQueue) != 0:
             if self.__trickleCheck():
                 self.__expTrickle = (self.__netMaxTrickle + 1)%MAX_TRICKLE_C_VALUE
@@ -715,10 +724,10 @@ class Network(object):
     def processUARTError(self):
         self.__uartLogLines=self.__uartLogLines+1
 
-    def processFWMetadata(self, label, fw_metadata_crc_str, fw_metadata_crc_shadow_str, fw_metadata_size_str, fw_metadata_uuid_str, fw_metadata_version_str):
-        n = self.getNode(label)
-        if n != None:
-            n.fwMetadataHandler(fw_metadata_crc_str, fw_metadata_crc_shadow_str, fw_metadata_size_str, fw_metadata_uuid_str, fw_metadata_version_str)
+    #def processFWMetadata(self, label, fw_metadata_crc_str, fw_metadata_crc_shadow_str, fw_metadata_size_str, fw_metadata_uuid_str, fw_metadata_version_str):
+    #    n = self.getNode(label)
+    #    if n != None:
+    #        n.fwMetadataHandler(fw_metadata_crc_str, fw_metadata_crc_shadow_str, fw_metadata_size_str, fw_metadata_uuid_str, fw_metadata_version_str)
 
     def resetNodeTimeout(self, label):
         n = self.getNode(label)
@@ -765,6 +774,7 @@ class Node(object):
         self.batterySoc = None
         self.batteryConsumption = None
         self.batteryTemperature = None
+        self.elt=None
         self.amountOfBTReports = 0
         self.online=True
         self.fw_crc=None
@@ -772,6 +782,7 @@ class Node(object):
         self.fw_size=None
         self.fw_uuid=None
         self.fw_version=None
+        self.nbr_string=None
 
     def updateTrickleCount(self,trickleCount):
         with self.lock:
@@ -781,27 +792,35 @@ class Node(object):
     def updateBatteryVoltage(self, batteryVoltage):
         with self.lock:
             self.batteryVoltage = batteryVoltage
-            self.lastMessageTime = float(time.time())
+            #self.lastMessageTime = float(time.time())
 
     def updateBatteryCapacity(self, capacity):
         with self.lock:
             self.batteryCapacity = capacity
-            self.lastMessageTime = float(time.time())
+            #self.lastMessageTime = float(time.time())
 
     def updateBatterySOC(self, soc):
         with self.lock:
             self.batterySoc = soc
-            self.lastMessageTime = float(time.time())
+            #self.lastMessageTime = float(time.time())
 
     def updateBatteryConsumption(self, consumption):
         with self.lock:
             self.batteryConsumption = consumption
-            self.lastMessageTime = float(time.time())
+            #self.lastMessageTime = float(time.time())
 
     def updateBatteryTemperature(self, temperature):
         with self.lock:
             self.batteryTemperature = temperature
-            self.lastMessageTime = float(time.time())
+            #self.lastMessageTime = float(time.time())
+
+    def updateBatteryELT(self,estimated_lifetime):
+        with self.lock:
+            self.elt=estimated_lifetime
+
+    def updateNbrString(self,nbr_string):
+        with self.lock:
+            self.nbr_string=nbr_string
 
     def BTReportHandler(self):
         with self.lock:
@@ -828,14 +847,14 @@ class Node(object):
     def printNodeInfo(self):
         if self.online:
             if self.batteryConsumption != None:
-                print("| %3s | %3.2fV %3.0f%% %4.0fmAh %6.1fmA  %5.1f°    |  %6.0f  |  %5d  |%5d  |" % (str(self.name[-6:]), self.batteryVoltage, self.batterySoc, self.batteryCapacity, self.batteryConsumption, self.batteryTemperature, self.getLastMessageElapsedTime(), self.lastTrickleCount, self.amountOfBTReports))
+                print("| %3s | %3.2fV %3.0f%% %4.0fmAh %6.1fmA  %5.1f°    |  %6.0f  |  %5s  |  %5d  |%5d  |" % (str(self.name[-6:]), self.batteryVoltage, self.batterySoc, self.batteryCapacity, self.batteryConsumption, self.batteryTemperature, self.getLastMessageElapsedTime(), self.fw_version, self.lastTrickleCount, self.amountOfBTReports))
             else:
-                print("| %3s | %3.2fV                                  |  %6.0f  |  %5d  |%5d  |" % (str(self.name[-6:]), self.batteryVoltage, self.getLastMessageElapsedTime(), self.lastTrickleCount, self.amountOfBTReports))
+                print("| %3s | %3.2fV                                  |  %6.0f  |  %5s  |  %5d  |%5d  |" % (str(self.name[-6:]), self.batteryVoltage, self.getLastMessageElapsedTime(), self.fw_version, self.lastTrickleCount, self.amountOfBTReports))
         else:
             if self.batteryConsumption != None:
-                print("| %3s*| %3.2fV %3.0f%% %4.0fmAh %6.1fmA  %5.1f°    |  %6.0f  |  %5d  |%5d  |" % (str(self.name[-6:]), self.batteryVoltage, self.batterySoc, self.batteryCapacity, self.batteryConsumption, self.batteryTemperature, self.getLastMessageElapsedTime(), self.lastTrickleCount, self.amountOfBTReports))
+                print("| %3s*| %3.2fV %3.0f%% %4.0fmAh %6.1fmA  %5.1f°    |  %6.0f  |  %5s  |  %5d  |%5d  |" % (str(self.name[-6:]), self.batteryVoltage, self.batterySoc, self.batteryCapacity, self.batteryConsumption, self.batteryTemperature, self.getLastMessageElapsedTime(), self.fw_version, self.lastTrickleCount, self.amountOfBTReports))
             else:
-                print("| %3s*| %3.2fV                                  |  %6.0f  |  %5d  |%5d  |" % (str(self.name[-6:]), self.batteryVoltage, self.getLastMessageElapsedTime(), self.lastTrickleCount, self.amountOfBTReports))
+                print("| %3s*| %3.2fV                                  |  %6.0f  |  %5s  |  %5d  |%5d  |" % (str(self.name[-6:]), self.batteryVoltage, self.getLastMessageElapsedTime(), self.fw_version, self.lastTrickleCount, self.amountOfBTReports))
 
 
 @unique
@@ -1307,65 +1326,86 @@ try:
                                 net.addPrint("  [PACKET DECODE] Node id "+ str(nodeid)+" wrong ping payload: %d" % payload )
 
                         elif PacketType.network_keep_alive == pkttype:
-                            new_keepalive=True
-                            if new_keepalive:
-                                batCapacity = float(int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False)) 
-                                cursor+=2
-                                batSoC = float(int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False)) / 10 
-                                cursor+=2
-                                bytesELT = line[cursor:cursor+2] #ser.read(2)
-                                cursor+=2
-                                batELT = str(timedelta(minutes=int.from_bytes(bytesELT, byteorder="big", signed=False)))[:-3] # Convert minutes to hours and minutes
-                                batAvgConsumption = float(int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=True)) / 10 
-                                cursor+=2
-                                batAvgVoltage = float(int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False))/1000 
-                                cursor+=2
-                                batAvgTemp = float(int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=True)) / 100 
-                                cursor+=2
-                                
-                                fw_metadata_crc_int = int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False)
-                                cursor+=2
-                                fw_metadata_crc_shadow_int = int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False)
-                                cursor+=2
-                                fw_metadata_size_int = int.from_bytes(line[cursor:cursor+4], byteorder="big", signed=False)
-                                cursor+=4
-                                fw_metadata_uuid_int = int.from_bytes(line[cursor:cursor+4], byteorder="big", signed=False)
-                                cursor+=4
-                                fw_metadata_version_int = int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False)
-                                cursor+=2
-                                       
-                                fw_metadata_crc_str = "{0}".format(hex(fw_metadata_crc_int))
-                                fw_metadata_crc_shadow_str = "{0}".format(hex(fw_metadata_crc_shadow_int))
-                                fw_metadata_size_str = "{0}".format(hex(fw_metadata_size_int))
-                                fw_metadata_uuid_str = "{0}".format(hex(fw_metadata_uuid_int))
-                                fw_metadata_version_str = "{0}".format(hex(fw_metadata_version_int))
+                            #new_keepalive=True
+                           # if new_keepalive:
+                            batCapacity = float(int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False)) 
+                            cursor+=2
+                            batSoC = float(int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False)) / 10 
+                            cursor+=2
+                            bytesELT = line[cursor:cursor+2] #ser.read(2)
+                            cursor+=2
+                            batELT = str(timedelta(minutes=int.from_bytes(bytesELT, byteorder="big", signed=False)))[:-3] # Convert minutes to hours and minutes
+                            batAvgConsumption = float(int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=True)) / 10 
+                            cursor+=2
+                            batAvgVoltage = float(int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False))/1000 
+                            cursor+=2
+                            batAvgTemp = float(int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=True)) / 100 
+                            cursor+=2
+                            
+                            fw_metadata_crc_int = int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False)
+                            cursor+=2
+                            fw_metadata_crc_shadow_int = int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False)
+                            cursor+=2
+                            fw_metadata_size_int = int.from_bytes(line[cursor:cursor+4], byteorder="big", signed=False)
+                            cursor+=4
+                            fw_metadata_uuid_int = int.from_bytes(line[cursor:cursor+4], byteorder="big", signed=False)
+                            cursor+=4
+                            fw_metadata_version_int = int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False)
+                            cursor+=2
+                                   
+                            fw_metadata_crc_str = "{0}".format(hex(fw_metadata_crc_int))
+                            fw_metadata_crc_shadow_str = "{0}".format(hex(fw_metadata_crc_shadow_int))
+                            fw_metadata_size_str = "{0}".format(hex(fw_metadata_size_int))
+                            fw_metadata_uuid_str = "{0}".format(hex(fw_metadata_uuid_int))
+                            fw_metadata_version_str = "{0}".format(hex(fw_metadata_version_int))
 
-                                trickle_count = int.from_bytes(line[cursor:cursor+1], byteorder="big", signed=False) 
-                                cursor+=1
+                            trickle_count = int.from_bytes(line[cursor:cursor+1], byteorder="big", signed=False) 
+                            cursor+=1
 
-                                net.addPrint("  [PACKET DECODE] Firmware metadata: crc: "+fw_metadata_crc_str+" crc_shadow: "+fw_metadata_crc_shadow_str+" size: "+fw_metadata_size_str+" uuid: "+fw_metadata_uuid_str+" version: "+fw_metadata_version_str)
+                            #net.addPrint("  [PACKET DECODE] Firmware metadata: crc: "+fw_metadata_crc_str+" crc_shadow: "+fw_metadata_crc_shadow_str+" size: "+fw_metadata_size_str+" uuid: "+fw_metadata_uuid_str+" version: "+fw_metadata_version_str)
 
-                                net.processKeepAliveMessage(str(nodeid), trickle_count, batAvgVoltage, batCapacity)
-                                net.processBatteryDataMessage(str(nodeid), batAvgVoltage, batCapacity, batSoC, batAvgConsumption, batAvgTemp)
-                                net.processFWMetadata(str(nodeid), fw_metadata_crc_str, fw_metadata_crc_shadow_str, fw_metadata_size_str, fw_metadata_uuid_str, fw_metadata_version_str)
-                            else:
-                                batCapacity = float(int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False)) 
-                                cursor+=2
-                                batAvgVoltage = float(int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False))/1000 
-                                cursor+=2
+                            battery_data=dict()
+                            battery_data["capacity"]=batCapacity
+                            battery_data["state_of_charge"]=batSoC
+                            battery_data["estimated_lifetime"]=batELT
+                            battery_data["consumption"]=batAvgConsumption
+                            battery_data["voltage"]=batAvgVoltage
+                            battery_data["temperature"]=batAvgTemp
 
-                                trickle_count = int.from_bytes(line[cursor:cursor+1], byteorder="big", signed=False) 
-                                cursor+=1
+                            fw_metadata=dict()
+                            fw_metadata["crc"]=fw_metadata_crc_str
+                            fw_metadata["crc_shadow"]=fw_metadata_crc_shadow_str
+                            fw_metadata["size"]=fw_metadata_size_str
+                            fw_metadata["uuid"]=fw_metadata_uuid_str
+                            fw_metadata["version"]=fw_metadata_version_str
+                            
+                            nbr_info_str=None
+                            if len(line)>cursor:
+                                nbr_info=line[cursor:-1]
+                                nbr_info_str=nbr_info.decode("utf-8")
+                    
+                            net.processKeepAliveMessage(str(nodeid), trickle_count, battery_data, fw_metadata,nbr_info_str)
 
-                                net.processKeepAliveMessage(str(nodeid), trickle_count, batAvgVoltage, batCapacity)
+                                #net.processBatteryDataMessage(str(nodeid), batAvgVoltage, batCapacity, batSoC, batAvgConsumption, batAvgTemp)
+                                #net.processFWMetadata(str(nodeid), fw_metadata_crc_str, fw_metadata_crc_shadow_str, fw_metadata_size_str, fw_metadata_uuid_str, fw_metadata_version_str)
+                            #else:
+                            #    batCapacity = float(int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False)) 
+                            #    cursor+=2
+                            #    batAvgVoltage = float(int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False))/1000 
+                            #    cursor+=2
+
+                            #    trickle_count = int.from_bytes(line[cursor:cursor+1], byteorder="big", signed=False) 
+                            #    cursor+=1
+
+                            #    net.processKeepAliveMessage(str(nodeid), trickle_count, batAvgVoltage, batCapacity)
 
 
                             if printVerbosity > 1:
                                 net.addPrint("  [PACKET DECODE] Keep alive packet. Cap: "+ str(batCapacity) +" Voltage: "+ str(batAvgVoltage*1000) +" Trickle count: "+ str(trickle_count))
 
-                            if len(line)>cursor:
-                                nbr_info=line[cursor:-1]
-                                net.addPrint("  [PACKET DECODE] nbr info: "+nbr_info.decode("utf-8"))
+                            #if len(line)>cursor:
+                            #    nbr_info=line[cursor:-1]
+                            #    net.addPrint("  [PACKET DECODE] nbr info: "+nbr_info.decode("utf-8"))
                                 
                         elif PacketType.ota_ack == pkttype:
                             firmwareChunkDownloaded_event_data=line[cursor:]
