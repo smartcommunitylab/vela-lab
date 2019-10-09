@@ -111,7 +111,7 @@ function proximity_events_json=proximity_detect(filename, text_verbosity, image_
 
   packet_preallocation_size=100000;
 
-  #scanners=cell(EXPECTED_AMOUNT_OF_NODES,1);
+  scanners={};
   nodesIdxes=[];  %this is used to ease the search of the index, otherwise it should iterate over scanners.scannerIdx
   reports_to_analyze=size(log_data,1);
   for reportNo=1:reports_to_analyze

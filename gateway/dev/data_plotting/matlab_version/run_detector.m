@@ -3,7 +3,8 @@
 run_from_cmd_line=false;
 arg_list = argv ();
 if size(arg_list,1)<1 ||  strcmp(arg_list{1},"--gui")
-  filename="log/20190902-165714-contact.log";
+  #filename="log/20190902-165714-contact.log";
+  filename="vela-09082019/20190809-141430-contact.log";
   #closefilename="vela-09082019/20190809-141430-contact.log";
   warning("Filename not provided, analyzing hardcoded filename: %s.",filename);
 else
