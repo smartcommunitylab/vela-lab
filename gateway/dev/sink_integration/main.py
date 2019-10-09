@@ -212,7 +212,7 @@ REBOOT_INTERVAL=0.5
 octave_files_folder="../data_plotting/matlab_version" #./
 contact_log_file_folder=logfolderpath #./
 #contact_log_filename="vela-09082019/20190809-141430-contact_cut.log" #filenameContactLog #"vela-09082019/20190809-141430-contact_cut.log"
-octave_launch_command="/usr/bin/flatpak run org.octave.Octave -qf"
+octave_launch_command="/usr/bin/flatpak run org.octave.Octave -qf" #octave 5 is required. Some distro install octave 4 as default, to overcome this install octave through flatpak
 detector_octave_script="run_detector.m"
 events_file_json="json_events.txt"
 
@@ -280,11 +280,17 @@ class PROXIMITY_DETECTOR_THREAD(threading.Thread):
             return
 
     def on_events(self,evts):
-        with open("event_store.txt", "a") as f:
+        with open("proximity_event_store.txt", "a") as f:
             #json.dump(evts,f)
             f.write(datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S')+" "+str(evts)+"\n")
         net.addPrint("[EVENT EXTRACTOR] Events: "+str(evts[0:3])) #NOTE: At this point the variable evts contains the proximity events. As example I plot the first 10
-        
+
+        net.addPrint("[EVENT EXTRACTOR] Obtaining network status") #NOTE: At this point the variable evts contains the proximity events. As example I plot the first 10
+        net_descr=net.obtainNetworkDescriptorObject()
+        with open("network_status_store.txt", "a") as f:
+            #json.dump(net_descr,f)
+            f.write(datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S')+" "+str(net_descr)+"\n")
+        net.addPrint("[EVENT EXTRACTOR] Network status: "+str(net_descr))
 
     def run(self):
         
@@ -614,6 +620,16 @@ class Network(object):
             self.__trickleCheck()
             self.printNetworkStatus()
 
+    def obtainNetworkDescriptorObject(self):
+        net_descr=[]
+        for n in self.__nodes:
+            n_descr=dict()
+            n_descr["name"]=n.name
+            n_descr["info"]=n.getNodeDescriptorObject()
+            net_descr.append(n_descr)
+
+        return net_descr
+
     def printNetworkStatus(self):
 
         if(float(time.time()) - self.__lastNetworkPrint < 0.2): #this is to avoid too fast call to this function
@@ -626,17 +642,17 @@ class Network(object):
         if CLEAR_CONSOLE:
             cls()
 
-        print("|-----------------------------------------------------------------------------------------|")
-        print("|--------------------------|  Network size %3s log lines %7s |------------------------|" %(str(netSize), self.__uartLogLines))
-        print("|-----------------| Trickle: min %3d; max %3d; exp %3d; queue size %2d |-------------------|" %(self.__netMinTrickle, self.__netMaxTrickle, self.__expTrickle, len(self.__trickleQueue)))
-        print("|-----------------------------------------------------------------------------------------|")
-        print("| NodeID | Battery                                | firmware | Last     | Trick   |  #BT  |")
-        print("|        | Volt   SoC Capacty    Cons    Temp     | version  | seen[s]  | Count   |  Rep  |")
+        print("|-----------------------------------------------------------------------------------------------------------------------------------------|")
+        print("|-------------------------------------------------|  Network size %3s log lines %7s |-------------------------------------------------|" %(str(netSize), self.__uartLogLines))
+        print("|----------------------------------------| Trickle: min %3d; max %3d; exp %3d; queue size %2d |--------------------------------------------|" %(self.__netMinTrickle, self.__netMaxTrickle, self.__expTrickle, len(self.__trickleQueue)))
+        print("|-----------------------------------------------------------------------------------------------------------------------------------------|")
+        print("| NodeID | Battery                              | Last    | Firmware | Trick |   #BT  |                             Neighbors info string |")
+        print("|        | Volt   SoC Capacty    Cons    Temp   | seen[s] | version  | Count |   Rep  |     P: a parent,  P*: actual parent,  N: neighbor |")
         #print("|           |                 |                     |             |            |")
         for n in self.__nodes:
             n.printNodeInfo()
         #print("|           |                 |                     |             |            |")
-        print("|-----------------------------------------------------------------------------------------|")
+        print("|-----------------------------------------------------------------------------------------------------------------------------------------|")
         if self.showHelp:
             print("|    AVAILABLE COMMANDS:")
             print("| key    command\n|")
@@ -649,10 +665,10 @@ class Network(object):
                   "| 9      set time between sends\n"
                   "| >9     set keep alive interval in seconds")
         else:
-            print("|     h+enter    : Show available commands                                                |")
-        print("|-----------------------------------------------------------------------------------------|")
-        print("|-----------------------|            CONSOLE                     |------------------------|")
-        print("|-----------------------------------------------------------------------------------------|")
+            print("|     h+enter    : Show available commands                                                                                                |")
+        print("|-----------------------------------------------------------------------------------------------------------------------------------------|")
+        print("|-----------------------------------------------|            CONSOLE                     |------------------------------------------------|")
+        print("|-----------------------------------------------------------------------------------------------------------------------------------------|")
 
         terminalSize = shutil.get_terminal_size(([80,20]))
         if net.showHelp:
@@ -668,24 +684,22 @@ class Network(object):
             for l in self.__consoleBuffer:
                 print(l)
 
-    def processKeepAliveMessage(self, label, battery_data, fw_metadata, nbr_string=None):
+    def processKeepAliveMessage(self, label, trickleCount, battery_data, fw_metadata, nbr_string=None):
         n = self.getNode(label)
         if n != None:
             n.online=True 
         else:
             n=Node(label, trickleCount)
             self.addNode(n)
-            
+        
         n.updateTrickleCount(trickleCount)
-        n.updateBatteryVoltage(battery_data["voltage"])
-        n.updateBatteryCapacity(battery_data["capacity"])
-        n.updateBatteryTemperature(battery_data["temperature"])
-        n.updateBatterySOC(battery_data["state_of_charge"])
-        n.updateBatteryConsumption(battery_data["consumption"])
-        n.updateBatteryELT(battery_data["capacity"])
-
-        n.fwMetadataHandler(fw_metadata["crc"], fw_metadata["crc_shadow"], fw_metadata["size"], fw_metadata["uuid"], fw_metadata["version"])
-
+        n.updateBatteryData(battery_data)
+        
+        n.updateFWMetadata(fw_metadata)
+        
+        if nbr_string==None:
+            nbr_string=""
+        
         n.updateNbrString(nbr_string)
         
         if len(self.__trickleQueue) != 0:
@@ -698,20 +712,6 @@ class Network(object):
             self.__trickleCheck()
         self.printNetworkStatus()
 
-    def processBatteryDataMessage(self, label, voltage, capacity, soc=None, consumption=None, temperature=None):
-        n = self.getNode(label)
-        if n != None:
-            n.updateBatteryVoltage(voltage)
-            n.updateBatteryCapacity(capacity)
-            n.updateBatterySOC(soc)
-            n.updateBatteryConsumption(consumption)
-            n.updateBatteryTemperature(temperature)
-
-        #else:
-        #    n=Node(label, 0)
-        #    self.addNode(n)
-        #    n.updateBatteryVoltage(batteryVoltage)
-
     def processBTReportMessage(self, label):
         n = self.getNode(label)
         if n != None:
@@ -723,11 +723,6 @@ class Network(object):
 
     def processUARTError(self):
         self.__uartLogLines=self.__uartLogLines+1
-
-    #def processFWMetadata(self, label, fw_metadata_crc_str, fw_metadata_crc_shadow_str, fw_metadata_size_str, fw_metadata_uuid_str, fw_metadata_version_str):
-    #    n = self.getNode(label)
-    #    if n != None:
-    #        n.fwMetadataHandler(fw_metadata_crc_str, fw_metadata_crc_shadow_str, fw_metadata_size_str, fw_metadata_uuid_str, fw_metadata_version_str)
 
     def resetNodeTimeout(self, label):
         n = self.getNode(label)
@@ -769,71 +764,33 @@ class Node(object):
         self.name = label
         self.lastTrickleCount = trickleCount
         self.lastMessageTime = float(time.time())
-        self.batteryVoltage = None
-        self.batteryCapacity = None
-        self.batterySoc = None
-        self.batteryConsumption = None
-        self.batteryTemperature = None
-        self.elt=None
+        self.batteryData=None
         self.amountOfBTReports = 0
         self.online=True
-        self.fw_crc=None
-        self.fw_crc_shadow=None
-        self.fw_size=None
-        self.fw_uuid=None
-        self.fw_version=None
-        self.nbr_string=None
+        self.fw_metadata=None
+        self.nbr_string=""
 
     def updateTrickleCount(self,trickleCount):
         with self.lock:
             self.lastTrickleCount = trickleCount
             self.lastMessageTime = float(time.time())
 
-    def updateBatteryVoltage(self, batteryVoltage):
+    def updateBatteryData(self,batteryData):
         with self.lock:
-            self.batteryVoltage = batteryVoltage
-            #self.lastMessageTime = float(time.time())
-
-    def updateBatteryCapacity(self, capacity):
-        with self.lock:
-            self.batteryCapacity = capacity
-            #self.lastMessageTime = float(time.time())
-
-    def updateBatterySOC(self, soc):
-        with self.lock:
-            self.batterySoc = soc
-            #self.lastMessageTime = float(time.time())
-
-    def updateBatteryConsumption(self, consumption):
-        with self.lock:
-            self.batteryConsumption = consumption
-            #self.lastMessageTime = float(time.time())
-
-    def updateBatteryTemperature(self, temperature):
-        with self.lock:
-            self.batteryTemperature = temperature
-            #self.lastMessageTime = float(time.time())
-
-    def updateBatteryELT(self,estimated_lifetime):
-        with self.lock:
-            self.elt=estimated_lifetime
-
-    def updateNbrString(self,nbr_string):
-        with self.lock:
-            self.nbr_string=nbr_string
+            self.batteryData=batteryData
 
     def BTReportHandler(self):
         with self.lock:
             self.amountOfBTReports = self.amountOfBTReports + 1
             self.lastMessageTime = float(time.time())
 
-    def fwMetadataHandler(self, fw_metadata_crc_str, fw_metadata_crc_shadow_str, fw_metadata_size_str, fw_metadata_uuid_str, fw_metadata_version_str):
+    def updateFWMetadata(self, fw_metadata):
         with self.lock:
-            self.fw_crc=fw_metadata_crc_str
-            self.fw_crc_shadow=fw_metadata_crc_shadow_str
-            self.fw_size=fw_metadata_size_str
-            self.fw_uuid=fw_metadata_uuid_str
-            self.fw_version=fw_metadata_version_str
+            self.fw_metadata=fw_metadata
+
+    def updateNbrString(self,nbr_string):
+        with self.lock:
+            self.nbr_string=nbr_string
 
     def getLastMessageElapsedTime(self):
         now = float(time.time())
@@ -843,20 +800,27 @@ class Node(object):
         with self.lock:
             self.lastMessageTime = float(time.time())
  
+    def getNodeDescriptorObject(self):
+        desc=dict()
+        with self.lock:
+            desc["battery"]=self.batteryData
+            desc["firmware"]=self.fw_metadata
+            desc["neighbors_info"]=self.nbr_string
+            desc["online"]=self.online
+            desc["number_of_bt_reports"]=self.amountOfBTReports
+        return desc
 
     def printNodeInfo(self):
         if self.online:
-            if self.batteryConsumption != None:
-                print("| %3s | %3.2fV %3.0f%% %4.0fmAh %6.1fmA  %5.1f°    |  %6.0f  |  %5s  |  %5d  |%5d  |" % (str(self.name[-6:]), self.batteryVoltage, self.batterySoc, self.batteryCapacity, self.batteryConsumption, self.batteryTemperature, self.getLastMessageElapsedTime(), self.fw_version, self.lastTrickleCount, self.amountOfBTReports))
-            else:
-                print("| %3s | %3.2fV                                  |  %6.0f  |  %5s  |  %5d  |%5d  |" % (str(self.name[-6:]), self.batteryVoltage, self.getLastMessageElapsedTime(), self.fw_version, self.lastTrickleCount, self.amountOfBTReports))
+            onlineMarker=' '
         else:
-            if self.batteryConsumption != None:
-                print("| %3s*| %3.2fV %3.0f%% %4.0fmAh %6.1fmA  %5.1f°    |  %6.0f  |  %5s  |  %5d  |%5d  |" % (str(self.name[-6:]), self.batteryVoltage, self.batterySoc, self.batteryCapacity, self.batteryConsumption, self.batteryTemperature, self.getLastMessageElapsedTime(), self.fw_version, self.lastTrickleCount, self.amountOfBTReports))
-            else:
-                print("| %3s*| %3.2fV                                  |  %6.0f  |  %5s  |  %5d  |%5d  |" % (str(self.name[-6:]), self.batteryVoltage, self.getLastMessageElapsedTime(), self.fw_version, self.lastTrickleCount, self.amountOfBTReports))
+            onlineMarker='*'
 
-
+        if self.batteryData != None and self.fw_metadata != None:
+            print("| %3s%1s| %3.2fV %3.0f%% %4.0fmAh %6.1fmA  %5.1f°  |  %6.0f |   %5s  |   %3d | %6d | %49s |" % (str(self.name[-6:]), onlineMarker, self.batteryData["voltage"], self.batteryData["state_of_charge"], self.batteryData["capacity"], self.batteryData["consumption"], self.batteryData["temperature"], self.getLastMessageElapsedTime(), self.fw_metadata["version"], self.lastTrickleCount, self.amountOfBTReports, self.nbr_string))
+        else:
+            print("| %3s |                                       |  %6.0f |          |   %3d | %6d |                                                 |" % (str(self.name[-6:]), self.getLastMessageElapsedTime(), self.lastTrickleCount, self.amountOfBTReports))
+        
 @unique
 class PacketType(IntEnum):
     ota_start_of_firmware =         0x0020  # OTA start of firmware (sink to node)
@@ -1384,7 +1348,7 @@ try:
                                 nbr_info=line[cursor:-1]
                                 nbr_info_str=nbr_info.decode("utf-8")
                     
-                            net.processKeepAliveMessage(str(nodeid), trickle_count, battery_data, fw_metadata,nbr_info_str)
+                            net.processKeepAliveMessage(str(nodeid), trickle_count, battery_data, fw_metadata, nbr_info_str)
 
                                 #net.processBatteryDataMessage(str(nodeid), batAvgVoltage, batCapacity, batSoC, batAvgConsumption, batAvgTemp)
                                 #net.processFWMetadata(str(nodeid), fw_metadata_crc_str, fw_metadata_crc_shadow_str, fw_metadata_size_str, fw_metadata_uuid_str, fw_metadata_version_str)
