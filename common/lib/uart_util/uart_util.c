@@ -148,6 +148,7 @@ static uint8_t is_end_sequence(uint8_t *data){
 //once it find the END_OF_TX char it calls uart_util_rx_handler(...).
 #ifndef CONTIKI
 static void process_uart_rx_data() {
+	static uint8_t uart_frame[UART_FRAME_MAX_LEN_BYTE];
 #else
 void process_uart_rx_data(uint8_t *uart_frame){
 	//static uint8_t uart_frame[UART_FRAME_MAX_LEN_BYTE];
