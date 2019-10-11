@@ -1,0 +1,19 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"name": "integrate_sender_uart",
+			"path": "/home/giova/workspaces/GIT/vela-lab/network_board/integrate_sender_uart"
+		},
+		{
+			"name": "nordic_vela",
+			"path": "/home/giova/workspaces/GIT/vela-lab/bt_board/ble_app_vela_lab"
+		},
+		{
+			"path": "/home/giova/workspaces/GIT/vela-lab/network_board/contiki-ng"
+		}
+	],
+	"settings": {}
+}

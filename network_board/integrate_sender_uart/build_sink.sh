@@ -4,9 +4,9 @@
 
 # ************************************************ CONFIGURATION ************************************************
 CONTIKI_ROOT=../contiki-ng
-#BOARD=launchpad_vela/cc1350
-BOARD=launchpad_vela/cc1350
+BOARD=$1 #launchpad_vela/cc1350
 
+echo "Building for: $BOARD" 
 # ************************************************ BUILDING ************************************************
 export CONTIKI_ROOT=${CONTIKI_ROOT}
 export BOARD=${BOARD}
@@ -29,7 +29,7 @@ export VERSION_STRING=$((VERSION_MAJOR)).$((VERSION_MINOR)).$((VERSION_BUILD))
 echo $VERSION_STRING > version
 
 
-make "$@" vela_sink V=0 PORT=/dev/ttyACM0 OTA=0 NODEID=0 SINK=1 CONTIKI_PROJECT=vela_sink
+make vela_sink V=1 PORT=/dev/ttyACM0 OTA=0 NODEID=0 SINK=1 CONTIKI_PROJECT=vela_sink "$@"
 cp build/${TARGET}/${BOARD}/vela_sink.bin vela_sink.bin
 
 rm *.cc26x0-cc13x0 #remove some unused files

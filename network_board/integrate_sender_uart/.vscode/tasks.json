@@ -1,0 +1,75 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build_sink_cc2650",
+            "type": "shell",
+
+            "args": ["launchpad_vela/cc2650"],
+            "linux": {
+                "command": "${workspaceRoot}/build_sink.sh"
+            },
+        },
+
+        {
+            "label": "build_sink_cc1350",
+            "type": "shell",
+
+            "args": ["launchpad_vela/cc1350"],
+            "linux": {
+                "command": "${workspaceRoot}/build_sink.sh"
+            },
+        },
+        {
+            "label": "build_sink_cc2650_sensortag",
+            "type": "shell",
+
+            "args": ["sensortag/cc2650"],
+            "linux": {
+                "command": "${workspaceRoot}/build_sink.sh"
+            },
+        },
+
+        {
+            "label": "build_sink_cc1350_sensortag",
+            "type": "shell",
+
+            "args": ["sensortag/cc1350"],
+            "linux": {
+                "command": "${workspaceRoot}/build_sink.sh"
+            },
+        },
+
+        {
+            "label": "build_node_cc2650_no_ota",
+            "type": "shell",
+
+            "args": ["launchpad_vela/cc2650"],
+            "linux": {
+                "command": "${workspaceRoot}/build_node_no_ota.sh"
+            },
+        },
+
+        {
+            "label": "build_node_cc2650_ota",
+            "type": "shell",
+
+            "args": ["launchpad_vela/cc2650"],
+            "linux": {
+                "command": "${workspaceRoot}/build_node_ota.sh"
+            },
+        },
+
+        {
+            "label": "build_node_cc1350_ota",
+            "type": "shell",
+
+            "args": ["launchpad_vela/cc1350"],
+            "linux": {
+                "command": "${workspaceRoot}/build_node_ota.sh"
+            },
+        }
+    ]
+}
