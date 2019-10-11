@@ -1,10 +1,9 @@
 #!/bin/bash
 # building an OTA image requires to edit the contiki make structure. I don't know how to do it and this script is a quick and dirty workaround.
-# To build the OTA binaries just run this script with no arguments (eventually set the NODEID in command line). It will produce, among the others two files:
+# To build the OTA binaries just run this script with the board as argument (for example ./build_node_ota.sh launchpad_vela/cc1350). It will produce, among the others two files:
 # vela_node_ota.bin : its the firmware to be used in OTA updates containing also the metadata (i.e. the image that is sent over the air). It will be flashed at address 0x00002000
 # vela_node_with_bootloader.bin : its the master binary to flash on a plain device. It contains the bootloader, metadata and the firmware. You should flash it at address 0x00000000
-# to clean you can call "build_sink.sh clean"
-# When you prepare an OTA update, remeber to increase the version number when calculating metadata (it is the first hexadecimal argument in the generate-metadata call), otherwise the bootloader won't use the update
+# When you prepare an OTA update, remeber to increase the OTA_VERSION
 # When you prepare an OTA update remember to set OTA_PRE_VERIFIED=0, while if the firmware is flashed with the debugger use OTA_PRE_VERIFIED=1
 # Firmware produced with CLEAR_OTA_SLOTS=1 and/or BURN_GOLDEN_IMAGE=1 are not adeguate for a deployment, they are only used to manipulate the external flash, and they should not remain in the internal flash
 # to clean run ./clean.sh
@@ -15,13 +14,13 @@ BOARD=$1 #launchpad_vela/cc1350
 
 echo "Building for: $1" 
 
-OTA_VERSION=0x0025  #NB: in order to have the firmware recognized as the LATEST and conseguently making the nodes to load it, version number should be higher than the installed one.
-OTA_UUID=0xabcd1234
+OTA_VERSION=0x0025  #NB: in order to have the firmware recognized as the LATEST and conseguently making the nodes to install it, version number should be higher than the installed one.
+OTA_UUID=0xabcd1234 #actually never really used, it is just an ID, one can set it to any 32bit value.
 OTA_PRE_VERIFIED=0  #NB: for GOLDEN IMAGE and in general when firmware is going to be loaded through the debugger, set this to 1. For OTA updates set this to 0 - ATTENTION: this not would be true in an ideal world. It appeared that overwriting the OTA metadata onboard requires too much ram that we don't have. For this reason set always set OTA_PRE_VERIFIED=1, the ota will be anyway verified, and if the CRC doesn't match the ota slot will be erased (see verify_ota_slot(...) in ota.c).
 
-CLEAR_OTA_SLOTS=0
-BURN_GOLDEN_IMAGE=0
-recompile_bootloader=1 #use 1 to recompile the bootloader, otherwise the already compiled one will be used. If you don't set this to 1 (and carefully check the value of CLEAR_OTA_SLOTS and BURN_GOLDEN_IMAGE, in a deployment both should be 0)
+CLEAR_OTA_SLOTS=0   #do not use if you don't know what you are doing (this impacts only on the bootloader, on regular deployments this MUST be 0)
+BURN_GOLDEN_IMAGE=0 #do not use if you don't know what you are doing (this impacts only on the bootloader, on regular deployments this MUST be 0)
+recompile_bootloader=1 #use 1 to recompile the bootloader, otherwise the already compiled one will be used. If you don't know what to do set it to 1.
 # ************************************************ BUILDING ************************************************
 export CONTIKI_ROOT=${CONTIKI_ROOT}
 export BOARD=${BOARD}

@@ -1,6 +1,5 @@
 #!/bin/bash
-# Note: for building the node use build_node_*.sh
-# to clean run ./clean.sh
+# see build scripts in integrate_sender_uart for the comments on building
 
 # ************************************************ CONFIGURATION ************************************************
 CONTIKI_ROOT=../contiki-ng

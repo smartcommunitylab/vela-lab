@@ -1,6 +1,7 @@
 #!/bin/bash
 # this build script builds the firmware discarding OTA. It can be usefull for debugging and if OTA have problems
 # to clean run ./clean.sh
+# This script expects the BOARD as fist argument (for example ./build_node_no_ota.sh launchpad_vela/cc1350)
 
 ./copyForBuild.sh
 BOARD=$1

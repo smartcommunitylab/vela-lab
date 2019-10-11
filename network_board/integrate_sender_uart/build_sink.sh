@@ -1,7 +1,7 @@
 #!/bin/bash
 # Note: for building the node use build_node_*.sh
 # to clean run ./clean.sh
-
+# This script expects the BOARD as fist argument (for example ./build_sink.sh launchpad_vela/cc1350)
 # ************************************************ CONFIGURATION ************************************************
 CONTIKI_ROOT=../contiki-ng
 BOARD=$1 #launchpad_vela/cc1350
