@@ -18,7 +18,9 @@
 #ifndef CONSTRAINTS_H
 #define CONSTRAINTS_H
 
+#ifdef CONTIKI
 #include "project-conf.h"
+#endif
 
 typedef struct
 {
