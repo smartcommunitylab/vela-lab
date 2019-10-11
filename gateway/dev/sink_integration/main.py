@@ -58,7 +58,7 @@ ser = serial.Serial()
 ser.port = SERIAL_PORT
 ser.baudrate = BAUD_RATE
 ser.timeout = 100
-TANSMIT_ONE_CHAR_AT_THE_TIME=False   #Setting this to true makes the communication from the gateway to the sink more reliable
+TANSMIT_ONE_CHAR_AT_THE_TIME=True   #Setting this to true makes the communication from the gateway to the sink more reliable. Tested with an ad-hoc firmware. When this is removed the sink receives corrupted data much more frequently
 #ser.inter_byte_timeout = 0.1 #not the space between stop/start condition
 
 MessageSequence = recordtype("MessageSequence","timestamp,nodeid,lastPktnum,sequenceSize,datacounter,datalist,latestTime")
@@ -202,11 +202,12 @@ MAX_CHUNK_SIZE=256
 CHUNK_DOWNLOAD_TIMEOUT=7
 MAX_SUBCHUNK_SIZE=128               #MAX_SUBCHUNK_SIZE should be always strictly less than MAX_CHUNK_SIZE (if a chunk doesn't get spitted problems might arise, the case is not managed)
 if TANSMIT_ONE_CHAR_AT_THE_TIME:
-    SUBCHUNK_INTERVAL=0.02
-    CHUNK_INTERVAL_ADD=0.01
+    SUBCHUNK_INTERVAL=0.1
+    CHUNK_INTERVAL_ADD=0.1
 else:
     SUBCHUNK_INTERVAL=0.02 #with 0.1 it is stable, less who knows? 0.03 -> no error in 3 ota downloads. 0.02 no apparten problem...
     CHUNK_INTERVAL_ADD=0.01
+
 REBOOT_INTERVAL=0.5
 
 octave_files_folder="../data_plotting/matlab_version" #./
@@ -403,8 +404,8 @@ class Network(object):
             self.sendNewTrickle(build_outgoing_serial_message(PacketType.ota_reboot_node, payload),True)    #by default ingore any ongoing trickle queue and force the reboot
             
 
-    def startFirmwareUpdate(self,autoreboot=False):
-        REBOOT_DELAY=5
+    def startFirmwareUpdate(self,autoreboot=True):
+        REBOOT_DELAY_S=20
         nodes_updated=[]
         MAX_OTA_ATTEMPTS=100
         for n in self.__nodes:
@@ -433,10 +434,10 @@ class Network(object):
 
         if autoreboot:
             self.addPrint("[APPLICATION] Automatically rebooting the nodes that correctly ended the OTA process in: "+str(REBOOT_DELAY)+"s")
-            time.sleep(REBOOT_DELAY)
+            time.sleep(5) #just wait a bit
             for n in nodes_updated:
                 destination_ipv6_addr=int(n.name,16)
-                self.rebootNode(destination_ipv6_addr,10000)
+                self.rebootNode(destination_ipv6_addr,REBOOT_DELAY_S*1000) #Once the reboot command is received by the node, it will start a timer that reboot the node in REBOOT_DELAY
                 time.sleep(REBOOT_INTERVAL)
             
 
@@ -453,6 +454,7 @@ class Network(object):
         offset=0
         chunk_no=1
         chunk_timeout_count=0
+        lastCorrectChunkReceived=1 #might it be 0?
 
         while offset<firmwaresize and chunk_timeout_count<MAX_OTA_TIMEOUT_COUNT:
             if offset+MAX_CHUNK_SIZE<firmwaresize:
