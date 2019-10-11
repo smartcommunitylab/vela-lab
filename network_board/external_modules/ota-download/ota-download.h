@@ -8,7 +8,7 @@
 
 #include "ota.h"
 
-#define OTA_BUFFER_SIZE 256 //must be the same of OTA_CHUNK_SIZE in sink_receiver.c
+#define OTA_BUFFER_SIZE 256 //must be the same of OTA_CHUNK_SIZE in sink_receiver.c and MAX_CHUNK_SIZE in main.py
 
 OTAMetadata_t new_firmware_metadata;
 int active_ota_download_slot;

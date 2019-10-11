@@ -198,7 +198,7 @@ initialize_log()
 firmwareChunkDownloaded_event=threading.Event()
 firmwareChunkDownloaded_event_data=[]
 
-MAX_CHUNK_SIZE=256
+MAX_CHUNK_SIZE=256                  #must be the same as OTA_BUFFER_SIZE in ota-download.h and OTA_CHUNK_SIZE in sink_receiver.c
 CHUNK_DOWNLOAD_TIMEOUT=7
 MAX_SUBCHUNK_SIZE=128               #MAX_SUBCHUNK_SIZE should be always strictly less than MAX_CHUNK_SIZE (if a chunk doesn't get spitted problems might arise, the case is not managed)
 if TANSMIT_ONE_CHAR_AT_THE_TIME:

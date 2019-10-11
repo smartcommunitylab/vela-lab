@@ -14,7 +14,7 @@ BOARD=$1 #launchpad_vela/cc1350
 
 echo "Building for: $1" 
 
-OTA_VERSION=0x0025  #NB: in order to have the firmware recognized as the LATEST and conseguently making the nodes to install it, version number should be higher than the installed one.
+OTA_VERSION=0x0026  #NB: in order to have the firmware recognized as the LATEST and conseguently making the nodes to install it, version number should be higher than the installed one.
 OTA_UUID=0xabcd1234 #actually never really used, it is just an ID, one can set it to any 32bit value.
 OTA_PRE_VERIFIED=0  #NB: for GOLDEN IMAGE and in general when firmware is going to be loaded through the debugger, set this to 1. For OTA updates set this to 0 - ATTENTION: this not would be true in an ideal world. It appeared that overwriting the OTA metadata onboard requires too much ram that we don't have. For this reason set always set OTA_PRE_VERIFIED=1, the ota will be anyway verified, and if the CRC doesn't match the ota slot will be erased (see verify_ota_slot(...) in ota.c).
 
@@ -29,7 +29,7 @@ export CC26XX_UART_CONF_BAUD_RATE=1000000
 export SERIAL_LINE_CONF_BUFSIZE=128
 export UIP_CONF_BUFFER_SIZE=800
 
-./copyForBuild.sh
+./copyForBuild.sh   #WARNING: this overwrites some files in this folder with those contained into ./../basic_uart_init and ./../basic_sender_test. Then during development be carefull!!!
 #compile the firmware
 make vela_node V=1 OTA=1 NODE=1 CONTIKI_PROJECT=vela_node "$@"
 
