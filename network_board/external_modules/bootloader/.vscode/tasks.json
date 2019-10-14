@@ -1,0 +1,22 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "make_bootloader_cc2650",
+            "type": "shell",
+
+            "args": [
+                "bootloader.elf",                       //make target, we just need the .elf
+                "BOARD=launchpad_vela/cc2650",          //other Contiki related variables, when building the node with OTA these are set by build_node_ota.sh
+                "CONTIKI_ROOT=./../../contiki-ng",
+                "CC26XX_UART_CONF_BAUD_RATE=57600"
+            ],
+            "linux": {
+                "command": "make"
+            },
+        },
+
+    ]
+}

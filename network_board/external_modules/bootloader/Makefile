@@ -7,7 +7,7 @@ ${error BOARD not specified!!}
 endif
 #BOARD=launchpad_vela/cc2650 #TODO: These variables should be set as arguments
 #TARGET=cc26x0-cc13x0
-CONTIKI=${CONTIKI_ROOT_ABS}
+CONTIKI=${CONTIKI_ROOT}
 
 CC      = arm-none-eabi-gcc
 CPP     = arm-none-eabi-cpp

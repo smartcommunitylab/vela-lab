@@ -12,6 +12,7 @@ CFLAGS += -DOTA_DEBUG=${OTA}
 CFLAGS += -DSMALL=1
 CFLAGS += -DSTACK_CHECK_CONF_ENABLED=1
 CFLAGS += -DUIP_CONF_BUFFER_SIZE=$(UIP_CONF_BUFFER_SIZE)
+CFLAGS += -g3
 
 #COMMON_DIR_REL_PATH=$(shell python -c "import os.path; print os.path.relpath('${COMMON_DIR}', '${CONTIKI}')")
 #PROJ_DIR_REL_PATH=$(shell python -c "import os.path; print os.path.relpath('./../external_modules', '${CONTIKI}')")

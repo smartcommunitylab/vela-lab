@@ -15,6 +15,9 @@ export CC26XX_UART_CONF_BAUD_RATE=57600
 export SERIAL_LINE_CONF_BUFSIZE=512
 export UIP_CONF_BUFFER_SIZE=1024
 
+MY_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"  #give you the full directory name of the script no matter where it is being called from.
+cd $MY_DIR  #make sure we are in the proper directory
+
 ./copyForBuild.sh
 
 while IFS=. read major minor build

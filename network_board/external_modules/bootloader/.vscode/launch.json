@@ -2,19 +2,20 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Debug Nordic",
+            "name": "bootloader cc2650",
             "type": "cortex-debug",
             "request": "launch",
             "servertype": "openocd",
-            "executable": "${workspaceRoot}/pca10040/s132/armgcc/_build/nrf52832_xxaa.out",
-            "cwd": "${workspaceRoot}/pca10040/s132/armgcc",
-            "preLaunchTask": "build",
-            "runToMain": true, //does not look to work for now
+            "executable": "${workspaceRoot}/bootloader.elf",
+            "cwd": "${workspaceRoot}",
+            "preLaunchTask": "make_bootloader_cc2650",
+            "runToMain": true,
+            "interface": "jtag",
             //"debuggerArgs": [
-            //    "--directory=./../../../time_of_flight_ble/nRF5_SDK_14.0.0_3bcc1f7" //adds reference to external sources, not required for this project.
+            //    "--directory=/home/giova/workspaces/GIT/vela-lab/network_board/contiki-ng",  //adds reference to external sources, not sure it is required
             //],
-            //"searchDir": ["/usr/local/share/openocd/scripts"], //not required, this is the default one
-            "device":"nRF52832_xxAA", //required if "servertype":"jlink",
+            //"searchDir": ["/usr/local/share/openocd/scripts"],
+            //   "device":"nRF52832_xxAA", //required if "servertype":"jlink",
             //   "svdFile": //used for peripheral view
             //   "swoConfig":{ //see https://marcelball.ca/projects/cortex-debug/cortex-debug-swo-decoding-and-graphing/
             //       "enabled": false,
@@ -26,8 +27,9 @@
             "graphConfig": [],
             "showDevDebugOutput": true,
             "configFiles": [
-                "board/nordic_nrf52_dk.cfg"
-            ]
-        }
+                "board/ti_cc26x0_launchpad.cfg"
+            ],
+            "linux": {},
+        },
     ]
   }

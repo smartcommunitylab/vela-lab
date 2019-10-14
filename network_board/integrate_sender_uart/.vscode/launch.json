@@ -1,303 +1,271 @@
 {
-  "version": "0.2.0",
-  "configurations": [
+    "version": "0.2.0",
+    "configurations": [
+        {
 
-      {
-          "name": "Debug cc2650 Sink",
-          "type": "cppdbg",
-          "request": "launch",
-          "program": "${workspaceRoot}/build/cc26x0-cc13x0/launchpad_vela/cc2650/vela_sink.elf",
-          "args": [],
-          "stopAtEntry": true,
-          "cwd": "${workspaceRoot}",
-          "environment": [],
-          "externalConsole": false,
-          "debugServerArgs":"-f board/ti_cc26x0_launchpad.cfg -c init -c \"reset init\"",
-          "serverLaunchTimeout": 20000,
-          "filterStderr": false,
-          "filterStdout": false,
-          "serverStarted": "target halted due to debug-request, current mode: Thread",
-          "preLaunchTask": "build_sink_cc2650",
-          "setupCommands": [
-              { "text": "-target-select remote localhost:3333", "description": "connect to target", "ignoreFailures": false },
-              { "text": "-file-exec-and-symbols ${workspaceRoot}/build/cc26x0-cc13x0/launchpad_vela/cc2650/vela_sink.elf", "description": "load file", "ignoreFailures": false},
-              { "text": "-interpreter-exec console \"monitor endian little\"", "ignoreFailures": false },
-              { "text": "-interpreter-exec console \"monitor reset\"", "ignoreFailures": false },
-              { "text": "-interpreter-exec console \"monitor halt\"", "ignoreFailures": false },
-              { "text": "-interpreter-exec console \"monitor arm semihosting enable\"", "ignoreFailures": false },
-              { "text": "-target-download", "description": "flash target", "ignoreFailures": false }
-          ],
-          "logging": {
-              "moduleLoad": true,
-              "trace": true,
-              "engineLogging": true,
-              "programOutput": true,
-              "exceptions": true
-          },
-          "linux": {
-              "MIMode": "gdb",
-              "MIDebuggerPath": "/usr/bin/arm-none-eabi-gdb",
-              "debugServerPath": "/usr/local/bin/openocd"
-          },
-          "osx": {
-              "MIMode": "gdb",
-              "MIDebuggerPath": "/usr/local/bin/arm-none-eabi-gdb",
-              "debugServerPath": "/usr/local/Cellar/open-ocd/0.10.0/bin/openocd"
-          },
-          "windows": {
-              "preLaunchTask": "mbed",
-              "MIMode": "gdb",
-              "MIDebuggerPath": "C:\\Program Files (x86)\\GNU Tools ARM Embedded\\4.9 2015q3\\bin\\arm-none-eabi-gdb.exe",
-              "debugServerPath": "openocd.exe",
-              "setupCommands": [
-                  { "text": "-environment-cd ${workspaceRoot}\\DISCO_F413ZH\\GCC_ARM\\BUILD" }, //what's this?
-                  { "text": "-target-select remote localhost:3333", "description": "connect to target", "ignoreFailures": false },
-                  { "text": "-file-exec-and-symbols ${workspaceRootFolderName}.elf", "description": "load file", "ignoreFailures": false},
-                  { "text": "-interpreter-exec console \"monitor endian little\"", "ignoreFailures": false },
-                  { "text": "-interpreter-exec console \"monitor reset\"", "ignoreFailures": false },
-                  { "text": "-interpreter-exec console \"monitor halt\"", "ignoreFailures": false },
-                  { "text": "-interpreter-exec console \"monitor arm semihosting enable\"", "ignoreFailures": false },
-                  { "text": "-target-download", "description": "flash target", "ignoreFailures": false }
-              ]
-          }
-      },
-/*
-      {
-        "name": "Debug cc1350 Sink",
-        "type": "cppdbg",
-        "request": "launch",
-        "program": "${workspaceRoot}/build/cc26x0-cc13x0/launchpad_vela/cc1350/vela_sink.elf",
-        "args": [],
-        "stopAtEntry": true,
-        "cwd": "${workspaceRoot}/",
-        "environment": [],
-        "externalConsole": false,
-        "debugServerArgs":"-f board/ti_cc13x0_launchpad.cfg -c init -c \"reset init\"",
-        "serverLaunchTimeout": 20000,
-        "filterStderr": true,
-        "filterStdout": true,
-        "serverStarted": "target halted due to debug-request, current mode: Thread",
-        "preLaunchTask": "build_sink_cc1350",
-        "setupCommands": [
-            { "text": "-target-select remote localhost:3333", "description": "connect to target", "ignoreFailures": false },
-            { "text": "-file-exec-and-symbols ${workspaceRoot}/build/cc26x0-cc13x0/launchpad_vela/cc1350/vela_sink.elf", "description": "load file", "ignoreFailures": false},
-            { "text": "-interpreter-exec console \"monitor endian little\"", "ignoreFailures": false },
-            { "text": "-interpreter-exec console \"monitor reset\"", "ignoreFailures": false },
-            { "text": "-interpreter-exec console \"monitor halt\"", "ignoreFailures": false },
-            { "text": "-interpreter-exec console \"monitor arm semihosting enable\"", "ignoreFailures": false },
-            { "text": "-target-download", "description": "flash target", "ignoreFailures": false }
-        ],
-        "logging": {
-            "moduleLoad": true,
-            "trace": true,
-            "engineLogging": true,
-            "programOutput": true,
-            "exceptions": true
+            /*--------------------------------------------------------------------------------------------------------------------------------------------------*/
+            /*-------------------------------------------------- SINK CONFIGURATIONS ---------------------------------------------------------------------------*/
+            /*--------------------------------------------------------------------------------------------------------------------------------------------------*/
+            "name": "Debug cc2650 Sink",
+            "type": "cortex-debug",
+            "request": "launch",
+            "servertype": "openocd",
+            "executable": "${workspaceRoot}/build/cc26x0-cc13x0/launchpad_vela/cc2650/vela_sink.elf",
+            "cwd": "${workspaceRoot}",
+            "preLaunchTask": "build_sink_cc2650",
+            "runToMain": true,
+            "interface": "jtag",
+            //"debuggerArgs": [
+            //    "--directory=/home/giova/workspaces/GIT/vela-lab/network_board/contiki-ng",  //adds reference to external sources, not sure it is required
+            //],
+            //"searchDir": ["/usr/local/share/openocd/scripts"],
+            //   "device":"nRF52832_xxAA", //required if "servertype":"jlink",
+            //   "svdFile": //used for peripheral view
+            //   "swoConfig":{ //see https://marcelball.ca/projects/cortex-debug/cortex-debug-swo-decoding-and-graphing/
+            //       "enabled": false,
+            //       "swoFrequency": 0,
+            //       "cpuFrequency": 0,
+            //       "ports":{ //to populate see https://marcelball.ca/projects/cortex-debug/cortex-debug-swo-decoding-and-graphing/
+            //       }
+            //   },
+            "graphConfig": [],
+            "showDevDebugOutput": true,
+            "configFiles": [
+                "board/ti_cc26x0_launchpad.cfg"
+            ],
+            "linux": {},
         },
-        "linux": {
-            "MIMode": "gdb",
-            "MIDebuggerPath": "/usr/bin/arm-none-eabi-gdb",
-            "debugServerPath": "/home/giova/opt/gnu-mcu-eclipse/openocd/0.10.0-12-20190422-2015/bin/openocd"
+        {
+            "name": "Debug cc1350 Sink",
+            "type": "cortex-debug",
+            "request": "launch",
+            "servertype": "openocd",
+            "executable": "${workspaceRoot}/build/cc26x0-cc13x0/launchpad_vela/cc1350/vela_sink.elf",
+            "cwd": "${workspaceRoot}",
+            "preLaunchTask": "build_sink_cc1350",
+            "runToMain": true,
+            "interface": "jtag",
+            //"debuggerArgs": [
+            //    "--directory=/home/giova/workspaces/GIT/vela-lab/network_board/contiki-ng",  //adds reference to external sources, not sure it is required
+            //],
+            //"searchDir": ["/usr/local/share/openocd/scripts"],
+            //   "device":"nRF52832_xxAA", //required if "servertype":"jlink",
+            //   "svdFile": //used for peripheral view
+            //   "swoConfig":{ //see https://marcelball.ca/projects/cortex-debug/cortex-debug-swo-decoding-and-graphing/
+            //       "enabled": false,
+            //       "swoFrequency": 0,
+            //       "cpuFrequency": 0,
+            //       "ports":{ //to populate see https://marcelball.ca/projects/cortex-debug/cortex-debug-swo-decoding-and-graphing/
+            //       }
+            //   },
+            "graphConfig": [],
+            "showDevDebugOutput": true,
+            "configFiles": [
+                "board/ti_cc13x0_launchpad.cfg"
+            ],
+            "linux": {},
         },
-        "osx": {
-            "MIMode": "gdb",
-            "MIDebuggerPath": "/usr/local/bin/arm-none-eabi-gdb",
-            "debugServerPath": "/usr/local/Cellar/open-ocd/0.10.0/bin/openocd"
-        },
-        "windows": {
-            "preLaunchTask": "mbed",
-            "MIMode": "gdb",
-            "MIDebuggerPath": "C:\\Program Files (x86)\\GNU Tools ARM Embedded\\4.9 2015q3\\bin\\arm-none-eabi-gdb.exe",
-            "debugServerPath": "openocd.exe",
-            "setupCommands": [
-                { "text": "-environment-cd ${workspaceRoot}\\DISCO_F413ZH\\GCC_ARM\\BUILD" }, //what's this?
-                { "text": "-target-select remote localhost:3333", "description": "connect to target", "ignoreFailures": false },
-                { "text": "-file-exec-and-symbols ${workspaceRootFolderName}.elf", "description": "load file", "ignoreFailures": false},
-                { "text": "-interpreter-exec console \"monitor endian little\"", "ignoreFailures": false },
-                { "text": "-interpreter-exec console \"monitor reset\"", "ignoreFailures": false },
-                { "text": "-interpreter-exec console \"monitor halt\"", "ignoreFailures": false },
-                { "text": "-interpreter-exec console \"monitor arm semihosting enable\"", "ignoreFailures": false },
-                { "text": "-target-download", "description": "flash target", "ignoreFailures": false }
-            ]
-        }
-    },
-    {
-        "name": "Debug cc2650 Node NO OTA",
-        "type": "cppdbg",
-        "request": "launch",
-        "program": "${workspaceRoot}/build/cc26x0-cc13x0/launchpad_vela/cc2650/vela_node.elf",
-        "args": [],
-        "stopAtEntry": true,
-        "cwd": "${workspaceRoot}",
-        "environment": [],
-        "externalConsole": false,
-        "debugServerArgs":"-f board/ti_cc13x0_launchpad.cfg -c init",
-        "serverLaunchTimeout": 20000,
-        "filterStderr": true,
-        "filterStdout": true,
-        "serverStarted": "target halted due to debug-request, current mode: Thread",
-        "preLaunchTask": "build_node_cc2650_no_ota",
-        "setupCommands": [
-            { "text": "-target-select remote localhost:3333", "description": "connect to target", "ignoreFailures": false },
-            { "text": "-file-exec-and-symbols ${workspaceRoot}/build/cc26x0-cc13x0/launchpad_vela/cc2650/vela_node.elf", "description": "load file", "ignoreFailures": false},
-            { "text": "-interpreter-exec console \"monitor endian little\"", "ignoreFailures": false },
-            { "text": "-interpreter-exec console \"monitor reset\"", "ignoreFailures": false },
-            { "text": "-interpreter-exec console \"monitor halt\"", "ignoreFailures": false },
-            { "text": "-interpreter-exec console \"monitor arm semihosting enable\"", "ignoreFailures": false },
-            { "text": "-target-download", "description": "flash target", "ignoreFailures": false }
-        ],
-        "logging": {
-            "moduleLoad": true,
-            "trace": true,
-            "engineLogging": true,
-            "programOutput": true,
-            "exceptions": true
-        },
-        "linux": {
-            "MIMode": "gdb",
-            "MIDebuggerPath": "/usr/bin/arm-none-eabi-gdb",
-            "debugServerPath": "/home/giova/opt/gnu-mcu-eclipse/openocd/0.10.0-12-20190422-2015/bin/openocd"
-        },
-        "osx": {
-            "MIMode": "gdb",
-            "MIDebuggerPath": "/usr/local/bin/arm-none-eabi-gdb",
-            "debugServerPath": "/usr/local/Cellar/open-ocd/0.10.0/bin/openocd"
-        },
-        "windows": {
-            "preLaunchTask": "mbed",
-            "MIMode": "gdb",
-            "MIDebuggerPath": "C:\\Program Files (x86)\\GNU Tools ARM Embedded\\4.9 2015q3\\bin\\arm-none-eabi-gdb.exe",
-            "debugServerPath": "openocd.exe",
-            "setupCommands": [
-                { "text": "-environment-cd ${workspaceRoot}\\DISCO_F413ZH\\GCC_ARM\\BUILD" }, //what's this?
-                { "text": "-target-select remote localhost:3333", "description": "connect to target", "ignoreFailures": false },
-                { "text": "-file-exec-and-symbols ${workspaceRootFolderName}.elf", "description": "load file", "ignoreFailures": false},
-                { "text": "-interpreter-exec console \"monitor endian little\"", "ignoreFailures": false },
-                { "text": "-interpreter-exec console \"monitor reset\"", "ignoreFailures": false },
-                { "text": "-interpreter-exec console \"monitor halt\"", "ignoreFailures": false },
-                { "text": "-interpreter-exec console \"monitor arm semihosting enable\"", "ignoreFailures": false },
-                { "text": "-target-download", "description": "flash target", "ignoreFailures": false }
-            ]
-        }
-    },
+        { // This configuration is not working. Probably the debugger is slightly different. NB: there is no sensortag inside board folder of openOCD
+            // In order to test on the sensorTag, the compiled binary can be flashed with uniflash
+            "name": "Debug cc2650 Sink SensorTag",
+            "type": "cortex-debug",
+            "request": "launch",
+            "servertype": "openocd",
+            "executable": "${workspaceRoot}/build/cc26x0-cc13x0/sensortag/cc2650/vela_sink.elf",
+            "cwd": "${workspaceRoot}",
+            "preLaunchTask": "build_sink_cc2650_sensortag",
+            "runToMain": true,
+            "interface": "jtag",
+            //"debuggerArgs": [
+            //    "--directory=/home/giova/workspaces/GIT/vela-lab/network_board/contiki-ng",  //adds reference to external sources, not sure it is required
+            //],
+            //"searchDir": ["/usr/local/share/openocd/scripts"],
+            //   "device":"nRF52832_xxAA", //required if "servertype":"jlink",
+            //   "svdFile": //used for peripheral view
+            //   "swoConfig":{ //see https://marcelball.ca/projects/cortex-debug/cortex-debug-swo-decoding-and-graphing/
+            //       "enabled": false,
+            //       "swoFrequency": 0,
+            //       "cpuFrequency": 0,
+            //       "ports":{ //to populate see https://marcelball.ca/projects/cortex-debug/cortex-debug-swo-decoding-and-graphing/
+            //       }
+            //   },
 
-    {
-        "name": "Build cc2650 Node OTA",
-        "type": "cppdbg",
-        "request": "launch",
-        "program": "${workspaceRoot}/build/cc26x0-cc13x0/launchpad_vela/cc2650/vela_node.elf",
-        "args": [],
-        "stopAtEntry": true,
-        "cwd": "${workspaceRoot}",
-        "environment": [],
-        "externalConsole": false,
-        "debugServerArgs":"-f board/ti_cc13x0_launchpad.cfg -c init",
-        "serverLaunchTimeout": 20000,
-        "filterStderr": true,
-        "filterStdout": true,
-        "serverStarted": "target halted due to debug-request, current mode: Thread",
-        "preLaunchTask": "build_node_cc2650_ota",
-        "setupCommands": [
-            { "text": "-target-select remote localhost:3333", "description": "connect to target", "ignoreFailures": false },
-            { "text": "-file-exec-and-symbols ${workspaceRoot}/build/cc26x0-cc13x0/launchpad_vela/cc2650/vela_node.elf", "description": "load file", "ignoreFailures": false},
-            { "text": "-interpreter-exec console \"monitor endian little\"", "ignoreFailures": false },
-            { "text": "-interpreter-exec console \"monitor reset\"", "ignoreFailures": false },
-            { "text": "-interpreter-exec console \"monitor halt\"", "ignoreFailures": false },
-            { "text": "-interpreter-exec console \"monitor arm semihosting enable\"", "ignoreFailures": false },
-            { "text": "-target-download", "description": "flash target", "ignoreFailures": false }
-        ],
-        "logging": {
-            "moduleLoad": true,
-            "trace": true,
-            "engineLogging": true,
-            "programOutput": true,
-            "exceptions": true
+            "graphConfig": [],
+            "showDevDebugOutput": true,
+            "configFiles": [
+                //"board/ti_cc26x0_launchpad.cfg" //openOCD doesn't support sensortag
+            ],
+            "linux": {},
         },
-        "linux": {
-            "MIMode": "gdb",
-            "MIDebuggerPath": "/usr/bin/arm-none-eabi-gdb",
-            "debugServerPath": "/home/giova/opt/gnu-mcu-eclipse/openocd/0.10.0-12-20190422-2015/bin/openocd"
+        { // This configuration is not working. Probably the debugger is slightly different. NB: there is no sensortag inside board folder of openOCD
+            // In order to test on the sensorTag, the compiled binary can be flashed with uniflash
+            "name": "Debug cc1350 Sink SensorTag",
+            "type": "cortex-debug",
+            "request": "launch",
+            "servertype": "openocd",
+            "executable": "${workspaceRoot}/build/cc26x0-cc13x0/sensortag/cc1350/vela_sink.elf",
+            "cwd": "${workspaceRoot}",
+            "preLaunchTask": "build_sink_cc1350_sensortag",
+            "runToMain": true,
+            "interface": "jtag",
+            //"debuggerArgs": [
+            //    "--directory=/home/giova/workspaces/GIT/vela-lab/network_board/contiki-ng",  //adds reference to external sources, not sure it is required
+            //],
+            //"searchDir": ["/usr/local/share/openocd/scripts"],
+            //   "device":"nRF52832_xxAA", //required if "servertype":"jlink",
+            //   "svdFile": //used for peripheral view
+            //   "swoConfig":{ //see https://marcelball.ca/projects/cortex-debug/cortex-debug-swo-decoding-and-graphing/
+            //       "enabled": false,
+            //       "swoFrequency": 0,
+            //       "cpuFrequency": 0,
+            //       "ports":{ //to populate see https://marcelball.ca/projects/cortex-debug/cortex-debug-swo-decoding-and-graphing/
+            //       }
+            //   },
+
+            "graphConfig": [],
+            "showDevDebugOutput": true,
+            "configFiles": [
+                //"board/ti_cc13x0_launchpad.cfg" //openOCD doesn't support sensortag
+            ],
+            "linux": {},
         },
-        "osx": {
-            "MIMode": "gdb",
-            "MIDebuggerPath": "/usr/local/bin/arm-none-eabi-gdb",
-            "debugServerPath": "/usr/local/Cellar/open-ocd/0.10.0/bin/openocd"
-        },
-        "windows": {
-            "preLaunchTask": "mbed",
-            "MIMode": "gdb",
-            "MIDebuggerPath": "C:\\Program Files (x86)\\GNU Tools ARM Embedded\\4.9 2015q3\\bin\\arm-none-eabi-gdb.exe",
-            "debugServerPath": "openocd.exe",
-            "setupCommands": [
-                { "text": "-environment-cd ${workspaceRoot}\\DISCO_F413ZH\\GCC_ARM\\BUILD" }, //what's this?
-                { "text": "-target-select remote localhost:3333", "description": "connect to target", "ignoreFailures": false },
-                { "text": "-file-exec-and-symbols ${workspaceRootFolderName}.elf", "description": "load file", "ignoreFailures": false},
-                { "text": "-interpreter-exec console \"monitor endian little\"", "ignoreFailures": false },
-                { "text": "-interpreter-exec console \"monitor reset\"", "ignoreFailures": false },
-                { "text": "-interpreter-exec console \"monitor halt\"", "ignoreFailures": false },
-                { "text": "-interpreter-exec console \"monitor arm semihosting enable\"", "ignoreFailures": false },
-                { "text": "-target-download", "description": "flash target", "ignoreFailures": false }
-            ]
-        }
-    },
-    {
-        "name": "Build cc1350 Node OTA",
-        "type": "cppdbg",
-        "request": "launch",
-        "program": "${workspaceRoot}/build/cc26x0-cc13x0/launchpad_vela/cc1350/vela_node.elf",
-        "args": [],
-        "stopAtEntry": true,
-        "cwd": "${workspaceRoot}",
-        "environment": [],
-        "externalConsole": false,
-        "debugServerArgs":"-f board/ti_cc13x0_launchpad.cfg -c init",
-        "serverLaunchTimeout": 20000,
-        "filterStderr": true,
-        "filterStdout": true,
-        "serverStarted": "target halted due to debug-request, current mode: Thread",
-        "preLaunchTask": "build_node_cc1350_ota",
-        "setupCommands": [
-            { "text": "-target-select remote localhost:3333", "description": "connect to target", "ignoreFailures": false },
-            { "text": "-file-exec-and-symbols ${workspaceRoot}/build/cc26x0-cc13x0/launchpad_vela/cc1350/vela_node.elf", "description": "load file", "ignoreFailures": false},
-            { "text": "-interpreter-exec console \"monitor endian little\"", "ignoreFailures": false },
-            { "text": "-interpreter-exec console \"monitor reset\"", "ignoreFailures": false },
-            { "text": "-interpreter-exec console \"monitor halt\"", "ignoreFailures": false },
-            { "text": "-interpreter-exec console \"monitor arm semihosting enable\"", "ignoreFailures": false },
-            { "text": "-target-download", "description": "flash target", "ignoreFailures": false }
-        ],
-        "logging": {
-            "moduleLoad": true,
-            "trace": true,
-            "engineLogging": true,
-            "programOutput": true,
-            "exceptions": true
-        },
-        "linux": {
-            "MIMode": "gdb",
-            "MIDebuggerPath": "/usr/bin/arm-none-eabi-gdb",
-            "debugServerPath": "/home/giova/opt/gnu-mcu-eclipse/openocd/0.10.0-12-20190422-2015/bin/openocd"
-        },
-        "osx": {
-            "MIMode": "gdb",
-            "MIDebuggerPath": "/usr/local/bin/arm-none-eabi-gdb",
-            "debugServerPath": "/usr/local/Cellar/open-ocd/0.10.0/bin/openocd"
-        },
-        "windows": {
-            "preLaunchTask": "mbed",
-            "MIMode": "gdb",
-            "MIDebuggerPath": "C:\\Program Files (x86)\\GNU Tools ARM Embedded\\4.9 2015q3\\bin\\arm-none-eabi-gdb.exe",
-            "debugServerPath": "openocd.exe",
-            "setupCommands": [
-                { "text": "-environment-cd ${workspaceRoot}\\DISCO_F413ZH\\GCC_ARM\\BUILD" }, //what's this?
-                { "text": "-target-select remote localhost:3333", "description": "connect to target", "ignoreFailures": false },
-                { "text": "-file-exec-and-symbols ${workspaceRootFolderName}.elf", "description": "load file", "ignoreFailures": false},
-                { "text": "-interpreter-exec console \"monitor endian little\"", "ignoreFailures": false },
-                { "text": "-interpreter-exec console \"monitor reset\"", "ignoreFailures": false },
-                { "text": "-interpreter-exec console \"monitor halt\"", "ignoreFailures": false },
-                { "text": "-interpreter-exec console \"monitor arm semihosting enable\"", "ignoreFailures": false },
-                { "text": "-target-download", "description": "flash target", "ignoreFailures": false }
-            ]
-        }
-    },*/
-  ]
+
+            /*--------------------------------------------------------------------------------------------------------------------------------------------------*/
+            /*-------------------------------------------------- NODE CONFIGURATIONS ---------------------------------------------------------------------------*/
+            /*--------------------------------------------------------------------------------------------------------------------------------------------------*/
+
+
+            {
+                "name": "Debug cc2650 Node no OTA",
+                "type": "cortex-debug",
+                "request": "launch",
+                "servertype": "openocd",
+                "executable": "${workspaceRoot}/build/cc26x0-cc13x0/launchpad_vela/cc2650/vela_node.elf",
+                "cwd": "${workspaceRoot}",
+                "preLaunchTask": "build_node_cc2650_no_ota",
+                "runToMain": true,
+                "interface": "jtag",
+                //"debuggerArgs": [
+                //    "--directory=/home/giova/workspaces/GIT/vela-lab/network_board/contiki-ng",  //adds reference to external sources, not sure it is required
+                //],
+                //"searchDir": ["/usr/local/share/openocd/scripts"],
+                //   "device":"nRF52832_xxAA", //required if "servertype":"jlink",
+                //   "svdFile": //used for peripheral view
+                //   "swoConfig":{ //see https://marcelball.ca/projects/cortex-debug/cortex-debug-swo-decoding-and-graphing/
+                //       "enabled": false,
+                //       "swoFrequency": 0,
+                //       "cpuFrequency": 0,
+                //       "ports":{ //to populate see https://marcelball.ca/projects/cortex-debug/cortex-debug-swo-decoding-and-graphing/
+                //       }
+                //   },
+    
+                "graphConfig": [],
+                "showDevDebugOutput": true,
+                "configFiles": [
+                    "board/ti_cc26x0_launchpad.cfg"
+                ],
+                "linux": {},
+            },
+            {
+                "name": "Debug cc1350 Node no OTA",
+                "type": "cortex-debug",
+                "request": "launch",
+                "servertype": "openocd",
+                "executable": "${workspaceRoot}/build/cc26x0-cc13x0/launchpad_vela/cc1350/vela_node.elf",
+                "cwd": "${workspaceRoot}",
+                "preLaunchTask": "build_node_cc1350_no_ota",
+                "runToMain": true,
+                "interface": "jtag",
+                //"debuggerArgs": [
+                //    "--directory=/home/giova/workspaces/GIT/vela-lab/network_board/contiki-ng",  //adds reference to external sources, not sure it is required
+                //],
+                //"searchDir": ["/usr/local/share/openocd/scripts"],
+                //   "device":"nRF52832_xxAA", //required if "servertype":"jlink",
+                //   "svdFile": //used for peripheral view
+                //   "swoConfig":{ //see https://marcelball.ca/projects/cortex-debug/cortex-debug-swo-decoding-and-graphing/
+                //       "enabled": false,
+                //       "swoFrequency": 0,
+                //       "cpuFrequency": 0,
+                //       "ports":{ //to populate see https://marcelball.ca/projects/cortex-debug/cortex-debug-swo-decoding-and-graphing/
+                //       }
+                //   },
+    
+                "graphConfig": [],
+                "showDevDebugOutput": true,
+                "configFiles": [
+                    "board/ti_cc13x0_launchpad.cfg"
+                ],
+                "linux": {},
+            },        
+            {
+                "name": "Debug cc2650 Node OTA", //NOT YET WORKING
+                "type": "cortex-debug",
+                "request": "launch",
+                "servertype": "openocd",
+                //"executable": "${workspaceRoot}/build/cc26x0-cc13x0/launchpad_vela/cc2650/vela_node.elf",
+                "executable": "${workspaceRoot}/vela_node_with_bootloader.bin",
+                "cwd": "${workspaceRoot}",
+                "preLaunchTask": "build_node_cc2650_ota",
+                "runToMain": true,
+                "interface": "jtag",
+                "preRestartCommands": [ //taken from https://higaski.at/vscode-arm-cortex-m-debugging/
+                    "file ${workspaceRoot}/build/cc26x0-cc13x0/launchpad_vela/cc2650/vela_node.elf",
+                    "load",
+                    "add-symbol-file ${workspaceRoot}/build/cc26x0-cc13x0/launchpad_vela/cc2650/vela_node.elf 0x2000",
+                    "enable breakpoint",
+                    "monitor reset"
+                  ]
+                //"debuggerArgs": [
+                //    "--directory=/home/giova/workspaces/GIT/vela-lab/network_board/contiki-ng",  //adds reference to external sources, not sure it is required
+                //],
+                //"searchDir": ["/usr/local/share/openocd/scripts"],
+                //   "device":"nRF52832_xxAA", //required if "servertype":"jlink",
+                //   "svdFile": //used for peripheral view
+                //   "swoConfig":{ //see https://marcelball.ca/projects/cortex-debug/cortex-debug-swo-decoding-and-graphing/
+                //       "enabled": false,
+                //       "swoFrequency": 0,
+                //       "cpuFrequency": 0,
+                //       "ports":{ //to populate see https://marcelball.ca/projects/cortex-debug/cortex-debug-swo-decoding-and-graphing/
+                //       }
+                //   },
+    
+                "graphConfig": [],
+                "showDevDebugOutput": true,
+                "configFiles": [
+                    "board/ti_cc26x0_launchpad.cfg"
+                ],
+                "linux": {},
+            },
+            {
+                "name": "Debug cc1350 Node OTA",  //NOT YET WORKING
+                "type": "cortex-debug",
+                "request": "launch",
+                "servertype": "openocd",
+                "executable": "${workspaceRoot}/build/cc26x0-cc13x0/launchpad_vela/cc1350/vela_node.elf",
+                "cwd": "${workspaceRoot}",
+                "preLaunchTask": "build_node_cc1350_ota",
+                "runToMain": true,
+                "interface": "jtag",
+                //"debuggerArgs": [
+                //    "--directory=/home/giova/workspaces/GIT/vela-lab/network_board/contiki-ng",  //adds reference to external sources, not sure it is required
+                //],
+                //"searchDir": ["/usr/local/share/openocd/scripts"],
+                //   "device":"nRF52832_xxAA", //required if "servertype":"jlink",
+                //   "svdFile": //used for peripheral view
+                //   "swoConfig":{ //see https://marcelball.ca/projects/cortex-debug/cortex-debug-swo-decoding-and-graphing/
+                //       "enabled": false,
+                //       "swoFrequency": 0,
+                //       "cpuFrequency": 0,
+                //       "ports":{ //to populate see https://marcelball.ca/projects/cortex-debug/cortex-debug-swo-decoding-and-graphing/
+                //       }
+                //   },
+    
+                "graphConfig": [],
+                "showDevDebugOutput": true,
+                "configFiles": [
+                    "board/ti_cc13x0_launchpad.cfg"
+                ],
+                "linux": {},
+            },
+    ]
 }

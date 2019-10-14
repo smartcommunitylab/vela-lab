@@ -6,6 +6,9 @@ export NRF52_SDK_ROOT={absolute_path_to_nordic_sdk}
 
 export NRF52_SDK_ROOT=/home/giova/workspaces/GIT/time_of_flight_ble/nRF5_SDK_14.0.0_3bcc1f7
 
+MY_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"  #give you the full directory name of the script no matter where it is being called from.
+cd $MY_DIR  #make sure we are in the proper directory
+
 while IFS=. read major minor build
 do
 VERSION_MAJOR=$major
@@ -16,7 +19,5 @@ done < version
 VERSION_BUILD=$((${VERSION_BUILD}+1))
 export VERSION_STRING=$((VERSION_MAJOR)).$((VERSION_MINOR)).$((VERSION_BUILD))
 echo $VERSION_STRING > version
-
-cd pca10040/s132/armgcc/
 
 make "$@" VERBOSE=1 

@@ -15,6 +15,9 @@ export CC26XX_UART_CONF_BAUD_RATE=1000000
 export SERIAL_LINE_CONF_BUFSIZE=128
 export UIP_CONF_BUFFER_SIZE=256
 
+MY_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"  #give you the full directory name of the script no matter where it is being called from.
+cd $MY_DIR  #make sure we are in the proper directory
+
 #compile the firmware
 make vela_node V=1 OTA=0 NODE=1 CONTIKI_PROJECT=vela_node "$@"
 cp build/${TARGET}/${BOARD}/vela_node.bin vela_node.bin

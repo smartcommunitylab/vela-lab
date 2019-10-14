@@ -29,21 +29,24 @@ export CC26XX_UART_CONF_BAUD_RATE=1000000
 export SERIAL_LINE_CONF_BUFSIZE=128
 export UIP_CONF_BUFFER_SIZE=800
 
+MY_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"  #give you the full directory name of the script no matter where it is being called from.
+cd $MY_DIR  #make sure we are in the proper directory
+
 ./copyForBuild.sh   #WARNING: this overwrites some files in this folder with those contained into ./../basic_uart_init and ./../basic_sender_test. Then during development be carefull!!!
 #compile the firmware
 make vela_node V=1 OTA=1 NODE=1 CONTIKI_PROJECT=vela_node "$@"
 
 if [ $recompile_bootloader -eq 1 ]
 then
-    THIS_FOLDER=$PWD
-    export CONTIKI_ROOT_ABS=$(python -c "import os.path; print os.path.abspath('${CONTIKI_ROOT}')")
+    CONTIKI_ROOT_ABS=$(python -c "import os.path; print os.path.abspath('${CONTIKI_ROOT}')")
 
     cd ./../external_modules/bootloader/
     
     #compile the bootloader
     make clean
-    make bootloader.bin CLEAR_OTA_SLOTS=${CLEAR_OTA_SLOTS} BURN_GOLDEN_IMAGE=${BURN_GOLDEN_IMAGE}
-    cd $THIS_FOLDER
+    make bootloader.bin CLEAR_OTA_SLOTS=${CLEAR_OTA_SLOTS} BURN_GOLDEN_IMAGE=${BURN_GOLDEN_IMAGE} CONTIKI_ROOT=${CONTIKI_ROOT_ABS}
+    make bootloader.elf CLEAR_OTA_SLOTS=${CLEAR_OTA_SLOTS} BURN_GOLDEN_IMAGE=${BURN_GOLDEN_IMAGE} CONTIKI_ROOT=${CONTIKI_ROOT_ABS}
+    cd $MY_DIR
 fi
 
 
@@ -61,5 +64,5 @@ srec_cat ./../external_modules/bootloader/bootloader.bin -binary -crop 0x0 0x200
 cp build/${TARGET}/${BOARD}/vela_node_ota.bin vela_node_ota.bin
 cp build/${TARGET}/${BOARD}/vela_node_ota.bin vela_node_ota #workaround to leave a copy of OTA after clean
 
-rm *.cc26x0-cc13x0 #remove some unused files
+#rm *.cc26x0-cc13x0 #remove some unused files
 

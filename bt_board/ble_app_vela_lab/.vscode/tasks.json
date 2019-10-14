@@ -7,9 +7,12 @@
             "label": "build",
             "type": "shell",
 
-            "args": [],
+            "args": ["all"],
+            //"options": {
+            //    "cwd": "${workspaceRoot}/pca10040/s132/armgcc" //it seems to be not working, don't know why, solved by calling cd from within build_script.sh
+            //},
             "linux": {
-                "command": "${workspaceRoot}/pca10040/s132/armgcc/build_script.sh"
+                "command": "${workspaceRoot}/pca10040/s132/armgcc/build_script.sh" //substitute with "make" for regular builds
             },
         },
 
