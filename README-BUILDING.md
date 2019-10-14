@@ -12,58 +12,89 @@ Before building install the following prerequisite software :
 * Download and install Uniflash to flash the firmware on TI devices
 
 Once done clone the repository with
+```bash
 git clone https://github.com/smartcommunitylab/vela-lab.git
 git ckeckout ota
 git submodule init
 git submodule update
-
+```
 
 Building the BLE Scanner firmware
 ========================
-cd /bt_board/ble_app_vela_lab/pca10040/s132/armgcc
+cd vela-lab/bt_board/ble_app_vela_lab/pca10040/s132/armgcc
 
 Open build_script.sh with a file editor and set NRF52_SDK_ROOT with the absolute path of the Nordic nRF5 SDK root.
 Run it!
 
+```bash
 ./build_script.sh
+```
 
 connect the board to the pc, and to flash it use:
 
+```bash
 make flash_softdevice
 make flash
+```
+
+or
+
+```bash
+./build_script.sh flash_softdevice
+./build_script.sh flash
+```
 
 otherwise use JLink tools to do the same
 
 
 Building the Mesh Node with OTA support
 ========================
-cd /network_board/integrate_sender_uart
+If it is the first time, you might need to compile "vela-lab/network_board/external_modules/generate_metadata", so:
+
+```bash
+cd vela-lab/network_board/external_modules/generate_metadata
+make generate-metadata
+```
+
+```bash
+cd vela-lab/network_board/integrate_sender_uart
+```
 
 Open build_node_ota.sh and configure it (take a look at the comments there, in particular on the first section).
 Some options such as UART baudrate, buffers size are defined in build_sink.sh, then it is better to check.
 Now run it with the BOARD as argument!
 
+```bash
 ./build_node_ota.sh launchpad_vela/cc1350
+```
 
 or, depending on the target board,
 
+```bash
 ./build_node_ota.sh launchpad_vela/cc2650
+```
 
 Use vela_node_with_bootloader.bin and flash it with Uniflash (to download the firmware over the air OTA, see the main README)
 
 
 Building the Mesh Sink
 ========================
-cd /network_board/integrate_sender_uart
+```bash
+cd vela-lab/network_board/integrate_sender_uart
+```
 
 Some options such as UART baudrate, buffers size are defined in build_sink.sh, then it is better to check it 
 run the build script with the BOARD as argument
 
+```bash
 ./build_sink.sh launchpad_vela/cc1350
+```
 
 or
 
+```bash
 ./build_sink.sh launchpad_vela/cc2650
+```
 
 Flash vela_sink.bin using Uniflash
 

@@ -9,7 +9,7 @@ The network components are:
 - Vela Node: composed by:
     - BLE Scanner: Nordic nRF52 DK (nRF52832 SoC) - also referred as Nordic Board
     - Mesh Node: Texas Instruments cc2650/cc1350 launchpad - also referred as TI Board
-    - Interface board (provides mechanical and electrical connection between the BLE Scanner and the Mesh Node, moreover it manages the solar charger and the battery)
+    - Interface Board (provides mechanical and electrical connection between the BLE Scanner and the Mesh Node, moreover it manages the solar charger and the battery)
 - Mesh Sink: Texas Instruments cc2650/cc1350 launchpad or sensortag
 - Gateway: Raspberry PI
 
@@ -74,4 +74,14 @@ To push the firmware on the nodes:
 - if the compilation worked there will be a file called 'vela_node_ota' (with no extension) found in vela-lab/network_board/integrate_sender_uart/
 - on the python terminal press f+enter, this will start the OTA procedure. It might be long, really long (10-20 min per node)
 - once the OTA procedure is over, all the nodes will be rebooted hopefully with the new firmware. If not retry, sometimes it works perfectly, sometimes the CRC check fails on the node and the new firmware gets discarded. 
+
+
+The folders contained here are used as follow:
+- gateway/: contains all the files related to the Gateway. The python script is there, but also the octave algorithm that processes the data to extract proximity events.
+- bt_board/: contains the application sources for the BLE Scanner (i.e. the Nordic board).
+- network_board/: contains all the Contiki projects related to the Mesh Node and Mesh Sink. The main project is integrate_sender_uart, the others are used for testing/debugging. The folder contains also the full Contiki-NG repository (it is a forked one). Also some external modules are here (the bootloader and ota related libraries)
+- common/: contains some files used by more than a component. The uart protocol used for the communication between the Mesh Node and the BLE Scanner is here, as well as some other shared definition.
+- hardware/: contains the hardware description (connections bentween the Nordic and the TI) together with the Eagle project of the Interface Board
+- doc/: contains some raw,unstructured documentation
+
 

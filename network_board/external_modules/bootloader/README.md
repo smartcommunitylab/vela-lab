@@ -1,3 +1,6 @@
+# IMPORTANT!!!!
+If you are building the integrate_sender_uart project, just build it, the bootloader build is already configured into build_node_ota.sh
+
 # OTA Bootloader
 
 You can use this bootloader with your own OTA-ready applications on the CC2650 platform.  To build, simply enter the `/bootloader` directory and use:
