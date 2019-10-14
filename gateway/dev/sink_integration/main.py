@@ -218,7 +218,7 @@ detector_octave_script="run_detector.m"
 events_file_json="json_events.txt"
 
 PROCESS_INTERVAL=10*60
-ENABLE_PROCESS_OUTPUT_ON_CONSOLE=True
+ENABLE_PROCESS_OUTPUT_ON_CONSOLE=False
 
 def start_poximity_detection():
     global filenameContactLog
@@ -408,30 +408,71 @@ class Network(object):
         REBOOT_DELAY_S=20
         nodes_updated=[]
         MAX_OTA_ATTEMPTS=100
-        for n in self.__nodes:
-            attempts=0
-            destination_ipv6_addr=int(n.name,16)
-            self.addPrint("[APPLICATION] Starting firmware update on node: 0x " +str(n.name))
 
-            node_firmware=None
-            #firmware_filename="./../../../network_board/basic_sender_test/vela_node_ota"
-            firmware_filename="./../../../network_board/integrate_sender_uart/vela_node_ota"
+        node_firmware=None
+        #firmware_filename="./../../../network_board/basic_sender_test/vela_node_ota"
+        firmware_filename="./../../../network_board/integrate_sender_uart/vela_node_ota"
+        try:        
             with open(firmware_filename, "rb") as f:
                 node_firmware = f.read()
 
             if node_firmware!=None:
                 self.addPrint("[APPLICATION] Firmware binary: "+firmware_filename+" loaded. Size: "+str(len(node_firmware)))
+                METADATA_LENGTH=14
+                metadata_raw=node_firmware[0:METADATA_LENGTH]
 
-                #self.sendFirmware(destination_ipv6_addr,node_firmware)
-                while(self.sendFirmware(destination_ipv6_addr,node_firmware) != 0 and attempts<MAX_OTA_ATTEMPTS):
-                    self.addPrint("[APPLICATION] Retrying firmware update on node: 0x " +str(n.name))
-                    attempts+=1
+                fw_metadata_crc_int = int.from_bytes(metadata_raw[0:2], byteorder="little", signed=False)
+                fw_metadata_crc_shadow_int = int.from_bytes(metadata_raw[2:4], byteorder="little", signed=False)
+                fw_metadata_size_int = int.from_bytes(metadata_raw[4:8], byteorder="little", signed=False)
+                fw_metadata_uuid_int = int.from_bytes(metadata_raw[8:12], byteorder="little", signed=False)
+                fw_metadata_version_int = int.from_bytes(metadata_raw[12:14], byteorder="little", signed=False)
 
-                if attempts<MAX_OTA_ATTEMPTS:
-                    nodes_updated.append(n)
+                fw_metadata_crc_str = "{0}".format(hex(fw_metadata_crc_int))
+                fw_metadata_crc_shadow_str = "{0}".format(hex(fw_metadata_crc_shadow_int))
+                fw_metadata_size_str = "{0}".format(hex(fw_metadata_size_int))
+                fw_metadata_uuid_str = "{0}".format(hex(fw_metadata_uuid_int))
+                fw_metadata_version_str = "{0}".format(hex(fw_metadata_version_int))
+
+                self.addPrint("fw_metadata_crc_str: "+str(fw_metadata_crc_str))
+                self.addPrint("fw_metadata_crc_shadow_str: "+str(fw_metadata_crc_shadow_str))
+                self.addPrint("fw_metadata_size_str: "+str(fw_metadata_size_str))
+                self.addPrint("fw_metadata_uuid_str: "+str(fw_metadata_uuid_str))
+                self.addPrint("fw_metadata_version_str: "+str(fw_metadata_version_str))
+
+                fw_metadata=dict()
+                fw_metadata["crc"]=fw_metadata_crc_int
+                fw_metadata["crc_shadow"]=fw_metadata_crc_shadow_int
+                fw_metadata["size"]=fw_metadata_size_int
+                fw_metadata["uuid"]=fw_metadata_uuid_int
+                fw_metadata["version"]=fw_metadata_version_int
+
             else:
-                self.addPrint("[APPLICATION] Error during firmware file read")
+                self.addPrint("[APPLICATION] Error during firmware file read, aborting ota")
+                return
 
+        except OSError:
+            self.addPrint("[APPLICATION] Exception during firmware file read (check if the file "+firmware_filename+" is there)")
+            return
+
+        for n in self.__nodes:
+            try:
+                if fw_metadata["version"] > n.fw_metadata["version"]:
+                    attempts=0
+                    destination_ipv6_addr=int(n.name,16)
+                    self.addPrint("[APPLICATION] Starting firmware update on node: 0x " +str(n.name))
+
+                    #self.sendFirmware(destination_ipv6_addr,node_firmware)
+                    while(self.sendFirmware(destination_ipv6_addr,node_firmware) != 0 and attempts<MAX_OTA_ATTEMPTS):
+                        self.addPrint("[APPLICATION] Retrying firmware update on node: 0x " +str(n.name))
+                        attempts+=1
+
+                    if attempts<MAX_OTA_ATTEMPTS:
+                        nodes_updated.append(n)
+                else:
+                    self.addPrint("[APPLICATION] Node: 0x "+str(n.name)+" is already up to date.")
+            except KeyError:
+                self.addPrint("[APPLICATION] Exception during the ota for Node: 0x "+str(n.name))
+                
         if autoreboot:
             self.addPrint("[APPLICATION] Automatically rebooting the nodes that correctly ended the OTA process in: "+str(REBOOT_DELAY)+"s")
             time.sleep(5) #just wait a bit
@@ -790,6 +831,13 @@ class Node(object):
         with self.lock:
             self.fw_metadata=fw_metadata
 
+    def getMetadataVersionString(self):
+        if(self.fw_metadata!=None):
+            fw_metadata_version_str = "{0}".format(hex(self.fw_metadata["version"]))
+            return fw_metadata_version_str
+        else:
+            return ""
+
     def updateNbrString(self,nbr_string):
         with self.lock:
             self.nbr_string=nbr_string
@@ -819,7 +867,7 @@ class Node(object):
             onlineMarker='*'
 
         if self.batteryData != None and self.fw_metadata != None:
-            print("| %3s%1s| %3.2fV %3.0f%% %4.0fmAh %6.1fmA  %5.1f°  |  %6.0f |   %5s  |   %3d | %6d | %49s |" % (str(self.name[-6:]), onlineMarker, self.batteryData["voltage"], self.batteryData["state_of_charge"], self.batteryData["capacity"], self.batteryData["consumption"], self.batteryData["temperature"], self.getLastMessageElapsedTime(), self.fw_metadata["version"], self.lastTrickleCount, self.amountOfBTReports, self.nbr_string))
+            print("| %3s%1s| %3.2fV %3.0f%% %4.0fmAh %6.1fmA  %5.1f°  |  %6.0f |   %5s  |   %3d | %6d | %49s |" % (str(self.name[-6:]), onlineMarker, self.batteryData["voltage"], self.batteryData["state_of_charge"], self.batteryData["capacity"], self.batteryData["consumption"], self.batteryData["temperature"], self.getLastMessageElapsedTime(), self.getMetadataVersionString(), self.lastTrickleCount, self.amountOfBTReports, self.nbr_string))
         else:
             print("| %3s |                                       |  %6.0f |          |   %3d | %6d |                                                 |" % (str(self.name[-6:]), self.getLastMessageElapsedTime(), self.lastTrickleCount, self.amountOfBTReports))
         
@@ -1339,11 +1387,11 @@ try:
                             battery_data["temperature"]=batAvgTemp
 
                             fw_metadata=dict()
-                            fw_metadata["crc"]=fw_metadata_crc_str
-                            fw_metadata["crc_shadow"]=fw_metadata_crc_shadow_str
-                            fw_metadata["size"]=fw_metadata_size_str
-                            fw_metadata["uuid"]=fw_metadata_uuid_str
-                            fw_metadata["version"]=fw_metadata_version_str
+                            fw_metadata["crc"]=fw_metadata_crc_int
+                            fw_metadata["crc_shadow"]=fw_metadata_crc_shadow_int
+                            fw_metadata["size"]=fw_metadata_size_int
+                            fw_metadata["uuid"]=fw_metadata_uuid_int
+                            fw_metadata["version"]=fw_metadata_version_int
                             
                             nbr_info_str=None
                             if len(line)>cursor:
