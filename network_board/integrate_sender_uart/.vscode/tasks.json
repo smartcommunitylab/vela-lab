@@ -68,7 +68,11 @@
             "label": "build_node_cc2650_ota",
             "type": "shell",
 
-            "args": ["launchpad_vela/cc2650"],
+            "args": [
+                "launchpad_vela/cc2650",
+                "external"                      //programming probe. external: when the debugger or any other 'wire-connected' way is used to flash
+                                                //                   ota (default): when the image is sent as ota update
+            ],
             "linux": {
                 "command": "${workspaceRoot}/build_node_ota.sh"
             },
@@ -77,7 +81,11 @@
             "label": "build_node_cc1350_ota",
             "type": "shell",
 
-            "args": ["launchpad_vela/cc1350"],
+            "args": [
+                "launchpad_vela/cc1350",
+                "external"                      //programming probe. external: when the debugger or any other 'wire-connected' way is used to flash
+                                                //                   ota (default): when the image is sent as ota update
+            ],
             "linux": {
                 "command": "${workspaceRoot}/build_node_ota.sh"
             },

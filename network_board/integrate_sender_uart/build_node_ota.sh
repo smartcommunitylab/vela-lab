@@ -16,7 +16,32 @@ echo "Building for: $1"
 
 OTA_VERSION=0x0026  #NB: in order to have the firmware recognized as the LATEST and conseguently making the nodes to install it, version number should be higher than the installed one.
 OTA_UUID=0xabcd1234 #actually never really used, it is just an ID, one can set it to any 32bit value.
-OTA_PRE_VERIFIED=0  #NB: for GOLDEN IMAGE and in general when firmware is going to be loaded through the debugger, set this to 1. For OTA updates set this to 0 - ATTENTION: this not would be true in an ideal world. It appeared that overwriting the OTA metadata onboard requires too much ram that we don't have. For this reason set always set OTA_PRE_VERIFIED=1, the ota will be anyway verified, and if the CRC doesn't match the ota slot will be erased (see verify_ota_slot(...) in ota.c).
+
+FLASH_MECHANISM=$2
+
+if [[ $FLASH_MECHANISM == "external" ]]
+then
+        echo "FLASH_MECHANISM: $FLASH_MECHANISM"
+elif [[ $FLASH_MECHANISM == "ota" ]]
+then
+        echo "FLASH_MECHANISM: $FLASH_MECHANISM"
+else
+    FLASH_MECHANISM="ota"   #default value. Change to change the default behaviour
+    if [[ $FLASH_MECHANISM == "external" ]]
+    then
+        echo "The second argument should be \"external\" or \"ota\". Using the default value: external"
+    else
+        echo "The second argument should be \"external\" or \"ota\". Using the default value: ota"
+    fi
+fi
+
+if [ $FLASH_MECHANISM == "external" ]; then
+    echo "Preparing the firmware to be flashed with external tool (uniflash or gdb debugger)."
+    OTA_PRE_VERIFIED=1          #NB: for GOLDEN IMAGE and in general when firmware is going to be loaded through the debugger, set this to 1. For OTA updates set this to 0 - 
+elif [ $FLASH_MECHANISM == "ota" ]; then
+    echo "Preparing the firmware to be flashed with ota."
+    OTA_PRE_VERIFIED=0          #NB: for GOLDEN IMAGE and in general when firmware is going to be loaded through the debugger, set this to 1. For OTA updates set this to 0 - 
+fi
 
 CLEAR_OTA_SLOTS=0   #do not use if you don't know what you are doing (this impacts only on the bootloader, on regular deployments this MUST be 0)
 BURN_GOLDEN_IMAGE=0 #do not use if you don't know what you are doing (this impacts only on the bootloader, on regular deployments this MUST be 0)
@@ -64,5 +89,5 @@ srec_cat ./../external_modules/bootloader/bootloader.bin -binary -crop 0x0 0x200
 cp build/${TARGET}/${BOARD}/vela_node_ota.bin vela_node_ota.bin
 cp build/${TARGET}/${BOARD}/vela_node_ota.bin vela_node_ota #workaround to leave a copy of OTA after clean
 
-#rm *.cc26x0-cc13x0 #remove some unused files
+rm *.cc26x0-cc13x0 #remove some unused files
 

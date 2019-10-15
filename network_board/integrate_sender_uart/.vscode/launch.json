@@ -175,7 +175,7 @@
                 "cwd": "${workspaceRoot}",
                 "preLaunchTask": "build_node_cc1350_no_ota",
                 "runToMain": true,
-                "interface": "jtag",
+                   "interface": "jtag",
                 //"debuggerArgs": [
                 //    "--directory=/home/giova/workspaces/GIT/vela-lab/network_board/contiki-ng",  //adds reference to external sources, not sure it is required
                 //],
@@ -198,23 +198,26 @@
                 "linux": {},
             },        
             {
-                "name": "Debug cc2650 Node OTA", //NOT YET WORKING
+                "name": "Debug cc2650 Node OTA",
                 "type": "cortex-debug",
                 "request": "launch",
                 "servertype": "openocd",
-                //"executable": "${workspaceRoot}/build/cc26x0-cc13x0/launchpad_vela/cc2650/vela_node.elf",
-                "executable": "${workspaceRoot}/vela_node_with_bootloader.bin",
+                "executable": "${workspaceRoot}/build/cc26x0-cc13x0/launchpad_vela/cc2650/vela_node.elf", //this is overwritten in overrideLaunchCommands, but cortex-debug extension fails if I don't specify it
                 "cwd": "${workspaceRoot}",
                 "preLaunchTask": "build_node_cc2650_ota",
                 "runToMain": true,
                 "interface": "jtag",
-                "preRestartCommands": [ //taken from https://higaski.at/vscode-arm-cortex-m-debugging/
-                    "file ${workspaceRoot}/build/cc26x0-cc13x0/launchpad_vela/cc2650/vela_node.elf",
-                    "load",
-                    "add-symbol-file ${workspaceRoot}/build/cc26x0-cc13x0/launchpad_vela/cc2650/vela_node.elf 0x2000",
-                    "enable breakpoint",
-                    "monitor reset"
-                  ]
+                "overrideLaunchCommands": [
+                    "monitor reset halt",                                                                       //don't know if this is required
+                    "file",                                                                                     //discards the previously loaded elf file
+                    "monitor flash write_image erase unlock ${workspaceRoot}/vela_node_with_bootloader.bin",    //loads the correct binary which includes: bootloader, metadata and firmware
+                    "monitor fast_load",                                                                        //write it to target
+                    "symbol-file ${workspaceRoot}/build/cc26x0-cc13x0/launchpad_vela/cc2650/vela_node.elf",     //loads the symbols for the firmware section
+                    "add-symbol-file ${workspaceRoot}/../external_modules/bootloader/bootloader.elf 0x0",       //loads the symbols for the bootloader section
+                    "enable breakpoint",                                                                        //standard commands
+                    "monitor reset halt",
+                    "enable pretty-printer"
+                ],
                 //"debuggerArgs": [
                 //    "--directory=/home/giova/workspaces/GIT/vela-lab/network_board/contiki-ng",  //adds reference to external sources, not sure it is required
                 //],
@@ -237,15 +240,26 @@
                 "linux": {},
             },
             {
-                "name": "Debug cc1350 Node OTA",  //NOT YET WORKING
+                "name": "Debug cc1350 Node OTA", //this is not working, but it looks like a problem with openocd
                 "type": "cortex-debug",
                 "request": "launch",
                 "servertype": "openocd",
-                "executable": "${workspaceRoot}/build/cc26x0-cc13x0/launchpad_vela/cc1350/vela_node.elf",
+                "executable": "${workspaceRoot}/build/cc26x0-cc13x0/launchpad_vela/cc1350/vela_node.elf", //this is overwritten in overrideLaunchCommands, but cortex-debug extension fails if I don't specify it
                 "cwd": "${workspaceRoot}",
                 "preLaunchTask": "build_node_cc1350_ota",
                 "runToMain": true,
                 "interface": "jtag",
+                "overrideLaunchCommands": [
+                    "monitor reset halt",                                                                       //don't know if this is required
+                    "file",                                                                                     //discards the previously loaded elf file
+                    "monitor flash write_image erase unlock ${workspaceRoot}/vela_node_with_bootloader.bin",    //loads the correct binary which includes: bootloader, metadata and firmware
+                    "monitor fast_load",                                                                        //write it to target
+                    "symbol-file ${workspaceRoot}/build/cc26x0-cc13x0/launchpad_vela/cc1350/vela_node.elf",     //loads the symbols for the firmware section
+                    "add-symbol-file ${workspaceRoot}/../external_modules/bootloader/bootloader.elf 0x0",       //loads the symbols for the bootloader section
+                    "enable breakpoint",                                                                        //standard commands
+                    "monitor reset halt",
+                    "enable pretty-printer"
+                ],
                 //"debuggerArgs": [
                 //    "--directory=/home/giova/workspaces/GIT/vela-lab/network_board/contiki-ng",  //adds reference to external sources, not sure it is required
                 //],
