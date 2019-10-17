@@ -17,6 +17,8 @@ import math
 import pexpect
 import json
 import traceback
+import paho.mqtt.client as mqtt
+from itertools import chain, starmap
 
 START_CHAR = '02'
 #START_BUF = '2a2a2a'  # this is not really a buffer
@@ -217,8 +219,103 @@ octave_launch_command="/usr/bin/flatpak run org.octave.Octave -qf" #octave 5 is 
 detector_octave_script="run_detector.m"
 events_file_json="json_events.txt"
 
-PROCESS_INTERVAL=10*60
+PROCESS_INTERVAL=10
 ENABLE_PROCESS_OUTPUT_ON_CONSOLE=False
+
+MQTT_BROKER="iot.smartcommunitylab.it"
+MQTT_PORT=1883
+DEVICE_TOKEN="iOn25YbEvRBN9sp6xdCd"
+TELEMETRY_TOPIC="v1/gateway/telemetry"
+CONNECT_TOPIC="v1/gateway/connect"
+
+def flatten_json(dictionary):
+    """Flatten a nested json file"""
+
+    def unpack(parent_key, parent_value):
+        """Unpack one level of nesting in json file"""
+        # Unpack one level only!!!
+        
+        if isinstance(parent_value, dict):
+            for key, value in parent_value.items():
+                temp1 = parent_key + '_' + key
+                yield temp1, value
+        elif isinstance(parent_value, list):
+            i = 0 
+            for value in parent_value:
+                temp2 = parent_key + '_'+str(i) 
+                i += 1
+                yield temp2, value
+        else:
+            yield parent_key, parent_value    
+
+            
+    # Keep iterating until the termination condition is satisfied
+    while True:
+        # Keep unpacking the json file until all values are atomic elements (not dictionary or list)
+        dictionary = dict(chain.from_iterable(starmap(unpack, dictionary.items())))
+        # Terminate condition: not any value in the json file is dictionary or list
+        if not any(isinstance(value, dict) for value in dictionary.values()) and \
+           not any(isinstance(value, list) for value in dictionary.values()):
+            break
+
+    return dictionary
+
+#def on_publish_cb(client, data, result):
+#    net.addPrint("[MQTT] on_publish_cb. data: "+str(data)+", result: "+str(result))
+
+def on_disconnect_cb(client, userdata, result):
+    global mqtt_connected
+    net.addPrint("[MQTT] on_disconnect. result: "+str(result))
+
+    mqtt_connected=False
+
+def on_connect_cb(client, userdata, flags, rc):
+    global mqtt_connected
+    net.addPrint("[MQTT] on_connect. result code: "+str(rc))
+
+    if rc==0:
+        mqtt_connected=True
+    else:
+        mqtt_connected=False
+
+    #client.subscribe() #in case data needs to be received, subscribe here
+
+
+def on_message_cb(client, userdata, msg):
+    net.addPrint("[MQTT] on_publish_cb. data: "+str(data)+", result: "+str(result))
+
+def connect_mqtt():
+    net.addPrint("[MQTT] Connecting to mqtt broker...")
+
+    client=mqtt.Client()
+    #client.on_publish=on_publish_cb
+    client.on_connect=on_connect_cb
+    client.on_disconnect=on_disconnect_cb
+    client.on_message=on_message_cb
+
+    client.username_pw_set(DEVICE_TOKEN, password=None)
+    client.connect(MQTT_BROKER,MQTT_PORT)
+
+    return client
+
+def publish_mqtt(mqtt_client, data_to_publish, topic):
+    global mqtt_connected
+
+    if mqtt_client==None:
+        net.addPrint("[MQTT] Not yet connected, cannot publish "+str(data_to_publish))
+    
+    qos=1
+    try:
+        ret=mqtt_client.publish(topic, json.dumps(data_to_publish),qos)
+        if ret.rc: #print only in case of error
+            net.addPrint("[MQTT] publish return: "+str(ret.rc))
+
+        with open("mqtt_store.txt", "a") as f:
+            f.write(datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S')+" "+str(data_to_publish)+"\n")
+    except Exception:
+        net.addPrint("[MQTT] Exception during publishing!!!!")
+        
+        
 
 def start_poximity_detection():
     global filenameContactLog
@@ -238,10 +335,19 @@ class PROXIMITY_DETECTOR_POLL_THREAD(threading.Thread):
 
 
     def run(self):
+        global mqtt_connected
+        global mqtt_client
+        global dummy_c
+
+        mqtt_connected=False
+        mqtt_client=connect_mqtt()
+        dummy_c=0
+        mqtt_client.loop_start()
+
         while self.__loop:
             time.sleep(PROCESS_INTERVAL)
             start_poximity_detection()
-
+            
 
 class PROXIMITY_DETECTOR_THREAD(threading.Thread):
     def __init__(self, threadID, name):
@@ -275,23 +381,51 @@ class PROXIMITY_DETECTOR_THREAD(threading.Thread):
 
                 evts=None
             else:
-                net.addPrint("[EVENT EXTRACTOR] No event foud!")
+                net.addPrint("[EVENT EXTRACTOR] No event found!")
         except KeyError:
-            net.addPrint("[EVENT EXTRACTOR] No event foud!")
+            net.addPrint("[EVENT EXTRACTOR] No event found!")
             return
 
     def on_events(self,evts):
-        with open("proximity_event_store.txt", "a") as f:
+        global mqtt_client
+        global dummy_c
+
+        #with open("proximity_event_store.txt", "a") as f:
             #json.dump(evts,f)
-            f.write(datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S')+" "+str(evts)+"\n")
+        #    f.write(datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S')+" "+str(evts)+"\n")
         net.addPrint("[EVENT EXTRACTOR] Events: "+str(evts[0:3])) #NOTE: At this point the variable evts contains the proximity events. As example I plot the first 10
 
         net.addPrint("[EVENT EXTRACTOR] Obtaining network status") #NOTE: At this point the variable evts contains the proximity events. As example I plot the first 10
         net_descr=net.obtainNetworkDescriptorObject()
-        with open("network_status_store.txt", "a") as f:
+        #with open("network_status_store.txt", "a") as f:
             #json.dump(net_descr,f)
-            f.write(datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S')+" "+str(net_descr)+"\n")
+        #    f.write(datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S')+" "+str(net_descr)+"\n")
         net.addPrint("[EVENT EXTRACTOR] Network status: "+str(net_descr))
+
+        #dummy_c=dummy_c+1
+        #dummy_data={"Test":dummy_c}
+        #publish_mqtt(mqtt_client, dummy_data, TELEMETRY_TOPIC)
+
+        t_string=datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S')
+
+        with open("proximity_event_store.txt", "a") as f:
+            for ev in evts:
+                ev_flat=flatten_json(ev)    # ev should be already single level. To avoid problems flatten it!
+                #ev_flat["ts"]=int(time.time()*1000)
+                #publish_mqtt(mqtt_client, ev_flat, TELEMETRY_TOPIC) //In order to publish with the device gateway defined in thingsboard, I need to have the correct node lable, otherwise the data won't be assigned to the correct node
+                f.write(t_string+" "+str(ev_flat)+"\n")
+
+        #with open("network_status_store.txt", "a") as f:
+        publish_mqtt(mqtt_client, net_descr, TELEMETRY_TOPIC)
+            #f.write(t_string+" "+str(net_descr)+"\n")
+
+            #for n_descr in net_descr:
+            #    n_descr_flat=flatten_json(n_descr)
+            #    n_descr_flat["ts"]=int(time.time()*1000)
+            #    publish_mqtt(mqtt_client, n_descr_flat, TELEMETRY_TOPIC)
+            #    f.write(t_string+" "+str(n_descr_flat)+"\n")
+            
+            
 
     def run(self):
         
@@ -355,9 +489,15 @@ class Network(object):
         return None
 
     def addNode(self,n):
+        global mqtt_client
+
         self.__nodes.append(n)
         if len(self.__nodes) == 1:
             self.__expTrickle=n.lastTrickleCount
+
+        #notify thingsboard that a new node has join the network
+        connect_data={"device":n.name}
+        publish_mqtt(mqtt_client, connect_data, CONNECT_TOPIC)
 
     def removeNode(self,label):
         n = self.getNode(label)
@@ -664,12 +804,11 @@ class Network(object):
             self.printNetworkStatus()
 
     def obtainNetworkDescriptorObject(self):
-        net_descr=[]
+        net_descr=dict()
         for n in self.__nodes:
-            n_descr=dict()
-            n_descr["name"]=n.name
-            n_descr["info"]=n.getNodeDescriptorObject()
-            net_descr.append(n_descr)
+            n_descr=n.getNodeDescriptorObject()
+            n_descr_flat=flatten_json(n_descr)
+            net_descr[n.name]=[n_descr_flat]
 
         return net_descr
 
@@ -853,11 +992,14 @@ class Node(object):
     def getNodeDescriptorObject(self):
         desc=dict()
         with self.lock:
+            desc["name"]=self.name
+            #desc["ts"]=int(time.time()*1000)
             desc["battery"]=self.batteryData
             desc["firmware"]=self.fw_metadata
             desc["neighbors_info"]=self.nbr_string
             desc["online"]=self.online
             desc["number_of_bt_reports"]=self.amountOfBTReports
+            
         return desc
 
     def printNodeInfo(self):
@@ -1137,6 +1279,11 @@ def check_for_packetdrop(nodeid, pktnum):
 def to_byte(hex_text):
     return binascii.unhexlify(hex_text)
 
+
+net = Network()
+net.addPrint("[APPLICATION] Starting...")
+mqtt_client=None
+
 user_input_thread=USER_INPUT_THREAD(4,"user input thread")
 user_input_thread.setDaemon(True)
 user_input_thread.start()
@@ -1151,9 +1298,6 @@ proximity_detec_poll_thread=PROXIMITY_DETECTOR_POLL_THREAD(6,"periodic proximity
 proximity_detec_poll_thread.setDaemon(True)
 proximity_detec_poll_thread.start()
 
-net = Network()
-
-net.addPrint("[APPLICATION] Starting...")
 
 if ser.is_open:
     net.addPrint("[UART] Serial Port already open! "+ ser.port + " open before initialization... closing first")
