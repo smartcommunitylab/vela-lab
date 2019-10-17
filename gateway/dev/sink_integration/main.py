@@ -94,7 +94,7 @@ btToggleBool = True
 
 NODE_TIMEOUT_S = 60*10
 NETWORK_PERIODIC_CHECK_INTERVAL = 2
-CLEAR_CONSOLE = True
+CLEAR_CONSOLE = False #True
 
 # Loggers
 printVerbosity = 10
@@ -219,7 +219,8 @@ octave_launch_command="/usr/bin/flatpak run org.octave.Octave -qf" #octave 5 is 
 detector_octave_script="run_detector.m"
 events_file_json="json_events.txt"
 
-PROCESS_INTERVAL=10
+PROXIMITY_DETECTOR_POLL_INTERVAL=10*60
+NETWORK_STATUS_POLL_INTERVAL=60
 ENABLE_PROCESS_OUTPUT_ON_CONSOLE=False
 
 MQTT_BROKER="iot.smartcommunitylab.it"
@@ -312,10 +313,33 @@ def publish_mqtt(mqtt_client, data_to_publish, topic):
 
         with open("mqtt_store.txt", "a") as f:
             f.write(datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S')+" "+str(data_to_publish)+"\n")
+
     except Exception:
         net.addPrint("[MQTT] Exception during publishing!!!!")
         
-        
+def obtain_and_send_network_status():
+    try:
+        net_descr=net.obtainNetworkDescriptorObject()
+        net.addPrint("[EVENT] Network status collected, pushing it to cloud with mqtt.")
+        publish_mqtt(mqtt_client, net_descr, TELEMETRY_TOPIC)
+    except Exception:
+        net.addPrint("[EVENT] Error during network status poll")
+        pass
+
+class NETWORK_STATUS_POLL_THREAD(threading.Thread):
+    def __init__(self, threadID, name):
+        threading.Thread.__init__(self)
+        self.threadID= threadID
+        self.name = name
+        self.__loop=True
+
+    def run(self):
+        global mqtt_connected
+        global mqtt_client
+
+        while self.__loop:
+            time.sleep(NETWORK_STATUS_POLL_INTERVAL)
+            obtain_and_send_network_status()
 
 def start_poximity_detection():
     global filenameContactLog
@@ -339,13 +363,8 @@ class PROXIMITY_DETECTOR_POLL_THREAD(threading.Thread):
         global mqtt_client
         global dummy_c
 
-        mqtt_connected=False
-        mqtt_client=connect_mqtt()
-        dummy_c=0
-        mqtt_client.loop_start()
-
         while self.__loop:
-            time.sleep(PROCESS_INTERVAL)
+            time.sleep(PROXIMITY_DETECTOR_POLL_INTERVAL)
             start_poximity_detection()
             
 
@@ -374,7 +393,7 @@ class PROXIMITY_DETECTOR_THREAD(threading.Thread):
         jdata=self.get_result()
         try:
             evts=jdata["proximity_events"]
-
+            net.addPrint("[EVENT EXTRACTOR] Events: "+str(evts)) #NOTE: At this point the variable evts contains the proximity events. As example I plot the first 10
             if evts!=None:
                 self.on_events(evts)
                 os.remove(octave_files_folder+'/'+events_file_json) #remove the file to avoid double processing of it
@@ -388,44 +407,12 @@ class PROXIMITY_DETECTOR_THREAD(threading.Thread):
 
     def on_events(self,evts):
         global mqtt_client
-        global dummy_c
-
-        #with open("proximity_event_store.txt", "a") as f:
-            #json.dump(evts,f)
-        #    f.write(datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S')+" "+str(evts)+"\n")
-        net.addPrint("[EVENT EXTRACTOR] Events: "+str(evts[0:3])) #NOTE: At this point the variable evts contains the proximity events. As example I plot the first 10
-
-        net.addPrint("[EVENT EXTRACTOR] Obtaining network status") #NOTE: At this point the variable evts contains the proximity events. As example I plot the first 10
-        net_descr=net.obtainNetworkDescriptorObject()
-        #with open("network_status_store.txt", "a") as f:
-            #json.dump(net_descr,f)
-        #    f.write(datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S')+" "+str(net_descr)+"\n")
-        net.addPrint("[EVENT EXTRACTOR] Network status: "+str(net_descr))
-
-        #dummy_c=dummy_c+1
-        #dummy_data={"Test":dummy_c}
-        #publish_mqtt(mqtt_client, dummy_data, TELEMETRY_TOPIC)
 
         t_string=datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S')
-
         with open("proximity_event_store.txt", "a") as f:
-            for ev in evts:
-                ev_flat=flatten_json(ev)    # ev should be already single level. To avoid problems flatten it!
-                #ev_flat["ts"]=int(time.time()*1000)
-                #publish_mqtt(mqtt_client, ev_flat, TELEMETRY_TOPIC) //In order to publish with the device gateway defined in thingsboard, I need to have the correct node lable, otherwise the data won't be assigned to the correct node
-                f.write(t_string+" "+str(ev_flat)+"\n")
+            f.write(t_string+" "+str(evts)+"\n")
 
-        #with open("network_status_store.txt", "a") as f:
-        publish_mqtt(mqtt_client, net_descr, TELEMETRY_TOPIC)
-            #f.write(t_string+" "+str(net_descr)+"\n")
-
-            #for n_descr in net_descr:
-            #    n_descr_flat=flatten_json(n_descr)
-            #    n_descr_flat["ts"]=int(time.time()*1000)
-            #    publish_mqtt(mqtt_client, n_descr_flat, TELEMETRY_TOPIC)
-            #    f.write(t_string+" "+str(n_descr_flat)+"\n")
-            
-            
+        publish_mqtt(mqtt_client, evts, TELEMETRY_TOPIC)      
 
     def run(self):
         
@@ -824,6 +811,7 @@ class Network(object):
         if CLEAR_CONSOLE:
             cls()
 
+
         print("|-----------------------------------------------------------------------------------------------------------------------------------------|")
         print("|-------------------------------------------------|  Network size %3s log lines %7s |-------------------------------------------------|" %(str(netSize), self.__uartLogLines))
         print("|----------------------------------------| Trickle: min %3d; max %3d; exp %3d; queue size %2d |--------------------------------------------|" %(self.__netMinTrickle, self.__netMaxTrickle, self.__expTrickle, len(self.__trickleQueue)))
@@ -865,6 +853,12 @@ class Network(object):
         with self.console_queue_lock:
             for l in self.__consoleBuffer:
                 print(l)
+
+        if not CLEAR_CONSOLE:
+            empty_lines_no=availableLines-len(self.__consoleBuffer)-1
+            if(empty_lines_no>0):
+                empty_lines='\n'*empty_lines_no
+                print(empty_lines)
 
     def processKeepAliveMessage(self, label, trickleCount, battery_data, fw_metadata, nbr_string=None):
         n = self.getNode(label)
@@ -1091,6 +1085,7 @@ class USER_INPUT_THREAD(threading.Thread):
                     elif input_str=='p':
                         net.addPrint("[USER_INPUT] Process contacts log!")
                         start_poximity_detection()
+                        obtain_and_send_network_status()
                         continue
                     else:
                         forced=False
@@ -1160,7 +1155,7 @@ class USER_INPUT_THREAD(threading.Thread):
                     net.addPrint("[USER_INPUT] Reset nordic")
                     net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_reset, None),forced)
                 elif user_input == 9:
-                    time_between_send_ms = 0
+                    time_between_send_ms = 1500
                     time_between_send = time_between_send_ms.to_bytes(2, byteorder="big", signed=False)
                     net.addPrint("[USER_INPUT] Set time between sends to "+ str(time_between_send_ms) + "ms")
                     net.sendNewTrickle(build_outgoing_serial_message(PacketType.network_set_time_between_send, time_between_send),forced)
@@ -1283,6 +1278,9 @@ def to_byte(hex_text):
 net = Network()
 net.addPrint("[APPLICATION] Starting...")
 mqtt_client=None
+mqtt_connected=False
+mqtt_client=connect_mqtt()
+mqtt_client.loop_start()
 
 user_input_thread=USER_INPUT_THREAD(4,"user input thread")
 user_input_thread.setDaemon(True)
@@ -1293,11 +1291,13 @@ proximity_detector_thread=PROXIMITY_DETECTOR_THREAD(5,"proximity detection proce
 proximity_detector_thread.setDaemon(True)
 proximity_detector_thread.start()
 
-
 proximity_detec_poll_thread=PROXIMITY_DETECTOR_POLL_THREAD(6,"periodic proximity detection trigger process")
 proximity_detec_poll_thread.setDaemon(True)
 proximity_detec_poll_thread.start()
 
+network_stat_poll_thread=NETWORK_STATUS_POLL_THREAD(7,"periodic network status monitor")
+network_stat_poll_thread.setDaemon(True)
+network_stat_poll_thread.start()
 
 if ser.is_open:
     net.addPrint("[UART] Serial Port already open! "+ ser.port + " open before initialization... closing first")
