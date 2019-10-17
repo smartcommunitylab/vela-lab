@@ -240,7 +240,7 @@
                 "linux": {},
             },
             {
-                "name": "Debug cc1350 Node OTA", //this is not working, but it looks like a problem with openocd
+                "name": "Debug cc1350 Node OTA",
                 "type": "cortex-debug",
                 "request": "launch",
                 "servertype": "openocd",
