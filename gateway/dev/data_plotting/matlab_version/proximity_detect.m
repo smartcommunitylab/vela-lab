@@ -54,6 +54,7 @@ function proximity_events_json=proximity_detect(filename, text_verbosity, image_
   log_date=zeros(text_preallocation_size,3);
   log_time=zeros(text_preallocation_size,3);
   log_origin=zeros(text_preallocation_size,1);
+  log_origin_fullname=cell(text_preallocation_size,1);
   log_data=cell(text_preallocation_size,1);
   valid_line=1;
   lines_to_scan=size(dataArray{1},1);
@@ -77,9 +78,9 @@ function proximity_events_json=proximity_detect(filename, text_verbosity, image_
     data=char(val(7:end,1))';
     
     nodeID_len=32;
-    nodeID_ = data(1,1:nodeID_len);
+    nodeID_full = data(1,1:nodeID_len);
     nodeID_trunksize=6;
-    nodeID=hexstr2int(nodeID_(1,end-nodeID_trunksize+1:end));
+    nodeID=hexstr2int(nodeID_full(1,end-nodeID_trunksize+1:end));
     
     origin=nodeID;
     hex_str=data;
@@ -87,6 +88,7 @@ function proximity_events_json=proximity_detect(filename, text_verbosity, image_
     log_date(valid_line,:)=[YYYY, MM, DD];
     log_time(valid_line,:)=[hh,mm,ss];
     log_origin(valid_line,1)=origin;
+    log_origin_fullname{valid_line,1}=nodeID_full;
     log_data{valid_line,1}=data(1,nodeID_len+1:end);
     
     valid_line=valid_line+1;
@@ -99,7 +101,10 @@ function proximity_events_json=proximity_detect(filename, text_verbosity, image_
   endfor
   log_date=log_date(1:valid_line-1,:);
   log_time=log_time(1:valid_line-1,:);
+  log_origin=log_origin(1:valid_line-1,:);
+  log_origin_fullname=log_origin_fullname(1:valid_line-1,:);
   log_data=log_data(1:valid_line-1,:);
+  
   if text_verbosity>=VERBOSITY_INFO
     printf("\nPackets parsed.\n");
   endif
@@ -122,6 +127,7 @@ function proximity_events_json=proximity_detect(filename, text_verbosity, image_
         
         nodeID_len=32;
         nodeID=log_origin(reportNo);
+        nodeID_full=log_origin_fullname{reportNo,1};
         #offset=offset+nodeID_len;
         
         pkt_type_len=4;
@@ -137,6 +143,7 @@ function proximity_events_json=proximity_detect(filename, text_verbosity, image_
         if isempty(scannerIdx)
             scannerIdx=size(nodesIdxes,1)+1;
             scanners{scannerIdx,1}.nodeID=nodeID;
+            scanners{scannerIdx,1}.nodeID_full=nodeID_full;
             scanners{scannerIdx,1}.noOfReports=0;
             nodesIdxes(scannerIdx,1)=nodeID;
             scanners{scannerIdx,1}.noOfContacts=0;
@@ -395,11 +402,13 @@ function proximity_events_json=proximity_detect(filename, text_verbosity, image_
   DETECTOR_DETECTING=1;
   DETECTOR_DETECTED=2;
 
-  proximity_events={};
+  proximity_events=cell(size(scanners,1),1);
   
   for scannerIdx=1:size(scanners,1)
       beacons = unique(scanners{scannerIdx}.beaconID);
       scanners{scannerIdx}.proximity_events=[];
+      proximity_events{scannerIdx}={};
+      
       
       for b_idx = 1:size(beacons,1)
           beaconID=beacons(b_idx);
@@ -421,6 +430,7 @@ function proximity_events_json=proximity_detect(filename, text_verbosity, image_
           p_idx_beacon=1;
           evt_rssi=-Inf;
           evt_source=scanners{scannerIdx}.nodeID;
+          evt_source_full=scanners{scannerIdx}.nodeID_full;
           evt_beacon=beaconID{1};
           
           while p_idx_beacon<=size(t,1)
@@ -493,13 +503,14 @@ function proximity_events_json=proximity_detect(filename, text_verbosity, image_
                 scanners{scannerIdx}.proximity_events(b_idx).t_end(end+1)=evt_end_t;
                 
                 #create and store proximity events
-                evt.scannerID=sprintf("%06x",evt_source);
+                #evt.scannerID=sprintf("%06x",evt_source);
+                evt.scannerID=evt_source_full;
                 evt.t_start=int64(evt_start_t*24*60*60*1000);
                 evt.t_end=int64(evt_end_t*24*60*60*1000);
                 evt.t=int64(evt_t*24*60*60*1000);
                 evt.rssi=evt_rssi;
                 evt.beaconID=evt_beacon;
-                proximity_events{end+1}=evt;
+                proximity_events{scannerIdx}{end+1}=evt;
                 
                 #reset event variables
                 evt_rssi=-Inf;
@@ -652,9 +663,17 @@ function proximity_events_json=proximity_detect(filename, text_verbosity, image_
   %     datetick('x','HH:MM:SS')
   endif
 
-  jsonFilename="json_events.txt";
   
-  proximity_events_json=savejson("proximity_events",proximity_events,jsonFilename);
+  a=0;
+  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  % Reorganize the events to comply the format required for thingsboard
+  for scannerIdx=1:size(scanners,1)
+    proximity_events_reformat.(scanners{scannerIdx}.nodeID_full)=proximity_events{scannerIdx};
+  endfor
+  
+  
+  jsonFilename="json_events.txt";
+  proximity_events_json=savejson("proximity_events",proximity_events_reformat,jsonFilename);
   
   if text_verbosity>=VERBOSITY_INFO
     printf("Output is stored in: %s\n",jsonFilename)
