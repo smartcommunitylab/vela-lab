@@ -11,10 +11,15 @@
 # ************************************************ CONFIGURATION ************************************************
 CONTIKI_ROOT=../contiki-ng
 BOARD=$1 #launchpad_vela/cc1350
+if [ -z "$1" ]
+then
+    echo BOARD is missing as first argument. Use example: ./build_node_ota.sh launchpad_vela/cc1350 ota
+    exit 1
+fi
 
 echo "Building for: $1" 
 
-OTA_VERSION=0x0026  #NB: in order to have the firmware recognized as the LATEST and conseguently making the nodes to install it, version number should be higher than the installed one.
+OTA_VERSION=0x0027  #NB: in order to have the firmware recognized as the LATEST and conseguently making the nodes to install it, version number should be higher than the installed one.
 OTA_UUID=0xabcd1234 #actually never really used, it is just an ID, one can set it to any 32bit value.
 
 FLASH_MECHANISM=$2
@@ -57,9 +62,11 @@ export UIP_CONF_BUFFER_SIZE=800
 MY_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"  #give you the full directory name of the script no matter where it is being called from.
 cd $MY_DIR  #make sure we are in the proper directory
 
-./copyForBuild.sh   #WARNING: this overwrites some files in this folder with those contained into ./../basic_uart_init and ./../basic_sender_test. Then during development be carefull!!!
 #compile the firmware
-make vela_node V=1 OTA=1 NODE=1 CONTIKI_PROJECT=vela_node "$@"
+length=$(($#))
+pass_through_agrs=${@:3:$length}
+
+make vela_node V=1 OTA=1 NODE=1 CONTIKI_PROJECT=vela_node $pass_through_agrs
 
 if [ $recompile_bootloader -eq 1 ]
 then
@@ -84,7 +91,7 @@ rm ./firmware-metadata.bin
 srec_cat build/${TARGET}/${BOARD}/firmware-metadata.bin -binary build/${TARGET}/${BOARD}/vela_node.bin -binary -offset 0x100 -o build/${TARGET}/${BOARD}/vela_node_ota.bin -binary
 
 #merge projecy (metadata+app binary) with bootloader
-srec_cat ./../external_modules/bootloader/bootloader.bin -binary -crop 0x0 0x2000 0x1FFA8 0x20000 build/${TARGET}/${BOARD}/vela_node_ota.bin -binary -offset 0x2000 -crop 0x2000 0x1B000 -o vela_node_with_bootloader.bin -binary
+srec_cat ./../external_modules/bootloader/bootloader.bin -binary -crop 0x0 0x2000 0x1FFA8 0x20000 build/${TARGET}/${BOARD}/vela_node_ota.bin -binary -offset 0x2000 -crop 0x2000 0x1B000 -o build/${TARGET}/${BOARD}/vela_node_with_bootloader.bin -binary
 
 cp build/${TARGET}/${BOARD}/vela_node_ota.bin vela_node_ota.bin
 cp build/${TARGET}/${BOARD}/vela_node_ota.bin vela_node_ota #workaround to leave a copy of OTA after clean

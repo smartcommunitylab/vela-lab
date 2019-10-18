@@ -12,6 +12,7 @@ CFLAGS += -DOTA_DEBUG=${OTA}
 CFLAGS += -DSMALL=1
 CFLAGS += -DSTACK_CHECK_CONF_ENABLED=1
 CFLAGS += -DUIP_CONF_BUFFER_SIZE=$(UIP_CONF_BUFFER_SIZE)
+CFLAGS += -g3
 
 #COMMON_DIR_REL_PATH=$(shell python -c "import os.path; print os.path.relpath('${COMMON_DIR}', '${CONTIKI}')")
 #PROJ_DIR_REL_PATH=$(shell python -c "import os.path; print os.path.relpath('./../external_modules', '${CONTIKI}')")
@@ -26,14 +27,13 @@ MODULES+=${COMMON_DIR_REL_PATH}/inc
 MODULES += os/services/orchestra
 
 ifeq ($(SINK),1)
-PROJECT_SOURCEFILES += sink_receiver.c
+MODULES+=../basic_sender_test/sink_receiver
 endif
 
 ifeq ($(NODE),1)
-
 MODULES+=${COMMON_DIR_REL_PATH}/lib/sequential_procedures
-PROJECT_SOURCEFILES += vela_uart.c
-PROJECT_SOURCEFILES += vela_sender.c  
+MODULES+=../basic_sender_test/vela_uart     #this is the only difference between basic_sender_test and integrate_sender_uart
+MODULES+=../basic_sender_test/vela_sender
 endif
 
 ifeq ($(OTA),1)
@@ -42,8 +42,6 @@ MODULES += ${PROJ_DIR_REL_PATH}/ota-download
 endif
 
 WERROR=0
-
-#USE build_node_*.sh and build_sink.sh to choose the TARGET/BOARD
 
 BSL_FLAGS += -b 115200
 

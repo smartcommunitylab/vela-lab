@@ -14,15 +14,16 @@ CFLAGS += -DVERSION_STRING=$(VERSION_STRING)
 CFLAGS += -DCC26XX_UART_CONF_BAUD_RATE=1000000
 CFLAGS += -DBUTTON_SENSOR_CONF_ENABLE_SHUTDOWN=0
 
-COMMON_DIR_REL_PATH=$(shell python -c "import os.path; print os.path.relpath('${COMMON_DIR}', '${CONTIKI}')")
+#COMMON_DIR_REL_PATH=$(shell python -c "import os.path; print os.path.relpath('${COMMON_DIR}', '${CONTIKI}')")
+COMMON_DIR_REL_PATH=../../common
 $(info $$COMMON_DIR_REL_PATH is: ${COMMON_DIR_REL_PATH})
 
 MODULES+=${COMMON_DIR_REL_PATH}/lib/uart_util
 MODULES+=${COMMON_DIR_REL_PATH}/inc
 MODULES+=${COMMON_DIR_REL_PATH}/lib/sequential_procedures
 
-PROJECT_SOURCEFILES += vela_uart.c
-PROJECT_SOURCEFILES += vela_sender.c
+MODULES+=../basic_uart_init/vela_uart
+MODULES+=../basic_uart_init/vela_sender
 
 TARGET ?= cc26x0-cc13x0
 BOARD=launchpad/cc2650

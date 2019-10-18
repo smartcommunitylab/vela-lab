@@ -15,7 +15,11 @@
 			"path": "/home/giova/workspaces/GIT/time_of_flight_ble/nRF5_SDK_14.0.0_3bcc1f7"
 		},
 		{
-			"path": "/home/giova/workspaces/GIT/vela-lab/network_board/external_modules/bootloader"
+			"path": "/home/giova/workspaces/GIT/vela-lab/common"
+		},
+		{
+			"name": "whole network board folder",
+			"path": "/home/giova/workspaces/GIT/vela-lab/network_board"
 		}
 	],
 	"settings": {}

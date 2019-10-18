@@ -5,6 +5,11 @@
 # ************************************************ CONFIGURATION ************************************************
 CONTIKI_ROOT=../contiki-ng
 BOARD=$1 #launchpad_vela/cc1350
+if [ -z "$1" ]
+then
+    echo BOARD is missing as first argument. Use example: ./build_sink.sh launchpad_vela/cc1350 ota
+    exit 1
+fi
 
 echo "Building for: $BOARD" 
 # ************************************************ BUILDING ************************************************
@@ -18,8 +23,6 @@ export UIP_CONF_BUFFER_SIZE=1024
 MY_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"  #give you the full directory name of the script no matter where it is being called from.
 cd $MY_DIR  #make sure we are in the proper directory
 
-./copyForBuild.sh
-
 while IFS=. read major minor build
 do
 VERSION_MAJOR=$major
@@ -31,8 +34,10 @@ VERSION_BUILD=$((${VERSION_BUILD}+1))
 export VERSION_STRING=$((VERSION_MAJOR)).$((VERSION_MINOR)).$((VERSION_BUILD))
 echo $VERSION_STRING > version
 
+length=$(($#))
+pass_through_agrs=${@:2:$length}
 
-make vela_sink V=1 PORT=/dev/ttyACM0 OTA=0 NODEID=0 SINK=1 CONTIKI_PROJECT=vela_sink "$@"
+make vela_sink V=1 PORT=/dev/ttyACM0 OTA=0 NODEID=0 SINK=1 CONTIKI_PROJECT=vela_sink $pass_through_agrs
 cp build/${TARGET}/${BOARD}/vela_sink.bin vela_sink.bin
 
 rm *.cc26x0-cc13x0 #remove some unused files

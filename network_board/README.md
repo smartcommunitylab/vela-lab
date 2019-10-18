@@ -9,18 +9,18 @@ Contiki project are typically compiled by calling "make". Here (in particular in
 
 - contiki-ng/ are the contiki-ng sources. Forked from the official repository.
 
-- basic_i2c_init/ includes the files for setting up i2c communication to communicate with the fuel gauge on the PCB.
-
 - basic_sender_test/ includes the files used for the network/application layer of the nodes and sink.
 
 - cooja_basic_sender_test/ the same as the previous, but the target is cooja symulator.
 
-- basic_sink/ includes files used for the sink, but these are outdated. The current version is in basic_sender_test.
-
 - basic_uart_init/ contains the files used for the UART communication between the node and the Nordic.
 
-- serial_test/ contains the firmware and the related python to test the uart communication between the sink and the gateway
-
 - external_modules/ contains sources for the Mesh Sink bootloader and OTA related code.
+
+- old_tests/basic_sink/ includes files used for the sink, but these are outdated. The current version is in basic_sender_test.
+
+- old_tests/basic_i2c_init/ includes the files for setting up i2c communication to communicate with the fuel gauge on the PCB.
+
+- old_tests/serial_test/ contains the firmware and the related python to test the uart communication between the sink and the gateway
 
 
