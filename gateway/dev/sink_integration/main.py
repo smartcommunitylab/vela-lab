@@ -220,7 +220,7 @@ detector_octave_script="run_detector.m"
 events_file_json="json_events.txt"
 
 PROXIMITY_DETECTOR_POLL_INTERVAL=10*60
-NETWORK_STATUS_POLL_INTERVAL=60
+NETWORK_STATUS_POLL_INTERVAL_DEF=60
 ENABLE_PROCESS_OUTPUT_ON_CONSOLE=False
 
 MQTT_BROKER="iot.smartcommunitylab.it"
@@ -336,9 +336,12 @@ class NETWORK_STATUS_POLL_THREAD(threading.Thread):
     def run(self):
         global mqtt_connected
         global mqtt_client
+        global network_status_poll_interval
+
+        network_status_poll_interval=NETWORK_STATUS_POLL_INTERVAL_DEF
 
         while self.__loop:
-            time.sleep(NETWORK_STATUS_POLL_INTERVAL)
+            time.sleep(network_status_poll_interval)
             obtain_and_send_network_status()
 
 def start_poximity_detection():
@@ -793,9 +796,10 @@ class Network(object):
     def obtainNetworkDescriptorObject(self):
         net_descr=dict()
         for n in self.__nodes:
-            n_descr=n.getNodeDescriptorObject()
-            n_descr_flat=flatten_json(n_descr)
-            net_descr[n.name]=[n_descr_flat]
+            if n.online: #do not publish outdated data
+                n_descr=n.getNodeDescriptorObject()
+                n_descr_flat=flatten_json(n_descr)
+                net_descr[n.name]=[n_descr_flat]
 
         return net_descr
 
@@ -812,17 +816,17 @@ class Network(object):
             cls()
 
 
-        print("|-----------------------------------------------------------------------------------------------------------------------------------------|")
-        print("|-------------------------------------------------|  Network size %3s log lines %7s |-------------------------------------------------|" %(str(netSize), self.__uartLogLines))
-        print("|----------------------------------------| Trickle: min %3d; max %3d; exp %3d; queue size %2d |--------------------------------------------|" %(self.__netMinTrickle, self.__netMaxTrickle, self.__expTrickle, len(self.__trickleQueue)))
-        print("|-----------------------------------------------------------------------------------------------------------------------------------------|")
-        print("| NodeID | Battery                              | Last    | Firmware | Trick |   #BT  |                             Neighbors info string |")
-        print("|        | Volt   SoC Capacty    Cons    Temp   | seen[s] | version  | Count |   Rep  |     P: a parent,  P*: actual parent,  N: neighbor |")
+        print("|----------------------------------------------------------------------------------------------------------------------------------------------|")
+        print("|---------------------------------------------------|  Network size %3s log lines %7s |----------------------------------------------------|" %(str(netSize), self.__uartLogLines))
+        print("|------------------------------------------| Trickle: min %3d; max %3d; exp %3d; queue size %2d |-----------------------------------------------|" %(self.__netMinTrickle, self.__netMaxTrickle, self.__expTrickle, len(self.__trickleQueue)))
+        print("|----------------------------------------------------------------------------------------------------------------------------------------------|")
+        print("| NodeID | Battery                              | Last    | Firmware | Trick |   #BT  |                                  Neighbors info string |")
+        print("|        | Volt   SoC Capacty    Cons    Temp   | seen[s] | version  | Count |   Rep  |          P: a parent,  P*: actual parent,  N: neighbor |")
         #print("|           |                 |                     |             |            |")
         for n in self.__nodes:
             n.printNodeInfo()
         #print("|           |                 |                     |             |            |")
-        print("|-----------------------------------------------------------------------------------------------------------------------------------------|")
+        print("|----------------------------------------------------------------------------------------------------------------------------------------------|")
         if self.showHelp:
             print("|    AVAILABLE COMMANDS:")
             print("| key    command\n|")
@@ -835,10 +839,10 @@ class Network(object):
                   "| 9      set time between sends\n"
                   "| >9     set keep alive interval in seconds")
         else:
-            print("|     h+enter    : Show available commands                                                                                                |")
-        print("|-----------------------------------------------------------------------------------------------------------------------------------------|")
-        print("|-----------------------------------------------|            CONSOLE                     |------------------------------------------------|")
-        print("|-----------------------------------------------------------------------------------------------------------------------------------------|")
+            print("|     h+enter    : Show available commands                                                                                                     |")
+        print("|----------------------------------------------------------------------------------------------------------------------------------------------|")
+        print("|--------------------------------------------------|            CONSOLE                     |--------------------------------------------------|")
+        print("|----------------------------------------------------------------------------------------------------------------------------------------------|")
 
         terminalSize = shutil.get_terminal_size(([80,20]))
         if net.showHelp:
@@ -1003,9 +1007,9 @@ class Node(object):
             onlineMarker='*'
 
         if self.batteryData != None and self.fw_metadata != None:
-            print("| %3s%1s| %3.2fV %3.0f%% %4.0fmAh %6.1fmA  %5.1f°  |  %6.0f |   %5s  |   %3d | %6d | %49s |" % (str(self.name[-6:]), onlineMarker, self.batteryData["voltage"], self.batteryData["state_of_charge"], self.batteryData["capacity"], self.batteryData["consumption"], self.batteryData["temperature"], self.getLastMessageElapsedTime(), self.getMetadataVersionString(), self.lastTrickleCount, self.amountOfBTReports, self.nbr_string))
+            print("| %3s%1s| %3.2fV %3.0f%% %4.0fmAh %6.1fmA  %5.1f°  |  %6.0f |   %5s  |   %3d | %6d | %54s |" % (str(self.name[-6:]), onlineMarker, self.batteryData["voltage"], self.batteryData["state_of_charge"], self.batteryData["capacity"], self.batteryData["consumption"], self.batteryData["temperature"], self.getLastMessageElapsedTime(), self.getMetadataVersionString(), self.lastTrickleCount, self.amountOfBTReports, self.nbr_string))
         else:
-            print("| %3s |                                       |  %6.0f |          |   %3d | %6d |                                                 |" % (str(self.name[-6:]), self.getLastMessageElapsedTime(), self.lastTrickleCount, self.amountOfBTReports))
+            print("| %3s |                                       |  %6.0f |          |   %3d | %6d |                                                      |" % (str(self.name[-6:]), self.getLastMessageElapsedTime(), self.lastTrickleCount, self.amountOfBTReports))
         
 @unique
 class PacketType(IntEnum):
@@ -1050,6 +1054,8 @@ class USER_INPUT_THREAD(threading.Thread):
 
     def run(self):
         global proximity_detector_in_queue
+        global network_status_poll_interval
+
         while self.__loop:
             try:
                 ble_tof_enabled=False
@@ -1163,6 +1169,7 @@ class USER_INPUT_THREAD(threading.Thread):
                     interval = user_input
                     net.addPrint("[USER_INPUT] Set keep alive interval to "+ str(interval) + "s")
                     net.sendNewTrickle(build_outgoing_serial_message(PacketType.ti_set_keep_alive, interval.to_bytes(1, byteorder="big", signed=False)),forced)
+                    network_status_poll_interval=interval
             except Exception as e:
                 net.addPrint("[USER_INPUT] Read failed. Read data: "+ input_str)
                 traceback.print_exc()
