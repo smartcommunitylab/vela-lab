@@ -47,7 +47,7 @@ endchar = 0x0a
 SER_END_CHAR = endchar.to_bytes(1, byteorder='big', signed=False)
 
 SINGLE_NODE_REPORT_SIZE = 9      #must be the same as in common/inc/contraints.h
-MAX_REPORTS_PER_PACKET = 13 #must be the same as in common/inc/contraints.h
+MAX_REPORTS_PER_PACKET = 5 #must be the same as in common/inc/contraints.h
 MAX_PACKET_PAYLOAD = SINGLE_NODE_REPORT_SIZE*MAX_REPORTS_PER_PACKET
 
 MAX_BEACONS = 100
@@ -522,9 +522,7 @@ class Network(object):
             time.sleep(REBOOT_INTERVAL)
 
     def rebootNode(self,destination_ipv6_addr,reboot_delay_ms):
-        #destination_ipv6_addr=0xFD0000000000000002124B000F24DD87
-        
-        #reboot_delay_ms=10000
+
         breboot_delay_ms = reboot_delay_ms.to_bytes(4, byteorder="big", signed=False)
         payload = breboot_delay_ms
 
@@ -540,7 +538,6 @@ class Network(object):
         MAX_OTA_ATTEMPTS=100
 
         node_firmware=None
-        #firmware_filename="./../../../network_board/basic_sender_test/vela_node_ota"
         firmware_filename="./../../../network_board/integrate_sender_uart/vela_node_ota"
         try:        
             with open(firmware_filename, "rb") as f:
@@ -1286,7 +1283,13 @@ net = Network()
 net.addPrint("[APPLICATION] Starting...")
 mqtt_client=None
 mqtt_connected=False
-mqtt_client=connect_mqtt()
+while mqtt_client==None:
+    try:
+        mqtt_client=connect_mqtt()
+    except Exception:
+        net.addPrint("[MQTT] Not connected, I will retry")
+        time.sleep(1)
+
 mqtt_client.loop_start()
 
 user_input_thread=USER_INPUT_THREAD(4,"user input thread")
