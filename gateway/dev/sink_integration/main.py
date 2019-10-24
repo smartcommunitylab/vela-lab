@@ -22,7 +22,7 @@ from itertools import chain, starmap
 
 START_CHAR = '02'
 #START_BUF = '2a2a2a'  # this is not really a buffer
-BAUD_RATE = 57600 #921600 #1000000
+BAUD_RATE = 1000000 #57600 #921600 #1000000
 SERIAL_PORT = "/dev/ttyS0" #"/dev/ttyACM0" #"/dev/ttyS0"
 
 if len(sys.argv)>1:
@@ -311,8 +311,8 @@ def publish_mqtt(mqtt_client, data_to_publish, topic):
         if ret.rc: #print only in case of error
             net.addPrint("[MQTT] publish return: "+str(ret.rc))
 
-        with open("mqtt_store.txt", "a") as f:
-            f.write(datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S')+" "+str(data_to_publish)+"\n")
+        #with open("mqtt_store.txt", "a") as f:
+         #   f.write(datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S')+" "+str(data_to_publish)+"\n")
 
     except Exception:
         net.addPrint("[MQTT] Exception during publishing!!!!")
