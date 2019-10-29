@@ -404,7 +404,7 @@ class PROXIMITY_DETECTOR_THREAD(threading.Thread):
                 evts=None
             else:
                 net.addPrint("[EVENT EXTRACTOR] No event found!")
-        except KeyError:
+        except (KeyError, TypeError):
             net.addPrint("[EVENT EXTRACTOR] No event found!")
             return
 
@@ -659,8 +659,8 @@ class Network(object):
                         self.addPrint("[DEBUG] OTA ack NOT OK!! Err: "+str(firmwareChunkDownloaded_event_data[1])+". The chunk will be retrasmitted in a moment...")
                         time.sleep(5) #in case a full chunk is transmitted to the node twice (because of a ota_ack loss), we might get multiple nacks for a chunk
                         while firmwareChunkDownloaded_event.isSet():
-                            self.addPrint("[DEBUG] More than one ACK/NACK received for this firmware chunk. I should be able to recover...just give me some time")
                             firmwareChunkDownloaded_event.clear()
+                            self.addPrint("[DEBUG] More than one ACK/NACK received for this firmware chunk. I should be able to recover...just give me some time")
                             lastCorrectChunkReceived=firmwareChunkDownloaded_event_data[0]+256*int(chunk_no/256)
                             time.sleep(5)
 
