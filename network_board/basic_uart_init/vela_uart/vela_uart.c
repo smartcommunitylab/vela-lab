@@ -59,7 +59,6 @@ typedef enum{
 #define STRINGIFY(val)  #val
 
 static uint8_t is_nordic_ready=false;
-//static app_state_t m_app_state = wait;
 static uint8_t no_of_attempts = 0;
 static uint8_t bt_report_buffer[BT_REPORT_BUFFER_SIZE]; //this might be allocated dynamically once the BT is enabled and free once it is disabled (avoid to allocate the space twice!!!)
 static data_t complete_report_data = {bt_report_buffer, 0};
@@ -113,9 +112,7 @@ void vela_uart_init() {
   // start the uart process
   process_start(&cc2650_uart_process, "cc2650 uart process");
   return;
-
 }
-
 
 static uint32_t report_ready(data_t *p_data){
 	//PROCESS REPORT: return APP_ACK_SUCCESS as soon as possible
@@ -177,8 +174,6 @@ static void nordic_watchdog_handler(void *ptr){
 	if(nordic_watchdog_value > 3){
 	    LOG_ERR("Nordic didn't respond, resetting it!\n");
 	    reset_nodric();
-//		while(1){ //Stay here. The reset of the mcu will be triggered by the watchdog timer initialized into contiki-main.c
-//		}
 	}else{
 		if(nordic_watchdog_timeout_ms != 0){
 			ctimer_set(&m_nordic_watchdog_timer, (nordic_watchdog_timeout_ms*CLOCK_SECOND)/1000, nordic_watchdog_handler, NULL);

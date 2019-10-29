@@ -16,7 +16,7 @@ channel check interval
 
 #include "sys/log.h"
 #define LOG_MODULE "vela_sink"
-#define LOG_LEVEL LOG_LEVEL_DBG
+#define LOG_LEVEL LOG_LEVEL_WARN
 
 PROCESS(sink_process, "sink starter process");
 

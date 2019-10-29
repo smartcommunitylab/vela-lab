@@ -18,7 +18,7 @@
 
 #include "sys/log.h"
 #define LOG_MODULE "vela_node"
-#define LOG_LEVEL LOG_LEVEL_DBG
+#define LOG_LEVEL LOG_LEVEL_WARN
 
 PROCESS(vela_node_process, "main starter process for non-sink");
 

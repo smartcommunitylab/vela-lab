@@ -19,8 +19,8 @@ fi
 
 echo "Building for: $1" 
 
-OTA_VERSION=0x0027  #NB: in order to have the firmware recognized as the LATEST and conseguently making the nodes to install it, version number should be higher than the installed one.
-OTA_UUID=0xabcd1234 #actually never really used, it is just an ID, one can set it to any 32bit value.
+OTA_VERSION=0x0028  #NB: in order to have the firmware recognized as the LATEST and conseguently making the nodes to install it, version number should be higher than the installed one.
+OTA_UUID=0x00000001 #actually never really used, it is just an ID, one can set it to any 32bit value.
 
 FLASH_MECHANISM=$2
 
