@@ -1,6 +1,9 @@
 #!/bin/bash
 
-PYTHON_SCRIPT_ABSOLUTE_PATH=/home/pi/Desktop/vela-lab/gateway/dev/sink_integration
+MY_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"  #give you the full directory name of this script no matter where it is being called from.
+cd $MY_DIR  #make sure we are in the proper directory
 
-cd $PYTHON_SCRIPT_ABSOLUTE_PATH
-python3 main.py
+PYTHON_SCRIPT_PATH=./gateway/dev/sink_integration
+
+cd $PYTHON_SCRIPT_PATH
+python3 main.py $@
