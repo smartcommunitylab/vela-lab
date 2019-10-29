@@ -17,8 +17,8 @@ export CONTIKI_ROOT=${CONTIKI_ROOT}
 export BOARD=${BOARD}
 export TARGET=cc26x0-cc13x0
 export CC26XX_UART_CONF_BAUD_RATE=1000000
-export SERIAL_LINE_CONF_BUFSIZE=512
-export UIP_CONF_BUFFER_SIZE=1024
+export SERIAL_LINE_CONF_BUFSIZE=1024
+export UIP_CONF_BUFFER_SIZE=1600
 
 MY_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"  #give you the full directory name of the script no matter where it is being called from.
 cd $MY_DIR  #make sure we are in the proper directory

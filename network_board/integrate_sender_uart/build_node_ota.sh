@@ -19,8 +19,8 @@ fi
 
 echo "Building for: $1" 
 
-OTA_VERSION=0x0028  #NB: in order to have the firmware recognized as the LATEST and conseguently making the nodes to install it, version number should be higher than the installed one.
-OTA_UUID=0x00000001 #actually never really used, it is just an ID, one can set it to any 32bit value.
+OTA_VERSION=0x0029  #NB: in order to have the firmware recognized as the LATEST and conseguently making the nodes to install it, version number should be higher than the installed one.
+OTA_UUID=0x00000011 #actually never really used, it is just an ID, one can set it to any 32bit value.
 
 FLASH_MECHANISM=$2
 
@@ -57,7 +57,7 @@ export BOARD=${BOARD}
 export TARGET=cc26x0-cc13x0
 export CC26XX_UART_CONF_BAUD_RATE=1000000
 export SERIAL_LINE_CONF_BUFSIZE=128
-export UIP_CONF_BUFFER_SIZE=800
+export UIP_CONF_BUFFER_SIZE=900
 
 MY_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"  #give you the full directory name of the script no matter where it is being called from.
 cd $MY_DIR  #make sure we are in the proper directory

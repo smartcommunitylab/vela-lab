@@ -8,7 +8,4 @@
 *.elf
 *.hex
 *srf06-cc26xx*
-vela_uart.*
-vela_sender.*
-sink_receiver.*
 *.cc26x0-cc13x0
