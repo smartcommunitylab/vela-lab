@@ -1435,6 +1435,7 @@ try:
 
                                 headerDropCounter += 1
                                 log_contact_data(seqid)
+                                net.processBTReportMessage(str(messageSequenceList[seqid].nodeid))
                                 del messageSequenceList[seqid]
 
                             elif messageSequenceList[seqid].sequenceSize == -1: # if we have lost network_new_sequence, but at least one network_active_sequence is correctly received, sequense size is initialized to -1 (the real value was in network_new_sequence, therefore we lost it)
@@ -1442,6 +1443,7 @@ try:
                                 if printVerbosity > 1:
                                     net.addPrint("  [PACKET DECODE] Bluetooth sequence decoded but header files were never received.  datacounter: "+ str(messageSequenceList[seqid].datacounter) +" ContactData elements: "+ str(len(messageSequenceList[seqid].datalist)))
                                 log_contact_data(seqid)
+                                net.processBTReportMessage(str(messageSequenceList[seqid].nodeid))
                                 del messageSequenceList[seqid]
 
                             else:                       # normal behaviour
