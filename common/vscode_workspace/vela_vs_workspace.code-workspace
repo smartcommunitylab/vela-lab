@@ -22,5 +22,9 @@
 			"path": "/home/giova/workspaces/GIT/vela-lab/network_board"
 		}
 	],
-	"settings": {}
+	"settings": {
+		"files.associations": {
+			"vela_sender.h": "c"
+		}
+	}
 }
