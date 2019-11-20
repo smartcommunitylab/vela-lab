@@ -225,7 +225,7 @@ ENABLE_PROCESS_OUTPUT_ON_CONSOLE=False
 
 MQTT_BROKER="iot.smartcommunitylab.it"
 MQTT_PORT=1883
-DEVICE_TOKEN="iOn25YbEvRBN9sp6xdCd"
+DEVICE_TOKEN="iOn25YbEvRBN9sp6xdCd"    #vela-gateway
 TELEMETRY_TOPIC="v1/gateway/telemetry"
 CONNECT_TOPIC="v1/gateway/connect"
 
@@ -283,7 +283,7 @@ def on_connect_cb(client, userdata, flags, rc):
 
 
 def on_message_cb(client, userdata, msg):
-    net.addPrint("[MQTT] on_publish_cb. data: "+str(data)+", result: "+str(result))
+    net.addPrint("[MQTT] on_message_cb.")
 
 def connect_mqtt():
     net.addPrint("[MQTT] Connecting to mqtt broker...")
