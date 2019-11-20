@@ -497,19 +497,38 @@ function proximity_events_json=proximity_detect(filename, text_verbosity, image_
                   evt_end_t=t(p_idx_beacon);
                 endif
                 
+                #Structure used for internal use (plots,prints) is separated from the structure used as output which is the json
+                #scanners{scannerIdx} is for internal use
+                #proximity_events{scannerIdx} is for output
                 scanners{scannerIdx}.proximity_events(b_idx).t(end+1)=evt_t;
                 scanners{scannerIdx}.proximity_events(b_idx).rssi(end+1)=evt_rssi;
                 scanners{scannerIdx}.proximity_events(b_idx).t_start(end+1)=evt_start_t;
                 scanners{scannerIdx}.proximity_events(b_idx).t_end(end+1)=evt_end_t;
                 
-                #create and store proximity events
-                #evt.scannerID=sprintf("%06x",evt_source);
-                evt.scannerID=evt_source_full;
-                evt.t_start=int64(evt_start_t*24*60*60*1000);
-                evt.t_end=int64(evt_end_t*24*60*60*1000);
-                evt.t=int64(evt_t*24*60*60*1000);
-                evt.rssi=evt_rssi;
-                evt.beaconID=evt_beacon;
+                #create and store proximity events                 
+                opt.Compact=1;                
+                evt={};
+                evt_values={};
+                
+                evt_data.t_start=int64(evt_start_t*24*60*60*1000);
+                evt_data.t_end=int64(evt_end_t*24*60*60*1000);
+                evt_data.rssi=evt_rssi;
+                beaconKeyString=strcat("BID_",evt_beacon);
+                evt_ts=int64(evt_t*24*60*60*1000);
+                
+                use_real_timestamps=true;
+                if use_real_timestamps
+                  evt_data_string=savejson("",evt_data,opt);
+                  evt_values.(beaconKeyString)=evt_data_string;
+                  evt.ts=evt_ts;
+                  evt.values=evt_values;
+                else
+                  evt_data.t=evt_ts;
+                  evt_data_string=savejson("",evt_data,opt);
+                  evt.(beaconKeyString)=evt_data_string;
+                endif
+                
+                %append the event to the global list of events
                 proximity_events{scannerIdx}{end+1}=evt;
                 
                 #reset event variables
@@ -527,7 +546,7 @@ function proximity_events_json=proximity_detect(filename, text_verbosity, image_
           endwhile
       endfor
   endfor
-
+  
   if text_verbosity>=VERBOSITY_INFO
     printf("Proximity events extracted.\n");
   endif
@@ -663,10 +682,9 @@ function proximity_events_json=proximity_detect(filename, text_verbosity, image_
   %     datetick('x','HH:MM:SS')
   endif
 
-  
-  a=0;
   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   % Reorganize the events to comply the format required for thingsboard
+  proximity_events_reformat={};
   for scannerIdx=1:size(scanners,1)
     proximity_events_reformat.(scanners{scannerIdx}.nodeID_full)=proximity_events{scannerIdx};
   endfor
