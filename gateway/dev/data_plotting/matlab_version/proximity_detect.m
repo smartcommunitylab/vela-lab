@@ -51,8 +51,7 @@ function proximity_events_json=proximity_detect(filename, text_verbosity, image_
   if text_verbosity>=VERBOSITY_INFO
     printf("Parsing packets...\n");
   endif
-  log_date=zeros(text_preallocation_size,3);
-  log_time=zeros(text_preallocation_size,3);
+  log_time=zeros(text_preallocation_size,1);
   log_origin=zeros(text_preallocation_size,1);
   log_origin_fullname=cell(text_preallocation_size,1);
   log_data=cell(text_preallocation_size,1);
@@ -66,16 +65,10 @@ function proximity_events_json=proximity_detect(filename, text_verbosity, image_
     #lineNo
     line_=dataArray{1}(lineNo,1);
     
-    [val, count, errmsg, pos] = sscanf(line_{1},"%d-%d-%d %d:%d:%d Node %s %s");
-    YYYY=val(1,1);
-    MM=val(2,1);
-    DD=val(3,1);
+    [val, count, errmsg, pos] = sscanf(line_{1},"%lu Node %s %s");
+    timestamp=val(1,1);
     
-    hh=val(4,1);
-    mm=val(5,1);
-    ss=val(6,1);
-    
-    data=char(val(7:end,1))';
+    data=char(val(2:end,1))';
     
     nodeID_len=32;
     nodeID_full = data(1,1:nodeID_len);
@@ -85,8 +78,7 @@ function proximity_events_json=proximity_detect(filename, text_verbosity, image_
     origin=nodeID;
     hex_str=data;
     
-    log_date(valid_line,:)=[YYYY, MM, DD];
-    log_time(valid_line,:)=[hh,mm,ss];
+    log_time(valid_line,1)=timestamp;
     log_origin(valid_line,1)=origin;
     log_origin_fullname{valid_line,1}=nodeID_full;
     log_data{valid_line,1}=data(1,nodeID_len+1:end);
@@ -99,7 +91,6 @@ function proximity_events_json=proximity_detect(filename, text_verbosity, image_
       endif
     endif
   endfor
-  log_date=log_date(1:valid_line-1,:);
   log_time=log_time(1:valid_line-1,:);
   log_origin=log_origin(1:valid_line-1,:);
   log_origin_fullname=log_origin_fullname(1:valid_line-1,:);
@@ -184,12 +175,9 @@ function proximity_events_json=proximity_detect(filename, text_verbosity, image_
   for scannerIdx=1:size(scanners,1)
       selected_idx = log_origin==scanners{scannerIdx,1}.nodeID;
       
-      epoch=datenum(1970, 1, 1, 0, 0, 0);
-      gmtoffset_s=localtime(now()).gmtoff; #might be not working (on windowns gmtoff=0, on ubunut gmtoff=3600 but should be 7200 because of daylight saving time)
-      timestamps=datenum(log_date(selected_idx,1), log_date(selected_idx,2), log_date(selected_idx,3), log_time(selected_idx,1), log_time(selected_idx,2), log_time(selected_idx,3))-epoch-(gmtoffset_s/60/24); # - zero_t;
-      
+      timestamps=log_time(selected_idx,1);
       if scannerIdx==1
-        zero_t=timestamps(1);
+        zero_t=timestamps(1,1);
       endif     
       
       contactsData=cell(scanners{scannerIdx,1}.noOfReports,1);
@@ -510,11 +498,11 @@ function proximity_events_json=proximity_detect(filename, text_verbosity, image_
                 evt={};
                 evt_values={};
                 
-                evt_data.t_start=int64(evt_start_t*24*60*60*1000);
-                evt_data.t_end=int64(evt_end_t*24*60*60*1000);
+                evt_data.t_start=int64(evt_start_t);
+                evt_data.t_end=int64(evt_end_t);
                 evt_data.rssi=evt_rssi;
                 beaconKeyString=strcat("BID_",evt_beacon);
-                evt_ts=int64(evt_t*24*60*60*1000);
+                evt_ts=int64(evt_t);
                 
                 use_real_timestamps=true;
                 if use_real_timestamps
@@ -572,13 +560,13 @@ function proximity_events_json=proximity_detect(filename, text_verbosity, image_
               beaconID=beacons(b_idx);
               idxs_logical=strcmp(scanners{scannerIdx}.beaconID,beaconID);
               idxs_list=find(idxs_logical);
-              t = scanners{scannerIdx}.t(idxs_logical)-zero_t;
+              t = (scanners{scannerIdx}.t(idxs_logical)-zero_t)/1000/60;
               lastRSSI = scanners{scannerIdx}.lastRSSI(idxs_logical);
               maxRSSI = scanners{scannerIdx}.maxRSSI(idxs_logical);
               contactCounter = scanners{scannerIdx}.contactCounter(idxs_logical);
               beaconStatus=scanners{scannerIdx}.beaconStatus(idxs_logical);
              
-              [axis, L1, L2]=plotyy(t*24*60,lastRSSI,t*24*60,beaconStatus);
+              [axis, L1, L2]=plotyy(t,lastRSSI,t,beaconStatus);
               set (L1, "marker", ".");
               set (L1, "linestyle", "--");
               set (L2, "linestyle", "--");
@@ -589,7 +577,7 @@ function proximity_events_json=proximity_detect(filename, text_verbosity, image_
               hold on;
               grid on;
               
-              [axis, L1, L2] = plotyy(t*24*60,maxRSSI,t*24*60,contactCounter);
+              [axis, L1, L2] = plotyy(t,maxRSSI,t,contactCounter);
               set (L1, "marker", "o");
               set (L2, "linestyle", "--");
               set (L2, "marker", "o");
@@ -644,7 +632,7 @@ function proximity_events_json=proximity_detect(filename, text_verbosity, image_
                 duration_line.t(end+1)=evt_end_t(evt_i);
                 duration_line.value(end+1)=evt_rssi(evt_i);
                                
-                h=line((duration_line.t-zero_t)*24*60,duration_line.value);
+                h=line((duration_line.t-zero_t)/1000/60,duration_line.value);
                 RSSI_EVENT_THRESHOLD=-65;
                 
                 if duration_line.value>RSSI_EVENT_THRESHOLD
@@ -654,7 +642,7 @@ function proximity_events_json=proximity_detect(filename, text_verbosity, image_
                 endif
                 
                 #figure(size(scanners,1)+scannerIdx);
-                h=plot((evt_t(evt_i)-zero_t)*24*60,evt_rssi(evt_i));
+                h=plot((evt_t(evt_i)-zero_t)/1000/60,evt_rssi(evt_i));
                 #grid on;
                 #hold on;              
                 if evt_rssi(evt_i)>RSSI_EVENT_THRESHOLD
@@ -677,7 +665,7 @@ function proximity_events_json=proximity_detect(filename, text_verbosity, image_
       
       linkaxes(xLinkedAxis,'x');
       #linkaxes(yLinkedAxis,'y'); #if I link all y axis to have the same RSSI range in all figures, it slinks the x axis just linked
-      xlim([min_time max_time]*24*60);
+      xlim([min_time max_time]);
       ylim([-100 max_rssi]);
   %     datetick('x','HH:MM:SS')
   endif

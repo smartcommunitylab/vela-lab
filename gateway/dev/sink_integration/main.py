@@ -225,7 +225,8 @@ ENABLE_PROCESS_OUTPUT_ON_CONSOLE=False
 
 MQTT_BROKER="iot.smartcommunitylab.it"
 MQTT_PORT=1883
-DEVICE_TOKEN="iOn25YbEvRBN9sp6xdCd"    #vela-gateway
+DEVICE_TOKEN="iOn25YbEvRBN9sp6xdCd"     #vela-gateway
+#DEVICE_TOKEN="9ovXYK9SOMgcbaIrWvZ2"     #vela-gateway-test
 TELEMETRY_TOPIC="v1/gateway/telemetry"
 CONNECT_TOPIC="v1/gateway/connect"
 
@@ -261,8 +262,8 @@ def flatten_json(dictionary):
 
     return dictionary
 
-#def on_publish_cb(client, data, result):
-#    net.addPrint("[MQTT] on_publish_cb. data: "+str(data)+", result: "+str(result))
+def on_publish_cb(client, data, result):
+    net.addPrint("[MQTT] on_publish_cb. data: "+str(data)+", result: "+str(result))
 
 def on_disconnect_cb(client, userdata, result):
     global mqtt_connected
@@ -289,7 +290,7 @@ def connect_mqtt():
     net.addPrint("[MQTT] Connecting to mqtt broker...")
 
     client=mqtt.Client()
-    #client.on_publish=on_publish_cb
+    client.on_publish=on_publish_cb
     client.on_connect=on_connect_cb
     client.on_disconnect=on_disconnect_cb
     client.on_message=on_message_cb
@@ -1385,7 +1386,7 @@ try:
                                     log_contact_data(seqid)                         # store received data instead of deleting it all
                                     del messageSequenceList[seqid]                  # remove data already stored
 
-                            messageSequenceList.append(MessageSequence(datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S'), nodeid, pktnum, 0, 0, [], time.time()))
+                            messageSequenceList.append(MessageSequence(int(time.time()*1000), nodeid, pktnum, 0, 0, [], time.time()))
                             seqid = len(messageSequenceList) - 1
                             messageSequenceList[seqid].sequenceSize += datalen
 
@@ -1408,7 +1409,7 @@ try:
                             if seqid == -1:             #if this is true something went wrong. Maybe we have lost the network_new_sequence packet of this report. It means we received 'network_active_sequence' before receiving a valid 'network_new_sequence'
                                 if printVerbosity > 1:
                                     net.addPrint("  [PACKET DECODE] First part of sequence dropped, creating incomplete sequence at index "+ str(len(messageSequenceList)) +" from pktnum "+ str(pktnum))
-                                messageSequenceList.append( MessageSequence(datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S'), nodeid, pktnum, -1, 0, [], time.time()))
+                                messageSequenceList.append( MessageSequence(int(time.time()*1000), nodeid, pktnum, -1, 0, [], time.time()))
                                 seqid = len(messageSequenceList) - 1
                                 headerDropCounter += 1
 
@@ -1426,7 +1427,7 @@ try:
                             payload = line[cursor:].hex()
                             cursor = len(line)
                             if seqid == -1:             #if this is true something went wrong. Maybe we just received network_last_sequence for this report. It means we received 'network_last_sequence' before receiving a valid 'network_new_sequence'
-                                messageSequenceList.append(MessageSequence(datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S'), nodeid, pktnum, 0, 0, [], time.time()))
+                                messageSequenceList.append(MessageSequence(int(time.time()*1000), nodeid, pktnum, 0, 0, [], time.time()))
                                 seqid = len(messageSequenceList) - 1
 
                                 decode_payload(payload,seqid, MAX_PACKET_PAYLOAD, PacketType.network_last_sequence, pktnum)
