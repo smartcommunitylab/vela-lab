@@ -83,5 +83,5 @@ The folders contained here are used as follow:
 - common/: contains some files used by more than a component. The uart protocol used for the communication between the Mesh Node and the BLE Scanner is here, as well as some other shared definition.
 - hardware/: contains the hardware description (connections bentween the Nordic and the TI) together with the Eagle project of the Interface Board
 - doc/: contains some raw,unstructured documentation
-
+- backend/: contains code and files strictly related to the backend server which stores data. Namelly it uses Thingsboard as backend interface. In this folder there are some script to querry the database.
 
