@@ -41,6 +41,7 @@ DATE_UNDER_ANALYSIS=$(date +%D)
 START_TIME=00:00:00
 END_TIME=22:55:00
 echo Analyzing date: ${DATE_UNDER_ANALYSIS} mm/dd/yyyy from ${START_TIME} to ${END_TIME}
+echo ""
 
 START_TS=$((date --date="${DATE_UNDER_ANALYSIS} ${START_TIME}" +%s%N) | cut -b1-13)
 END_TS=$((date --date="${DATE_UNDER_ANALYSIS} ${END_TIME}" +%s%N) | cut -b1-13)
@@ -57,6 +58,7 @@ do
   evt_list=$(echo "$TB_RESPONSE" | jq .${k})
   #echo "evt_list: $evt_list"
   if [[ ${evt_list} != "null" ]]; then
+    echo "beacon: ${k}"
     list_len=$(echo "$evt_list" | jq '. | length')
     for e_i in $(seq 0 $(($list_len-1)))
     do
@@ -67,10 +69,9 @@ do
       value_s=$(echo "$evt" | jq '.value')
       value=$(echo "$value_s" | jq -rc '.')
       rssi=$(echo "$value" | jq '.rssi')
-      echo "beacon: ${k}"
       echo "   evtNo: $e_i => $ts_string -> rssi: ${rssi}dBm"
-  done
-  echo ""
+    done
+    echo ""
   fi
 done
 
