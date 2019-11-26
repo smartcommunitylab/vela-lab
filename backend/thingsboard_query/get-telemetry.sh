@@ -38,10 +38,9 @@ URL=http://iot.smartcommunitylab.it/api/plugins/telemetry/DEVICE/$DEVICE_ID/valu
 
 DATE_UNDER_ANALYSIS=$(date +%D)
 #DATE_UNDER_ANALYSIS=11/20/2019 #format mm/dd/yyyy
-START_TIME=00:00:00
+START_TIME=07:00:00
 END_TIME=22:55:00
 echo Analyzing date: ${DATE_UNDER_ANALYSIS} mm/dd/yyyy from ${START_TIME} to ${END_TIME}
-echo ""
 
 START_TS=$((date --date="${DATE_UNDER_ANALYSIS} ${START_TIME}" +%s%N) | cut -b1-13)
 END_TS=$((date --date="${DATE_UNDER_ANALYSIS} ${END_TIME}" +%s%N) | cut -b1-13)
@@ -58,20 +57,25 @@ do
   evt_list=$(echo "$TB_RESPONSE" | jq .${k})
   #echo "evt_list: $evt_list"
   if [[ ${evt_list} != "null" ]]; then
-    echo "beacon: ${k}"
+    beaconName=$(echo "${k}" | tr -d "BID_")
+    echo "beacon: ${beaconName[0]}"
     list_len=$(echo "$evt_list" | jq '. | length')
     for e_i in $(seq 0 $(($list_len-1)))
     do
       evt=$(echo "$evt_list" | jq ".[$e_i]")
       ts=$(echo "$evt" | jq '.ts')
       ts_string=$(date -d @$(($ts/1000)))
-
       value_s=$(echo "$evt" | jq '.value')
       value=$(echo "$value_s" | jq -rc '.')
       rssi=$(echo "$value" | jq '.rssi')
-      echo "   evtNo: $e_i => $ts_string -> rssi: ${rssi}dBm"
+      t_start=$(echo "$value" | jq '.t_start')
+      t_end=$(echo "$value" | jq '.t_end')
+      t_start_str=$(date -d @$(($t_start/1000)))
+      t_end_str=$(date -d @$(($t_end/1000)))
+      evt_duration_s=$(($t_end/1000-$t_start/1000))
+      #echo "   evtNo: $e_i => $ts_string -> rssi: ${rssi}dBm, event start: $t_start_str, event end: $t_end_str"
+      echo "   evtNo: $e_i => $ts_string -> rssi: ${rssi}dBm, event duration: $evt_duration_s"
     done
-    echo ""
   fi
 done
 

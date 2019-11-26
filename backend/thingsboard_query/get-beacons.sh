@@ -67,4 +67,5 @@ do
   echo "${DEVICE_NAME[$i_d]}" 
   ./get-telemetry.sh ${d} ${AVAILABLE_BEACONS[@]}
   i_d=$i_d+1
+  echo ""
 done
