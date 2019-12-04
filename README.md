@@ -83,7 +83,8 @@ NOTE:
 Special mention is required for the OTA feature. Updating the firmware of Mesh Nodes without the debug probe is allowed through OTA process. The procedures are derived from https://marksolters.com/programming/2016/06/07/contiki-ota.html (no more accessible), sources might be here https://github.com/msolters/ota-server.
 To prepare a firmware to be downloaded though OTA a set of operation is required, first the firmware is compiled and properly linked, then the firware metadata* are calculated and appended to the firmware itslef.
 To do so a special build script has been prepared (vela-lab/network_board/integrate_sender_uart/build_node_ota.sh, the script contains some comments that should be read before executing it), in order to build the same firmware without the OTA build_node_no_ota.sh can be used.
-*metadata are used to verify the firmware and make the OTA 'safe'
+
+\*metadata are used to verify the firmware and make the OTA 'safe'
 
 To push the firmware on the nodes:
 - launch the python script vela-lab/gateway/dev/sink_integration/main.py
