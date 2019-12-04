@@ -99,8 +99,8 @@ Flash vela_sink.bin using Uniflash
 ========================
 All the code in this repo (the firmware for the embedded platforms and the python script that manages the gateway) can be run, flashed and debugged with VSCode IDE. This strongly ease the process since all the command line arguments are already set in tasks.json files.
 To do so just load the workspace file common/vscode_workspace/vela_vs_workspace.code-workspace. In order to work, the next extensions should be installed:
--Cortex-Debug
--Python
+- Cortex-Debug
+- Python
 VSCode will call the commands 'openocd' and 'arm-none-eabi-gdb', in case these two commands are not available in the environment you should add the paths to VSCode configuration files. Take a look at the documentation of the Cortex-Debug extension.
 Pay attention because some outdated versions of openocd do not support the launchpad targets, in that case search for an openocd version that supports it (look in the Texas Instruments website)
 
