@@ -51,13 +51,14 @@ Alternatively a launchpad can be used since it embeds a uart to usb bridge (typi
 Again, the communication protocol over the UART between the Sink and the Gateway exploits hexadecimal string coding. 
 The packet structure is as follow (it is not elsewhere documented): `<IPV6_ADDR_16_BYTES*><PAYLOAD_SIZE_1_BYTE><PACKET_TYPE_2_BYTES**><PAYLOAD_N_BYTES***><PAYLOAD_CHECKSUM_1_BYTE><'\n'>`
 
-'* for broadcast packets (most of commands) set it to 0xFFFFFFFFFFFFFFFFFFFF, otherwise the ipv6 address of the destination node (the Sink cannot be addressed)
+\* for broadcast packets (most of commands) set it to 0xFFFFFFFFFFFFFFFFFFFF, otherwise the ipv6 address of the destination node (the Sink cannot be addressed)'
 
-'** these are the same as in vela-lab/doc/raw/network_commands.xlsx
+\** these are the same as in vela-lab/doc/raw/network_commands.xlsx
 
-'*** the maximum size of this is given by the uart buffer size defined by the SERIAL_LINE_CONF_BUFSIZE, for the Sink this is defined in in vela-lab/network_board/integrate_sender_uart/build_sink.sh.
+\*** the maximum size of this is given by the uart buffer size defined by the SERIAL_LINE_CONF_BUFSIZE, for the Sink this is defined in in vela-lab/network_board/integrate_sender_uart/build_sink.sh.
 
 Since the data is coded with hex string (2 bytes are allocated for each raw byte), the maximum size for the uart packet (including all the fields) is:  SERIAL_LINE_CONF_BUFSIZE/2.
+
 
 The python script (vela-lab/gateway/dev/sink_integration/main.py) reads the incoming uart data and decode the packets. A basic Command Line interface is implemented, where basic informations about the WSN is displayed on top, while a console shows log messages.
 The python script is lauched by navigating to vela-lab/gateway/dev/sink_integration/ and executing "python3 main.py /dev/ttyS0 57600", where /dev/ttyS0 can be changed with the proper port, and 57600 can be changed if the baudrate of the uart is changed on the Sink. However a simpler way is just to launch startup.sh in the repository root. The idea is to permanently store the default launch parameters (serial interface name, baudrate) into that script.
