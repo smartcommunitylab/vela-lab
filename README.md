@@ -46,7 +46,7 @@ Finally, the whole system is managed by the Gateway (which can be a standard pc 
 On the raspberry, the embedded uart (/dev/ttyS0), exposed on the expansion header, can be used directly on the sensortag (given a proper connection of the TX/RX/Power pins).
 Alternatively a launchpad can be used since it embeds a uart to usb bridge (typically /dev/ttyACM0), in that case no hardware related operation is required.
 Again, the communication protocol over the UART between the Sink and the Gateway exploits hexadecimal string coding. 
-The packet structure is as follow (it is not elsewhere documented): <IPV6_ADDR_16_BYTES*><PAYLOAD_SIZE_1_BYTE><PACKET_TYPE_2_BYTES**><PAYLOAD_N_BYTES***><PAYLOAD_CHECKSUM_1_BYTE><'\n'>
+The packet structure is as follow (it is not elsewhere documented): `<IPV6_ADDR_16_BYTES*><PAYLOAD_SIZE_1_BYTE><PACKET_TYPE_2_BYTES**><PAYLOAD_N_BYTES***><PAYLOAD_CHECKSUM_1_BYTE><'\n'>`
 * for broadcast packets (most of commands) set it to 0xFFFFFFFFFFFFFFFFFFFF, otherwise the ipv6 address of the destination node (the Sink cannot be addressed)
 ** these are the same as in vela-lab/doc/raw/network_commands.xlsx
 *** the maximum size of this is given by the uart buffer size defined by the SERIAL_LINE_CONF_BUFSIZE, for the Sink this is defined in in vela-lab/network_board/integrate_sender_uart/build_sink.sh.
