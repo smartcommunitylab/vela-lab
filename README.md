@@ -10,6 +10,9 @@ cd vela-lab
 git checkout ota
 git submodule init
 git submodule update
+cd network_board/contiki-ng
+git submodule init
+git submodule update
 ```
 Some detail about compilation can be found in README-BUILDING.md
 
