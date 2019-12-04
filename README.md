@@ -4,13 +4,15 @@
 This repository contains the code for the network devices used in the Smart City Lab located in Vela (Trento, Italy).
 
 For cloning:
-```
+```bash
 git clone https://github.com/smartcommunitylab/vela-lab.git
 cd vela-lab
-git checkout ota
+git ckeckout ota
 git submodule init
 git submodule update
 ```
+Some detail about compilation can be found in README-BUILDING.md
+
 
 The network components are:
 - BLE Beacons: Eddystone or CLIMB (https://github.com/smartcommunitylab/sco.climb.driverapp) proprietary beacons

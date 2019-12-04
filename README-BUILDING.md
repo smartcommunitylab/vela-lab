@@ -1,4 +1,4 @@
-Building the Smart City Vela Lab
+#Building the Smart City Vela Lab
 ========================
 
 This guide is for linux machines (tested with Ubuntu 16.04 LTS).
@@ -14,19 +14,17 @@ Before building install the following prerequisite software :
 Once done clone the repository with
 ```bash
 git clone https://github.com/smartcommunitylab/vela-lab.git
+cd vela-lab
 git ckeckout ota
 git submodule init
 git submodule update
 ```
 
-Building the BLE Scanner firmware
+#Building the BLE Scanner firmware
 ========================
-cd vela-lab/bt_board/ble_app_vela_lab/pca10040/s132/armgcc
-
-Open build_script.sh with a file editor and set NRF52_SDK_ROOT with the absolute path of the Nordic nRF5 SDK root.
-Run it!
 
 ```bash
+cd vela-lab/bt_board/ble_app_vela_lab/pca10040/s132/armgcc
 ./build_script.sh
 ```
 
@@ -47,7 +45,7 @@ or
 otherwise use JLink tools to do the same
 
 
-Building the Mesh Node with OTA support
+#Building the Mesh Node with OTA support
 ========================
 If it is the first time, you might need to compile "vela-lab/network_board/external_modules/generate_metadata", so:
 
@@ -77,7 +75,7 @@ or, depending on the target board,
 Use vela_node_with_bootloader.bin and flash it with Uniflash (to download the firmware over the air OTA, see the main README)
 
 
-Building the Mesh Sink
+#Building the Mesh Sink
 ========================
 ```bash
 cd vela-lab/network_board/integrate_sender_uart
@@ -97,4 +95,13 @@ or
 ```
 
 Flash vela_sink.bin using Uniflash
+
+#Using VSCode
+========================
+All the code in this repo (the firmware for the embedded platforms and the python script that manages the gateway) can be run, flashed and debugged with VSCode IDE. This strongly ease the process since all the command line arguments are already set in tasks.json files.
+To do so just load the workspace file common/vscode_workspace/vela_vs_workspace.code-workspace. In order to work, the next extensions should be installed:
+-Cortex-Debug
+-Python
+VSCode will call the commands 'openocd' and 'arm-none-eabi-gdb', in case these two commands are not available in the environment you should add the paths to VSCode configuration files. Take a look at the documentation of the Cortex-Debug extension.
+Pay attention because some outdated versions of openocd do not support the launchpad targets, in that case search for an openocd version that supports it (look in the Texas Instruments website)
 
