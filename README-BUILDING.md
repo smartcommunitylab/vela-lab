@@ -14,7 +14,7 @@ Once done clone the repository with
 ```bash
 git clone https://github.com/smartcommunitylab/vela-lab.git
 cd vela-lab
-git ckeckout ota
+git checkout ota
 git submodule init
 git submodule update
 ```
