@@ -8,7 +8,6 @@ Building the code for the components of the Vela Lab requires some external modu
 Before building install the following prerequisite software :
 * Install the GCC ARM Embedded toolchain (tested with version 4.9.3-20150529 but is should work also with newer versions)
 * Install Python3 if it is not installed
-* Download and decompress Nordic nRF5 SDK (https://developer.nordicsemi.com/) (this must be the version 14.0.0, probably it works for version 14.x)
 * Download and install Uniflash to flash the firmware on TI devices
 
 Once done clone the repository with
