@@ -75,7 +75,8 @@ When such a sequence is detected a proximity event is generated. It is a json ob
 - end_timestamp: when the proximity event ended
 - event_timestamp: when the BLE Beacon was closest to the BLE Scanner (i.e. the timestamp of the maximum rssi) 
 The algorith that does this detection is written for Octave (Matlab) and it is launched at a given interval (PROCESS_INTERVAL) by vela-lab/gateway/dev/sink_integration/main.py.
-Results are written as json object to files (soon they will be transmitted to an MQTT broker).
+Results are written as json object by the Octave process, then the main.py loads that file and pushes the events to the Thingsboard backend interface.
+
 
 NOTE:
 Special mention is required for the OTA feature. Updating the firmware of Mesh Nodes without the debug probe is allowed through OTA process. The procedures are derived from https://marksolters.com/programming/2016/06/07/contiki-ota.html (no more accessible), sources might be here https://github.com/msolters/ota-server.
