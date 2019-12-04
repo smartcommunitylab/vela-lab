@@ -1,8 +1,16 @@
-Smart City Vela Lab
+##Smart City Vela Lab
 ========================
 
 This repository contains the code for the network devices used in the Smart City Lab located in Vela (Trento, Italy).
-When cloning remember to clone also submodules (git submodule init git submodule update)
+
+For cloning:
+```
+git clone https://github.com/smartcommunitylab/vela-lab.git
+cd vela-lab
+git checkout ota
+git submodule init
+git submodule update
+```
 
 The network components are:
 - BLE Beacons: Eddystone or CLIMB (https://github.com/smartcommunitylab/sco.climb.driverapp) proprietary beacons
@@ -43,7 +51,7 @@ The packet structure is as follow (it is not elsewhere documented): <IPV6_ADDR_1
 Since the data is coded with hex string (2 bytes are allocated for each raw byte), the maximum size for the uart packet (including all the fields) is:  SERIAL_LINE_CONF_BUFSIZE/2.
 
 The python script (vela-lab/gateway/dev/sink_integration/main.py) reads the incoming uart data and decode the packets. A basic Command Line interface is implemented, where basic informations about the WSN is displayed on top, while a console shows log messages.
-The python script is lauched by navigating to vela-lab/gateway/dev/sink_integration/ and executing "python3 main.py /dev/ttyS0 57600", where /dev/ttyS0 can be changed with the proper port, and 57600 can be changed if the baudrate of the uart is changed on the Sink.
+The python script is lauched by navigating to vela-lab/gateway/dev/sink_integration/ and executing "python3 main.py /dev/ttyS0 57600", where /dev/ttyS0 can be changed with the proper port, and 57600 can be changed if the baudrate of the uart is changed on the Sink. However a simpler way is just to launch startup.sh in the repository root. The idea is to permanently store the default launch parameters (serial interface name, baudrate) into that script.
 Once the script is launched, as soon as the data start to arrive from the WSN, the terminal interface becomes populated, by pressing h+enter the list of allowed commands is displayed.
 Some command have parameters to be set (for instance the BLE scan parameters can be set), however for now the Command Line Interface does not allow to input the parameters that are hardcoded into vela-lab/gateway/dev/sink_integration/main.py (inside USER_INPUT_THREAD)
 

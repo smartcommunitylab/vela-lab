@@ -4,5 +4,9 @@
 
 [submodule "network_board/contiki-ng"]
 	path = network_board/contiki-ng
-	url = https://dgiovane@bitbucket.org/dgiovane/contiki-ng.git
+	url = https://gitlab.fbk.eu/e3da-public/contiki-ng.git
+
+[submodule "bt_board/time_of_flight_ble"]
+	path = bt_board/time_of_flight_ble
+	url = https://dgiovane@bitbucket.org/dgiovane/time_of_flight_ble.git
 
