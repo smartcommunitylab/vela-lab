@@ -73,7 +73,8 @@ When such a sequence is detected a proximity event is generated. It is a json ob
 - rssi: the maximum RSSI registered during this event
 - start_timestamp: when the proximity event started
 - end_timestamp: when the proximity event ended
-- event_timestamp: when the BLE Beacon was closest to the BLE Scanner (i.e. the timestamp of the maximum rssi) 
+- event_timestamp: when the BLE Beacon was closest to the BLE Scanner (i.e. the timestamp of the maximum rssi)
+
 The algorith that does this detection is written for Octave (Matlab) and it is launched at a given interval (PROCESS_INTERVAL) by vela-lab/gateway/dev/sink_integration/main.py.
 Results are written as json object by the Octave process, then the main.py loads that file and pushes the events to the Thingsboard backend interface.
 
