@@ -34,12 +34,14 @@ KEYS=${KEYS:1}
 JWT_TOKEN=$(./get-token.sh | jq -r '.token')
 
 CURL_OPTIONS="--fail --silent --show-error" # -v"
-URL=http://iot.smartcommunitylab.it/api/plugins/telemetry/DEVICE/$DEVICE_ID/values/timeseries
+URL=https://iot.smartcommunitylab.it/api/plugins/telemetry/DEVICE/$DEVICE_ID/values/timeseries
 
-DATE_UNDER_ANALYSIS=$(date +%D)
-#DATE_UNDER_ANALYSIS=11/20/2019 #format mm/dd/yyyy
+DATE_UNDER_ANALYSIS=$(date +%D) #THIS IS FOR GETTING TODAY'S DATA
+#DATE_UNDER_ANALYSIS=11/27/2019  #THIS IS FOR GETTING DATA FOR A SPECIFIC DAY: format mm/dd/yyyy
+
 START_TIME=07:00:00
 END_TIME=22:55:00
+
 echo Analyzing date: ${DATE_UNDER_ANALYSIS} mm/dd/yyyy from ${START_TIME} to ${END_TIME}
 
 START_TS=$((date --date="${DATE_UNDER_ANALYSIS} ${START_TIME}" +%s%N) | cut -b1-13)
@@ -58,7 +60,7 @@ do
   #echo "evt_list: $evt_list"
   if [[ ${evt_list} != "null" ]]; then
     beaconName=$(echo "${k}" | tr -d "BID_")
-    echo "beacon: ${beaconName[0]}"
+    echo "beacon: ${beaconName[0]}, beacon key: ${k}"
     list_len=$(echo "$evt_list" | jq '. | length')
     for e_i in $(seq 0 $(($list_len-1)))
     do

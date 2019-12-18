@@ -104,7 +104,7 @@ To push the firmware on the nodes:
 
 The folders contained in this repository are used as follow:
 - gateway/: contains all the files related to the Gateway. The python script is there, but also the octave algorithm that processes the data to extract proximity events.
-- bt_board/: contains the application sources for the BLE Scanner (i.e. the Nordic board).
+- bt_board/: contains the sources for the BLE Scanner (i.e. the Nordic board).
 - network_board/: contains all the Contiki projects related to the Mesh Node and Mesh Sink. The main project is integrate_sender_uart, the others are used for testing/debugging. The folder contains also the full Contiki-NG repository (it is a forked one). Also some external modules are here (the bootloader and ota related libraries)
 - common/: contains some files used by more than a component. The uart protocol used for the communication between the Mesh Node and the BLE Scanner is here, as well as some other shared definition.
 - hardware/: contains the hardware description (connections bentween the Nordic and the TI) together with the Eagle project of the Interface Board

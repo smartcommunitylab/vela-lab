@@ -1,14 +1,13 @@
 #!/usr/bin/flatpak run org.octave.Octave -qf
 
-run_from_cmd_line=false;
+run_from_cmd_line=~(size(arg_list,1)<1 ||  strcmp(arg_list{1},"--gui"));
 arg_list = argv ();
-if size(arg_list,1)<1 ||  strcmp(arg_list{1},"--gui")
+if ~run_from_cmd_line
   #filename="vela-09082019/20190809-141430-contact.log"; #this is no more supported because the timestamp format is different
   filename="../../sink_integration/log/20191122-140928-contact.log";
   warning("Filename not provided, analyzing hardcoded filename: %s.",filename);
 else
   filename=arg_list{1};
-  run_from_cmd_line=true;
 endif
 
 

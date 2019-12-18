@@ -221,12 +221,13 @@ events_file_json="json_events.txt"
 
 PROXIMITY_DETECTOR_POLL_INTERVAL=10*60
 NETWORK_STATUS_POLL_INTERVAL_DEF=60
-ENABLE_PROCESS_OUTPUT_ON_CONSOLE=False
+ENABLE_PROCESS_OUTPUT_ON_CONSOLE=True
 
 MQTT_BROKER="iot.smartcommunitylab.it"
+#MQTT_BROKER="localhost"
 MQTT_PORT=1883
-DEVICE_TOKEN="iOn25YbEvRBN9sp6xdCd"     #vela-gateway
-#DEVICE_TOKEN="9ovXYK9SOMgcbaIrWvZ2"     #vela-gateway-test
+#DEVICE_TOKEN="iOn25YbEvRBN9sp6xdCd"     #vela-gateway
+DEVICE_TOKEN="9ovXYK9SOMgcbaIrWvZ2"     #vela-gateway-test
 TELEMETRY_TOPIC="v1/gateway/telemetry"
 CONNECT_TOPIC="v1/gateway/connect"
 
@@ -321,8 +322,16 @@ def publish_mqtt(mqtt_client, data_to_publish, topic):
 def obtain_and_send_network_status():
     try:
         net_descr=net.obtainNetworkDescriptorObject()
-        net.addPrint("[EVENT] Network status collected, pushing it to cloud with mqtt.")
-        publish_mqtt(mqtt_client, net_descr, TELEMETRY_TOPIC)
+        if len(net_descr):
+            net.addPrint("[EVENT] Network status collected, pushing it to cloud with mqtt.")
+            
+            node_names=net_descr.keys()
+            for n in node_names:
+                node_desc={}
+                node_desc[n]=net_descr[n]
+                publish_mqtt(mqtt_client, node_desc, TELEMETRY_TOPIC)
+                with open("net_stat_store.txt", "a") as f:
+                    f.write(datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S')+" "+str(node_desc)+"\n")
     except Exception:
         net.addPrint("[EVENT] Error during network status poll")
         pass
@@ -602,7 +611,7 @@ class Network(object):
                 self.addPrint("[APPLICATION] Exception during the ota for Node: 0x "+str(n.name))
                 
         if autoreboot:
-            self.addPrint("[APPLICATION] Automatically rebooting the nodes that correctly ended the OTA process in: "+str(REBOOT_DELAY)+"s")
+            self.addPrint("[APPLICATION] Automatically rebooting the nodes that correctly ended the OTA process in: "+str(REBOOT_DELAY_S)+"s")
             time.sleep(5) #just wait a bit
             for n in nodes_updated:
                 destination_ipv6_addr=int(n.name,16)
@@ -797,7 +806,7 @@ class Network(object):
             if n.online: #do not publish outdated data
                 n_descr=n.getNodeDescriptorObject()
                 n_descr_flat=flatten_json(n_descr)
-                net_descr[n.name]=[n_descr_flat]
+                net_descr[n.name]=[{'ts':int(time.time()*1000), 'values':n_descr_flat}]
 
         return net_descr
 
@@ -988,7 +997,7 @@ class Node(object):
     def getNodeDescriptorObject(self):
         desc=dict()
         with self.lock:
-            desc["name"]=self.name
+            #desc["name"]=self.name
             #desc["ts"]=int(time.time()*1000)
             desc["battery"]=self.batteryData
             desc["firmware"]=self.fw_metadata
@@ -1118,17 +1127,17 @@ class USER_INPUT_THREAD(threading.Thread):
                 #    net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_turn_bt_on_high, None),forced)
                 elif user_input == 4:
                     if ble_tof_enabled:
-                        net.addPrint("[USER_INPUT] disabling ble tof")
+                        net.addPrint("[USER_INPUT] disabling ble tof, WARNING: never really tested in vela")
                         ble_tof_enabled=False
                     else:
-                        net.addPrint("[USER_INPUT] enabling ble tof")
+                        net.addPrint("[USER_INPUT] enabling ble tof, WARNING: never really tested in vela")
                         ble_tof_enabled=True
                     
                     net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_ble_tof_enable, ble_tof_enabled.to_bytes(1, byteorder="big", signed=False)),forced)
                         
                 elif user_input == 5:
                     SCAN_INTERVAL_MS = 1500
-                    SCAN_WINDOW_MS = 1500
+                    SCAN_WINDOW_MS = 3000
                     SCAN_TIMEOUT_S = 0
                     REPORT_TIMEOUT_S = 15
 
@@ -1595,6 +1604,8 @@ try:
                         startCharErr=True
                         net.addPrint("[UART] Not a packet: "+str(rawline))
                         errorLogger.info("%s" %(str(rawline)))
+                else:   #in_waiting==0
+                    time.sleep(0.1)
 
             except Exception as e:
                 otherkindofErr=True

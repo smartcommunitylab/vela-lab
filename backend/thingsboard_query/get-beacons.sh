@@ -1,18 +1,8 @@
 #!/bin/bash
 #
 
-if [ $# == 1 ]; then
-  re='^[0-9]+$'
-  if ! [[ $1 =~ $re ]] ; then
-    echo "DEVICE_IDX is not a number!"
-    exit 1
-  fi
-  DEVICE_IDX="$1"
-else
-  DEVICE_IDX=3  #default value for DEVICE_IDX
-fi
-
 # The mapping of Device name and device id is done on the Thingsboard->Devices web interface (https://iot.smartcommunitylab.it/devices)
+# In order to add other nodes to pull contacts from please follow the pattern below
 
 i=0
 DEVICE_ID[$i]=6c5a8520-f012-11e9-b2c8-f1eafb6162c5	#NODE 1

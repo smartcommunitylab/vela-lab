@@ -19,6 +19,6 @@ DEVICE_ID="$1"
 
 JWT_TOKEN=$(./get-token.sh | jq -r '.token')
 
-TB_RESPONSE=$(curl --fail --silent --show-error -X GET --header "Content-Type:application/json" --header "X-Authorization:Bearer $JWT_TOKEN" http://iot.smartcommunitylab.it/api/plugins/telemetry/DEVICE/${DEVICE_ID}/keys/timeseries)
+TB_RESPONSE=$(curl --fail --silent --show-error -X GET --header "Content-Type:application/json" --header "X-Authorization:Bearer $JWT_TOKEN" https://iot.smartcommunitylab.it/api/plugins/telemetry/DEVICE/${DEVICE_ID}/keys/timeseries)
 
 echo ${TB_RESPONSE}
