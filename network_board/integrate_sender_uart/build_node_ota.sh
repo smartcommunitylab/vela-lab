@@ -70,7 +70,7 @@ make vela_node V=1 OTA=1 NODE=1 CONTIKI_PROJECT=vela_node $pass_through_agrs
 
 if [ $recompile_bootloader -eq 1 ]
 then
-    CONTIKI_ROOT_ABS=$(python -c "import os.path; print os.path.abspath('${CONTIKI_ROOT}')")
+    CONTIKI_ROOT_ABS=$(python -c "import os.path; print(os.path.abspath('${CONTIKI_ROOT}'))")
 
     cd ./../external_modules/bootloader/
     
