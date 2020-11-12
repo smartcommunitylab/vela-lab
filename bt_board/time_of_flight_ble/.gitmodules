@@ -1,0 +1,7 @@
+[submodule "android_studio/android-loc-app"]
+	path = android_studio/android-loc-app
+	url = https://dgiovane@bitbucket.org/dgiovane/android-loc-app.git
+[submodule "Nordic-Thingy52-FW"]
+	path = Nordic-Thingy52-FW
+	url = https://dgiovane@bitbucket.org/dgiovane/thingyfwtof.git
+
