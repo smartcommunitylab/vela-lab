@@ -93,8 +93,8 @@ srec_cat build/${TARGET}/${BOARD}/firmware-metadata.bin -binary build/${TARGET}/
 #merge projecy (metadata+app binary) with bootloader
 srec_cat ./../external_modules/bootloader/bootloader.bin -binary -crop 0x0 0x2000 0x1FFA8 0x20000 build/${TARGET}/${BOARD}/vela_node_ota.bin -binary -offset 0x2000 -crop 0x2000 0x1B000 -o build/${TARGET}/${BOARD}/vela_node_with_bootloader.bin -binary
 
-cp build/${TARGET}/${BOARD}/vela_node_ota.bin vela_node_ota.bin
-cp build/${TARGET}/${BOARD}/vela_node_ota.bin vela_node_ota #workaround to leave a copy of OTA after clean
+cp build/${TARGET}/${BOARD}/vela_node_with_bootloader.bin vela_node_with_bootloader.bin
+cp build/${TARGET}/${BOARD}/vela_node_with_bootloader.bin vela_node_with_bootloader #workaround to leave a copy of OTA after clean
 
 rm *.cc26x0-cc13x0 #remove some unused files
 
