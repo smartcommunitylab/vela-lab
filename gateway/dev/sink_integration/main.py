@@ -1,4 +1,5 @@
 import serial
+import serial_params
 import time
 import datetime
 import logging
@@ -21,19 +22,9 @@ import time
 import paho.mqtt.client as mqtt
 from itertools import chain, starmap
 
-START_CHAR = '02'
-#START_BUF = '2a2a2a'  # this is not really a buffer
-BAUD_RATE = 1000000 #57600 #921600 #1000000
-SERIAL_PORT = "/dev/ttyACM0" #"/dev/ttyACM0" #"/dev/ttyS0"
-
-if len(sys.argv)>1:
-	SERIAL_PORT=sys.argv[1]
-
-if len(sys.argv)>2:
-	BAUD_RATE=int(sys.argv[2])
-
 
 logfolderpath = os.path.dirname(os.path.realpath(__file__))+'/log/'
+
 if not os.path.exists(logfolderpath):
     try:
         os.mkdir(logfolderpath)
@@ -43,9 +34,6 @@ if not os.path.exists(logfolderpath):
         print("Can't get the access to the log folder %s." % logfolderpath)
         print("Exception: %s" % str(e))
     time.sleep(2)
-
-endchar = 0x0a
-SER_END_CHAR = endchar.to_bytes(1, byteorder='big', signed=False)
 
 SINGLE_NODE_REPORT_SIZE = 9      #must be the same as in common/inc/contraints.h
 MAX_REPORTS_PER_PACKET = 5 #must be the same as in common/inc/contraints.h
@@ -58,10 +46,9 @@ MAX_ONGOING_SEQUENCES = 10
 MAX_TRICKLE_C_VALUE = 256
 
 ser = serial.Serial()
-ser.port = SERIAL_PORT
-ser.baudrate = BAUD_RATE
-ser.timeout = 100
-TANSMIT_ONE_CHAR_AT_THE_TIME=True   #Setting this to true makes the communication from the gateway to the sink more reliable. Tested with an ad-hoc firmware. When this is removed the sink receives corrupted data much more frequently
+ser.port = serial_params.SERIAL_PORT
+ser.baudrate = serial_params.BAUD_RATE
+ser.timeout = serial_params.TIMEOUT
 #ser.inter_byte_timeout = 0.1 #not the space between stop/start condition
 
 MessageSequence = recordtype("MessageSequence","timestamp,nodeid,lastPktnum,sequenceSize,datacounter,datalist,latestTime")
@@ -204,7 +191,7 @@ firmwareChunkDownloaded_event_data=[]
 MAX_CHUNK_SIZE=256                  #must be the same as OTA_BUFFER_SIZE in ota-download.h and OTA_CHUNK_SIZE in sink_receiver.c
 CHUNK_DOWNLOAD_TIMEOUT=7
 MAX_SUBCHUNK_SIZE=128               #MAX_SUBCHUNK_SIZE should be always strictly less than MAX_CHUNK_SIZE (if a chunk doesn't get spitted problems might arise, the case is not managed)
-if TANSMIT_ONE_CHAR_AT_THE_TIME:
+if serial_params.TANSMIT_ONE_CHAR_AT_THE_TIME:
     SUBCHUNK_INTERVAL=0.1
     CHUNK_INTERVAL_ADD=0.1
 else:
@@ -1213,11 +1200,9 @@ def build_outgoing_serial_message(pkttype, ser_payload):
 
 def send_serial_msg(message):
 
-    line = message + SER_END_CHAR
+    line = message + serial_params.SER_END_CHAR
     
-    send_char_by_char=TANSMIT_ONE_CHAR_AT_THE_TIME
-
-    if send_char_by_char:
+    if serial_params.TANSMIT_ONE_CHAR_AT_THE_TIME:
         for c in line: #this makes it deadly slowly (1 byte every 2ms more or less). However during OTA this makes the transfer safer if small buffer on the sink is available
             ser.write(bytes([c]))
     else:
@@ -1345,7 +1330,7 @@ if __name__ == "__main__":
                       UARTLogger.info('[SINK] ' + str(rawline))
 
                       start = rawline[0:1].hex()
-                      if start == START_CHAR:
+                      if start == serial_params.START_CHAR:
                           if startCharErr or otherkindofErr:
                               net.processUARTError()
                               startCharErr=False
