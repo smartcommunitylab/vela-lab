@@ -17,6 +17,7 @@ import math
 import pexpect
 import json
 import traceback
+import time
 import paho.mqtt.client as mqtt
 from itertools import chain, starmap
 
@@ -36,12 +37,12 @@ logfolderpath = os.path.dirname(os.path.realpath(__file__))+'/log/'
 if not os.path.exists(logfolderpath):
     try:
         os.mkdir(logfolderpath)
-        net.addPrint("Log directory not found.")
-        net.addPrint("%s Created " % logfolderpath)
+        print("Log directory not found.")
+        print("%s Created " % logfolderpath)
     except Exception as e:
-        net.addPrint("Can't get the access to the log folder %s." % logfolderpath)
-        net.addPrint("Exception: %s" % str(e))
-
+        print("Can't get the access to the log folder %s." % logfolderpath)
+        print("Exception: %s" % str(e))
+    time.sleep(2)
 
 endchar = 0x0a
 SER_END_CHAR = endchar.to_bytes(1, byteorder='big', signed=False)
