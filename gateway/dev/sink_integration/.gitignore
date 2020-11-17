@@ -1,3 +1,5 @@
 log/
 old_logs/
 *event_store*
+__pycache__/
+net_stat_store.txt
