@@ -1,7 +1,7 @@
 """ Parameters for UART and communication protocol over this pheripheral """
 
 BAUD_RATE = 1000000 #57600 #921600 #1000000
-TIMEOUT = 100
+TIMEOUT = 10
 SERIAL_PORT = "/dev/ttyACM0" #"/dev/ttyACM0" #"/dev/ttyS0"
 
 START_CHAR = '02'

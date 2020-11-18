@@ -1,26 +1,32 @@
-import serial
+from recordtype import recordtype
+from datetime import timedelta
+from collections import deque
+import paho.mqtt.client as mqtt
+
+import communication_params as com_par
+import ota_parameters as ota_par
+import network_params as net_par
+import global_variables as g
 import serial_params
-import time
+import mqtt_utils
 import datetime
 import logging
-from recordtype import recordtype
-from enum import IntEnum, unique
-from datetime import timedelta
-import readchar
-import os
-import sys
+import serial
+import utils
+import time
+
 import threading
-from collections import deque
-import shutil
+import traceback
+import readchar
 import binascii
+import pexpect
+import shutil
 import struct
 import math
-import pexpect
 import json
-import traceback
 import time
-import paho.mqtt.client as mqtt
-from itertools import chain, starmap
+import sys
+import os
 
 
 logfolderpath = os.path.dirname(os.path.realpath(__file__))+'/log/'
@@ -35,15 +41,11 @@ if not os.path.exists(logfolderpath):
         print("Exception: %s" % str(e))
     time.sleep(2)
 
-SINGLE_NODE_REPORT_SIZE = 9      #must be the same as in common/inc/contraints.h
-MAX_REPORTS_PER_PACKET = 5 #must be the same as in common/inc/contraints.h
-MAX_PACKET_PAYLOAD = SINGLE_NODE_REPORT_SIZE*MAX_REPORTS_PER_PACKET
+ #must be the same as in common/inc/contraints.h
 
 MAX_BEACONS = 100
 
 MAX_ONGOING_SEQUENCES = 10
-
-MAX_TRICKLE_C_VALUE = 256
 
 ser = serial.Serial()
 ser.port = serial_params.SERIAL_PORT
@@ -51,19 +53,11 @@ ser.baudrate = serial_params.BAUD_RATE
 ser.timeout = serial_params.TIMEOUT
 #ser.inter_byte_timeout = 0.1 #not the space between stop/start condition
 
-MessageSequence = recordtype("MessageSequence","timestamp,nodeid,lastPktnum,sequenceSize,datacounter,datalist,latestTime")
-messageSequenceList = []
-ContactData = recordtype("ContactData", "nodeid lastRSSI maxRSSI pktCounter")
-
 firstMessageInSeq = False
-
-NodeDropInfo = recordtype("NodeDropInfo", "nodeid, lastpkt")
-nodeDropInfoList = []
 
 ActiveNodes = []
 
 deliverCounter = 0
-dropCounter = 0
 headerDropCounter = 0
 defragmentationCounter = 0
 
@@ -80,16 +74,9 @@ btPreviousTime = 0
 btToggleInterval = 1800
 btToggleBool = True
 
-NODE_TIMEOUT_S = 60*10
-NETWORK_PERIODIC_CHECK_INTERVAL = 2
-CLEAR_CONSOLE = False #True
-
 # Loggers
 printVerbosity = 10
-
 LOG_LEVEL = logging.DEBUG
-
-
 
 def initialize_log():
     global filenameConsoleLog
@@ -188,7 +175,6 @@ initialize_log()
 firmwareChunkDownloaded_event=threading.Event()
 firmwareChunkDownloaded_event_data=[]
 
-MAX_CHUNK_SIZE=256                  #must be the same as OTA_BUFFER_SIZE in ota-download.h and OTA_CHUNK_SIZE in sink_receiver.c
 CHUNK_DOWNLOAD_TIMEOUT=7
 MAX_SUBCHUNK_SIZE=128               #MAX_SUBCHUNK_SIZE should be always strictly less than MAX_CHUNK_SIZE (if a chunk doesn't get spitted problems might arise, the case is not managed)
 if serial_params.TANSMIT_ONE_CHAR_AT_THE_TIME:
@@ -198,7 +184,6 @@ else:
     SUBCHUNK_INTERVAL=0.02 #with 0.1 it is stable, less who knows? 0.03 -> no error in 3 ota downloads. 0.02 no apparten problem...
     CHUNK_INTERVAL_ADD=0.01
 
-REBOOT_INTERVAL=0.5
 
 octave_files_folder="../data_plotting/matlab_version" #./
 contact_log_file_folder=logfolderpath #./
@@ -211,65 +196,23 @@ PROXIMITY_DETECTOR_POLL_INTERVAL=10*60
 NETWORK_STATUS_POLL_INTERVAL_DEF=60
 ENABLE_PROCESS_OUTPUT_ON_CONSOLE=True
 
-MQTT_BROKER="iot.smartcommunitylab.it"
-# MQTT_BROKER="localhost"
-MQTT_PORT=1883
-#DEVICE_TOKEN="iOn25YbEvRBN9sp6xdCd"     #vela-gateway
-# DEVICE_TOKEN="9ovXYK9SOMgcbaIrWvZ2"     #vela-gateway-test
-DEVICE_TOKEN="Xk5yuRNrGlcFHoWhC3AW"     #gm-gateway-test
-
 TELEMETRY_TOPIC="v1/gateway/telemetry"
-CONNECT_TOPIC="v1/gateway/connect"
-
-def flatten_json(dictionary):
-    """Flatten a nested json file"""
-
-    def unpack(parent_key, parent_value):
-        """Unpack one level of nesting in json file"""
-        # Unpack one level only!!!
-        
-        if isinstance(parent_value, dict):
-            for key, value in parent_value.items():
-                temp1 = parent_key + '_' + key
-                yield temp1, value
-        elif isinstance(parent_value, list):
-            i = 0 
-            for value in parent_value:
-                temp2 = parent_key + '_'+str(i) 
-                i += 1
-                yield temp2, value
-        else:
-            yield parent_key, parent_value    
-
-            
-    # Keep iterating until the termination condition is satisfied
-    while True:
-        # Keep unpacking the json file until all values are atomic elements (not dictionary or list)
-        dictionary = dict(chain.from_iterable(starmap(unpack, dictionary.items())))
-        # Terminate condition: not any value in the json file is dictionary or list
-        if not any(isinstance(value, dict) for value in dictionary.values()) and \
-           not any(isinstance(value, list) for value in dictionary.values()):
-            break
-
-    return dictionary
 
 def on_publish_cb(client, data, result):
     net.addPrint("[MQTT] on_publish_cb. data: "+str(data)+", result: "+str(result))
 
 def on_disconnect_cb(client, userdata, result):
-    global mqtt_connected
     net.addPrint("[MQTT] on_disconnect. result: "+str(result))
 
-    mqtt_connected=False
+    g.mqtt_connected=False
 
 def on_connect_cb(client, userdata, flags, rc):
-    global mqtt_connected
     net.addPrint("[MQTT] on_connect. result code: "+str(rc))
 
     if rc==0:
-        mqtt_connected=True
+        g.mqtt_connected=True
     else:
-        mqtt_connected=False
+        g.mqtt_connected=False
 
     #client.subscribe() #in case data needs to be received, subscribe here
 
@@ -285,14 +228,12 @@ def connect_mqtt():
     client.on_disconnect=on_disconnect_cb
     client.on_message=on_message_cb
 
-    client.username_pw_set(DEVICE_TOKEN, password=None)
-    client.connect(MQTT_BROKER,MQTT_PORT)
+    client.username_pw_set(mqtt_utils.DEVICE_TOKEN, password=None)
+    client.connect(mqtt_utils.MQTT_BROKER,mqtt_utils.MQTT_PORT)
     
     return client
 
 def publish_mqtt(mqtt_client, data_to_publish, topic):
-    global mqtt_connected
-
     if mqtt_client==None:
         net.addPrint("[MQTT] Not yet connected, cannot publish "+str(data_to_publish))
     
@@ -318,7 +259,7 @@ def obtain_and_send_network_status():
             for n in node_names:
                 node_desc={}
                 node_desc[n]=net_descr[n]
-                publish_mqtt(mqtt_client, node_desc, TELEMETRY_TOPIC)
+                publish_mqtt(g.mqtt_client, node_desc, TELEMETRY_TOPIC)
                 with open("net_stat_store.txt", "a") as f:
                     f.write(datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S')+" "+str(node_desc)+"\n")
     except Exception:
@@ -333,8 +274,6 @@ class NETWORK_STATUS_POLL_THREAD(threading.Thread):
         self.__loop=True
 
     def run(self):
-        global mqtt_connected
-        global mqtt_client
         global network_status_poll_interval
 
         network_status_poll_interval=NETWORK_STATUS_POLL_INTERVAL_DEF
@@ -361,10 +300,6 @@ class PROXIMITY_DETECTOR_POLL_THREAD(threading.Thread):
 
 
     def run(self):
-        global mqtt_connected
-        global mqtt_client
-        global dummy_c
-
         while self.__loop:
             time.sleep(PROXIMITY_DETECTOR_POLL_INTERVAL)
             start_poximity_detection()
@@ -407,13 +342,11 @@ class PROXIMITY_DETECTOR_THREAD(threading.Thread):
             return
 
     def on_events(self,evts):
-        global mqtt_client
-
         t_string=datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S')
         with open("proximity_event_store.txt", "a") as f:
             f.write(t_string+" "+str(evts)+"\n")
 
-        publish_mqtt(mqtt_client, evts, TELEMETRY_TOPIC)      
+        publish_mqtt(g.mqtt_client, evts, TELEMETRY_TOPIC)      
 
     def run(self):
         
@@ -456,12 +389,12 @@ class Network(object):
 
     def __init__(self):
         self.__nodes = []
-        threading.Timer(NETWORK_PERIODIC_CHECK_INTERVAL,self.__periodicNetworkCheck).start()
+        threading.Timer(net_par.NETWORK_PERIODIC_CHECK_INTERVAL,self.__periodicNetworkCheck).start()
         self.__consoleBuffer = deque()
         self.console_queue_lock = threading.Lock()
         self.__lastNetworkPrint=float(time.time())
         self.__netMaxTrickle=0
-        self.__netMinTrickle=MAX_TRICKLE_C_VALUE
+        self.__netMinTrickle=net_par.MAX_TRICKLE_C_VALUE
         self.__expTrickle=0
         self.__uartLogLines=0
         self.__trickleQueue = deque()
@@ -471,19 +404,16 @@ class Network(object):
         for n in self.__nodes:
             if n.name == label:
                 return n
-
         return None
 
     def addNode(self,n):
-        global mqtt_client
-
         self.__nodes.append(n)
         if len(self.__nodes) == 1:
             self.__expTrickle=n.lastTrickleCount
 
         #notify thingsboard that a new node has join the network
         connect_data={"device":n.name}
-        publish_mqtt(mqtt_client, connect_data, CONNECT_TOPIC)
+        publish_mqtt(g.mqtt_client, connect_data, mqtt_utils.CONNECT_TOPIC)
 
     def removeNode(self,label):
         n = self.getNode(label)
@@ -500,9 +430,9 @@ class Network(object):
             if n==self.__nodes[0]:
                 self.__netMaxTrickle = n.lastTrickleCount
                 self.__netMinTrickle = n.lastTrickleCount
-            if n.lastTrickleCount > self.__netMaxTrickle or ( n.lastTrickleCount == 0 and self.__netMaxTrickle>=(MAX_TRICKLE_C_VALUE-1) ):
+            if n.lastTrickleCount > self.__netMaxTrickle or ( n.lastTrickleCount == 0 and self.__netMaxTrickle>=(net_par.MAX_TRICKLE_C_VALUE-1) ):
                 self.__netMaxTrickle = n.lastTrickleCount
-            if n.lastTrickleCount < self.__netMinTrickle or ( n.lastTrickleCount >= (MAX_TRICKLE_C_VALUE-1) and self.__netMinTrickle==0 ):
+            if n.lastTrickleCount < self.__netMinTrickle or ( n.lastTrickleCount >= (net_par.MAX_TRICKLE_C_VALUE-1) and self.__netMinTrickle==0 ):
                 self.__netMinTrickle = n.lastTrickleCount #todo: it seems that this does't work. The __netMinTrickle goes up before all the nodes have sent their new values, sometimes it is __netMaxTrickle that doesn't update as soon the first new value arrives..
 
         if self.__netMinTrickle == self.__netMaxTrickle and self.__netMaxTrickle == self.__expTrickle:
@@ -515,7 +445,7 @@ class Network(object):
         for n in self.__nodes:
             destination_ipv6_addr=int(n.name,16)
             self.rebootNode(destination_ipv6_addr,reboot_delay_ms)
-            time.sleep(REBOOT_INTERVAL)
+            time.sleep(net_par.REBOOT_INTERVAL)
 
     def rebootNode(self,destination_ipv6_addr,reboot_delay_ms):
 
@@ -523,26 +453,21 @@ class Network(object):
         payload = breboot_delay_ms
 
         if destination_ipv6_addr!=None:
-            self.sendNewRipple(destination_ipv6_addr,build_outgoing_serial_message(PacketType.ota_reboot_node, payload))
+            self.sendNewRipple(destination_ipv6_addr,build_outgoing_serial_message(com_par.PacketType.ota_reboot_node, payload))
         else:
-            self.sendNewTrickle(build_outgoing_serial_message(PacketType.ota_reboot_node, payload),True)    #by default ingore any ongoing trickle queue and force the reboot
+            self.sendNewTrickle(build_outgoing_serial_message(com_par.PacketType.ota_reboot_node, payload),True)    #by default ingore any ongoing trickle queue and force the reboot
             
-
     def startFirmwareUpdate(self,autoreboot=True):
-        REBOOT_DELAY_S=20
         nodes_updated=[]
-        MAX_OTA_ATTEMPTS=100
 
         node_firmware=None
-        firmware_filename="./../../../network_board/integrate_sender_uart/vela_node_ota"
         try:        
-            with open(firmware_filename, "rb") as f:
+            with open(ota_par.FIRMWARE_FILENAME, "rb") as f:
                 node_firmware = f.read()
 
             if node_firmware!=None:
-                self.addPrint("[APPLICATION] Firmware binary: "+firmware_filename+" loaded. Size: "+str(len(node_firmware)))
-                METADATA_LENGTH=14
-                metadata_raw=node_firmware[0:METADATA_LENGTH]
+                self.addPrint("[APPLICATION] Firmware binary: "+ota_par.FIRMWARE_FILENAME+" loaded. Size: "+str(len(node_firmware)))
+                metadata_raw=node_firmware[0:ota_par.METADATA_LENGTH]
 
                 fw_metadata_crc_int = int.from_bytes(metadata_raw[0:2], byteorder="little", signed=False)
                 fw_metadata_crc_shadow_int = int.from_bytes(metadata_raw[2:4], byteorder="little", signed=False)
@@ -574,7 +499,7 @@ class Network(object):
                 return
 
         except OSError:
-            self.addPrint("[APPLICATION] Exception during firmware file read (check if the file "+firmware_filename+" is there)")
+            self.addPrint("[APPLICATION] Exception during firmware file read (check if the file "+ota_par.FIRMWARE_FILENAME+" is there)")
             return
 
         for n in self.__nodes:
@@ -585,11 +510,11 @@ class Network(object):
                     self.addPrint("[APPLICATION] Starting firmware update on node: 0x " +str(n.name))
 
                     #self.sendFirmware(destination_ipv6_addr,node_firmware)
-                    while(self.sendFirmware(destination_ipv6_addr,node_firmware) != 0 and attempts<MAX_OTA_ATTEMPTS):
+                    while(self.sendFirmware(destination_ipv6_addr,node_firmware) != 0 and attempts<ota_par.MAX_OTA_ATTEMPTS):
                         self.addPrint("[APPLICATION] Retrying firmware update on node: 0x " +str(n.name))
                         attempts+=1
 
-                    if attempts<MAX_OTA_ATTEMPTS:
+                    if attempts<ota_par.MAX_OTA_ATTEMPTS:
                         nodes_updated.append(n)
                 else:
                     self.addPrint("[APPLICATION] Node: 0x "+str(n.name)+" is already up to date.")
@@ -597,36 +522,34 @@ class Network(object):
                 self.addPrint("[APPLICATION] Exception during the ota for Node: 0x "+str(n.name))
                 
         if autoreboot:
-            self.addPrint("[APPLICATION] Automatically rebooting the nodes that correctly ended the OTA process in: "+str(REBOOT_DELAY_S)+"s")
+            self.addPrint("[APPLICATION] Automatically rebooting the nodes that correctly ended the OTA process in: "+str(ota_par.REBOOT_DELAY_S)+"s")
             time.sleep(5) #just wait a bit
             for n in nodes_updated:
                 destination_ipv6_addr=int(n.name,16)
-                self.rebootNode(destination_ipv6_addr,REBOOT_DELAY_S*1000) #Once the reboot command is received by the node, it will start a timer that reboot the node in REBOOT_DELAY
-                time.sleep(REBOOT_INTERVAL)
+                self.rebootNode(destination_ipv6_addr,ota_par.REBOOT_DELAY_S*1000) #Once the reboot command is received by the node, it will start a timer that reboot the node in REBOOT_DELAY
+                time.sleep(net_par.REBOOT_INTERVAL)
             
 
     def sendFirmware(self, destination_ipv6_addr, firmware):
-        global NO_OF_CHUNKS_IN_THE_FIRMWARE
-        MAX_OTA_TIMEOUT_COUNT=100
         EXPECT_ACK_FOR_THE_LAST_PACKET=True #in some cases the CRC check performed with the arrival of the last packet causes the node to crash because of stack overflow. In that case, the last ack won't be received, and if we don't manage this the GW consider the OTA process aborted because of timeout and repeat it.
         #Then when the memory overflow happens we can set the flag EXPECT_ACK_FOR_THE_LAST_PACKET to false so that the OTA process goes on for the rest of the network.
 
 
         firmwaresize=len(firmware)
-        NO_OF_CHUNKS_IN_THE_FIRMWARE=math.ceil(firmwaresize/MAX_CHUNK_SIZE)
+        g.n_chunks_in_firmware=math.ceil(firmwaresize/ota_par.MAX_CHUNK_SIZE)
 
         offset=0
         chunk_no=1
         chunk_timeout_count=0
         lastCorrectChunkReceived=1 #might it be 0?
 
-        while offset<firmwaresize and chunk_timeout_count<MAX_OTA_TIMEOUT_COUNT:
-            if offset+MAX_CHUNK_SIZE<firmwaresize:
-                chunk=firmware[offset:offset+MAX_CHUNK_SIZE]
+        while offset<firmwaresize and chunk_timeout_count<ota_par.MAX_OTA_TIMEOUT_COUNT:
+            if offset+ota_par.MAX_CHUNK_SIZE<firmwaresize:
+                chunk=firmware[offset:offset+ota_par.MAX_CHUNK_SIZE]
             else:
                 chunk=firmware[offset:]
 
-            self.addPrint("[DEBUG] sending firmware chunk number: "+str(chunk_no) + "/"+str(NO_OF_CHUNKS_IN_THE_FIRMWARE)+" - "+str((int((offset+MAX_CHUNK_SIZE)*10000/firmwaresize))/100)+"%")
+            self.addPrint("[DEBUG] sending firmware chunk number: "+str(chunk_no) + "/"+str(g.n_chunks_in_firmware)+" - "+str((int((offset+ota_par.MAX_CHUNK_SIZE)*10000/firmwaresize))/100)+"%")
             
             chunksize=len(chunk)
             self.sendFirmwareChunk(destination_ipv6_addr,chunk,chunk_no)
@@ -643,7 +566,7 @@ class Network(object):
                 firmwareChunkDownloaded_event.clear()
                 time.sleep(CHUNK_INTERVAL_ADD)
 
-                if chunk_no != NO_OF_CHUNKS_IN_THE_FIRMWARE: #not the last chunk
+                if chunk_no != g.n_chunks_in_firmware: #not the last chunk
                     zero=0
                     chunk_no_b=chunk_no%256
                     ackok=chunk_no_b.to_bytes(1, byteorder="big", signed=False)+zero.to_bytes(1, byteorder="big", signed=True)
@@ -662,7 +585,7 @@ class Network(object):
 
                     chunk_no=lastCorrectChunkReceived + 1
                     #self.addPrint("[DEBUG] I'll send chunk_no: "+str(chunk_no)+" in a moment")
-                    offset=(chunk_no-1)*MAX_CHUNK_SIZE
+                    offset=(chunk_no-1)*ota_par.MAX_CHUNK_SIZE
                 else:
                     zero=0
                     one=1
@@ -671,25 +594,24 @@ class Network(object):
                     ackok_alt=chunk_no_b.to_bytes(1, byteorder="big", signed=False)+one.to_bytes(1, byteorder="big", signed=True) #crc ok, but there was memory overflow during CRC verification. The firmware will be vefiried on the next reboot
                     if firmwareChunkDownloaded_event_data==ackok:
                         chunk_no+=1
-                        offset=(chunk_no-1)*MAX_CHUNK_SIZE
+                        offset=(chunk_no-1)*ota_par.MAX_CHUNK_SIZE
                         return 0 #OTA update correctly closed
                     elif firmwareChunkDownloaded_event_data==ackok_alt:
                         self.addPrint("[OTA] CRC ok but not written on the node...")
                         chunk_no+=1
-                        offset=(chunk_no-1)*MAX_CHUNK_SIZE
+                        offset=(chunk_no-1)*ota_par.MAX_CHUNK_SIZE
                         return 0 #OTA update correctly closed even if a memory overflow happened on the node during CRC verification. The firmware will be vefiried on the next reboot
                     else:
                         self.addPrint("[OTA] CRC error at the node...")
                         return 1 #crc error at the node
             else:
-                if chunk_no == NO_OF_CHUNKS_IN_THE_FIRMWARE and not EXPECT_ACK_FOR_THE_LAST_PACKET: #the last packet
+                if chunk_no == g.n_chunks_in_firmware and not EXPECT_ACK_FOR_THE_LAST_PACKET: #the last packet
                     return 0 #OTA update correctly closed
                 chunk_timeout_count+=1
                 self.addPrint("[DEBUG] Chunk number "+str(chunk_no)+" ack timeout, retry!")
 
 
     def sendFirmwareChunk(self, destination_ipv6_addr, chunk,chunk_no):
-        global NO_OF_CHUNKS_IN_THE_FIRMWARE
         global NO_OF_SUB_CHUNKS_IN_THIS_CHUNK
 
         chunksize=len(chunk)
@@ -713,19 +635,18 @@ class Network(object):
                 time.sleep(SUBCHUNK_INTERVAL)
 
     def sendFirmwareSubChunk(self, destination_ipv6_addr, sub_chunk, chunk_no, sub_chunk_no):
-        global NO_OF_CHUNKS_IN_THE_FIRMWARE
         global NO_OF_SUB_CHUNKS_IN_THIS_CHUNK
         
         if chunk_no==1 and sub_chunk_no==1:
-            packetType=PacketType.ota_start_of_firmware   #start of firmware
+            packetType=com_par.PacketType.ota_start_of_firmware   #start of firmware
             self.addPrint("[DEBUG] PacketType start of firmware")
             self.addPrint("[DEBUG] Subchunk size: " +str(len(sub_chunk)))
            
-        elif chunk_no==NO_OF_CHUNKS_IN_THE_FIRMWARE and sub_chunk_no==NO_OF_SUB_CHUNKS_IN_THIS_CHUNK:
-            packetType=PacketType.ota_end_of_firmware   #end of firmware
+        elif chunk_no==g.n_chunks_in_firmware and sub_chunk_no==NO_OF_SUB_CHUNKS_IN_THIS_CHUNK:
+            packetType=com_par.PacketType.ota_end_of_firmware   #end of firmware
             self.addPrint("[DEBUG] PacketType end of firmware")
         else:
-            packetType=PacketType.ota_more_of_firmware   #all other packets
+            packetType=com_par.PacketType.ota_more_of_firmware   #all other packets
 
         chunk_no_8b=chunk_no%256
         sub_chunk_no_8b=sub_chunk_no%256
@@ -761,7 +682,7 @@ class Network(object):
             net.addPrint("[APPLICATION] Trickle message: 0x {0} force send".format((message).hex()))
         else:
             if self.__trickleCheck():
-                self.__expTrickle = (self.__netMaxTrickle + 1)%MAX_TRICKLE_C_VALUE
+                self.__expTrickle = (self.__netMaxTrickle + 1)%net_par.MAX_TRICKLE_C_VALUE
                 send_serial_msg(message)
                 net.addPrint("[APPLICATION] Trickle message: 0x {0} sent".format((message).hex()))
             else:
@@ -770,10 +691,10 @@ class Network(object):
 
 
     def __periodicNetworkCheck(self):
-        threading.Timer(NETWORK_PERIODIC_CHECK_INTERVAL,self.__periodicNetworkCheck).start()
+        threading.Timer(net_par.NETWORK_PERIODIC_CHECK_INTERVAL,self.__periodicNetworkCheck).start()
         nodes_removed = False;
         for n in self.__nodes:
-            if n.getLastMessageElapsedTime() > NODE_TIMEOUT_S and n.online:
+            if n.getLastMessageElapsedTime() > net_par.NODE_TIMEOUT_S and n.online:
                 if printVerbosity > 2:
                     self.addPrint("[APPLICATION] Node "+ n.name +" timed out. Elasped time: %.2f" %n.getLastMessageElapsedTime() +" Removing it from the network.")
                 #self.removeNode(n)
@@ -791,7 +712,7 @@ class Network(object):
         for n in self.__nodes:
             if n.online: #do not publish outdated data
                 n_descr=n.getNodeDescriptorObject()
-                n_descr_flat=flatten_json(n_descr)
+                n_descr_flat=utils.flatten_json(n_descr)
                 net_descr[n.name]=[{'ts':int(time.time()*1000), 'values':n_descr_flat}]
 
         return net_descr
@@ -805,7 +726,7 @@ class Network(object):
 
         netSize = len(self.__nodes)
 
-        if CLEAR_CONSOLE:
+        if net_par.CLEAR_CONSOLE:
             cls()
 
 
@@ -851,7 +772,7 @@ class Network(object):
             for l in self.__consoleBuffer:
                 print(l)
 
-        if not CLEAR_CONSOLE:
+        if not net_par.CLEAR_CONSOLE:
             empty_lines_no=availableLines-len(self.__consoleBuffer)-1
             if(empty_lines_no>0):
                 empty_lines='\n'*empty_lines_no
@@ -877,7 +798,7 @@ class Network(object):
         
         if len(self.__trickleQueue) != 0:
             if self.__trickleCheck():
-                self.__expTrickle = (self.__netMaxTrickle + 1)%MAX_TRICKLE_C_VALUE
+                self.__expTrickle = (self.__netMaxTrickle + 1)%net_par.MAX_TRICKLE_C_VALUE
                 message=self.__trickleQueue.popleft()
                 send_serial_msg(message)
                 self.addPrint("[APPLICATION] Trickle message: 0x {0} automatically sent".format((message).hex()))
@@ -916,8 +837,6 @@ class Network(object):
                 self.__consoleBuffer.append(text)
 
         self.printNetworkStatus()
-        #for l in self.__consoleBuffer:
-        #    print(l)
 
     def resetCounters(self):
         for n in self.__nodes:
@@ -1004,37 +923,6 @@ class Node(object):
         else:
             print("| %3s |                                       |  %6.0f |          |   %3d | %6d |                                                      |" % (str(self.name[-6:]), self.getLastMessageElapsedTime(), self.lastTrickleCount, self.amountOfBTReports))
         
-@unique
-class PacketType(IntEnum):
-    ota_start_of_firmware =         0x0020  # OTA start of firmware (sink to node)
-    ota_more_of_firmware =          0x0021  # OTA more of firmware (sink to node)
-    ota_end_of_firmware =           0x0022  # OTA end of firmware (sink to node)
-    ota_ack =                       0x0023  # OTA firmware packet ack (node to sink)
-    ota_reboot_node =               0x0024  # OTA reboot (node to sink)
-    network_new_sequence =          0x0100
-    network_active_sequence =       0x0101
-    network_last_sequence =         0x0102
-    network_bat_data =              0x0200  #deprecated (merged with keepalive)
-    network_set_time_between_send = 0x0601
-    network_request_ping =          0xF000
-    network_respond_ping =          0xF001
-    network_keep_alive =            0xF010
-    nordic_turn_bt_off =            0xF020
-    nordic_turn_bt_on =             0xF021
-    nordic_turn_bt_on_w_params =    0xF022
-    nordic_turn_bt_on_low =         0xF023  #deprecated
-    nordic_turn_bt_on_def =         0xF024
-    nordic_turn_bt_on_high =        0xF025  #deprecated
-    ti_set_batt_info_int =          0xF026 #deprecated (merged with keepalive)
-    nordic_reset =                  0xF027
-    nordic_ble_tof_enable =         0xF030
-    ti_set_keep_alive =             0xF801
-    #debug_1 =                       0xFFF1  #debug!
-    #debug_2 =                       0xFFF2  #debug!
-    #debug_3 =                       0xFFF3  #debug!
-    #debug_4 =                       0xFFF4  #debug!
-    #debug_5 =                       0xFFF5  #debug!
-
 def cls():
     os.system('cls' if os.name=='nt' else 'clear')
 
@@ -1093,13 +981,13 @@ class USER_INPUT_THREAD(threading.Thread):
                 if user_input == 1:
                     payload = 233
                     net.addPrint("[USER_INPUT] Ping request")
-                    net.sendNewTrickle(build_outgoing_serial_message(PacketType.network_request_ping, payload.to_bytes(1, byteorder="big", signed=False)),forced)
+                    net.sendNewTrickle(build_outgoing_serial_message(com_par.PacketType.network_request_ping, payload.to_bytes(1, byteorder="big", signed=False)),forced)
                 elif user_input == 2:
                     net.addPrint("[USER_INPUT] Turn bluetooth on")
-                    net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_turn_bt_on, None),forced)
+                    net.sendNewTrickle(build_outgoing_serial_message(com_par.PacketType.nordic_turn_bt_on, None),forced)
                 elif user_input == 3:
                     net.addPrint("[USER_INPUT] Turn bluetooth off")
-                    net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_turn_bt_off, None),forced)
+                    net.sendNewTrickle(build_outgoing_serial_message(com_par.PacketType.nordic_turn_bt_off, None),forced)
                 #elif user_input == 4:
                 #    net.addPrint("Turning bt on low")
                 #    appLogger.debug("[SENDING] Enable Bluetooth LOW")
@@ -1119,7 +1007,7 @@ class USER_INPUT_THREAD(threading.Thread):
                         net.addPrint("[USER_INPUT] enabling ble tof, WARNING: never really tested in vela")
                         ble_tof_enabled=True
                     
-                    net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_ble_tof_enable, ble_tof_enabled.to_bytes(1, byteorder="big", signed=False)),forced)
+                    net.sendNewTrickle(build_outgoing_serial_message(com_par.PacketType.nordic_ble_tof_enable, ble_tof_enabled.to_bytes(1, byteorder="big", signed=False)),forced)
                         
                 elif user_input == 5:
                     SCAN_INTERVAL_MS = 1500
@@ -1139,7 +1027,7 @@ class USER_INPUT_THREAD(threading.Thread):
                     breport_timeout_ms = report_timeout_ms.to_bytes(4, byteorder="big", signed=False)
                     payload = bactive_scan + bscan_interval + bscan_window + btimeout + breport_timeout_ms
                     net.addPrint("[USER_INPUT] Turn bluetooth on with parameters: scan_int="+str(SCAN_INTERVAL_MS)+"ms, scan_win="+str(SCAN_WINDOW_MS)+"ms, timeout="+str(SCAN_TIMEOUT_S)+"s, report_int="+str(REPORT_TIMEOUT_S)+"s")
-                    net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_turn_bt_on_w_params, payload),forced)
+                    net.sendNewTrickle(build_outgoing_serial_message(com_par.PacketType.nordic_turn_bt_on_w_params, payload),forced)
                 elif user_input == 6:
                     net.addPrint("[USER_INPUT] Deprecated command, ignored!")
                     #bat_info_interval_s = 90
@@ -1152,16 +1040,16 @@ class USER_INPUT_THREAD(threading.Thread):
                     #net.sendNewTrickle(build_outgoing_serial_message(PacketType.ti_set_batt_info_int, bat_info_interval_s.to_bytes(1, byteorder="big", signed=False)),forced)
                 elif user_input == 8:
                     net.addPrint("[USER_INPUT] Reset nordic")
-                    net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_reset, None),forced)
+                    net.sendNewTrickle(build_outgoing_serial_message(com_par.PacketType.nordic_reset, None),forced)
                 elif user_input == 9:
                     time_between_send_ms = 1500
                     time_between_send = time_between_send_ms.to_bytes(2, byteorder="big", signed=False)
                     net.addPrint("[USER_INPUT] Set time between sends to "+ str(time_between_send_ms) + "ms")
-                    net.sendNewTrickle(build_outgoing_serial_message(PacketType.network_set_time_between_send, time_between_send),forced)
+                    net.sendNewTrickle(build_outgoing_serial_message(com_par.PacketType.network_set_time_between_send, time_between_send),forced)
                 elif user_input > 9:
                     interval = user_input
                     net.addPrint("[USER_INPUT] Set keep alive interval to "+ str(interval) + "s")
-                    net.sendNewTrickle(build_outgoing_serial_message(PacketType.ti_set_keep_alive, interval.to_bytes(1, byteorder="big", signed=False)),forced)
+                    net.sendNewTrickle(build_outgoing_serial_message(com_par.PacketType.ti_set_keep_alive, interval.to_bytes(1, byteorder="big", signed=False)),forced)
                     network_status_poll_interval=interval
             except Exception as e:
                 net.addPrint("[USER_INPUT] Read failed. Read data: "+ input_str)
@@ -1211,36 +1099,8 @@ def send_serial_msg(message):
     ser.flush()
     UARTLogger.info('[GATEWAY] ' + str(line))
 
-def decode_payload(payload, seqid, size, packettype, pktnum): #TODO: packettype can be removed
-    cur=0
-    try:
-        for x in range(round(size / SINGLE_NODE_REPORT_SIZE)):
-            nid = int(payload[cur:cur+12], 16) #int(ser.read(6).hex(), 16)
-            cur=cur+12
-            lastrssi = int(payload[cur:cur+2], 16) #int(ser.read(1).hex(), 16)
-            cur=cur+2
-            maxrssi = int(payload[cur:cur+2], 16) #int(ser.read(1).hex(), 16)
-            cur=cur+2
-            pktcounter = int(payload[cur:cur+2], 16) #int(ser.read(1).hex(), 16)
-            cur=cur+2
-            #net.addPrint("id = {:012X}".format(nid, 8))
-            contact = ContactData(nid, lastrssi, maxrssi, pktcounter)
-            messageSequenceList[seqid].datalist.append(contact)
-            messageSequenceList[seqid].datacounter += SINGLE_NODE_REPORT_SIZE
-            #raw_data += "{:012X}".format(nid, 8) + '{:02X}'.format(lastrssi) + '{:02X}'.format(maxrssi) + '{:02X}'.format(pktcounter)
-
-    except ValueError:
-        net.addPrint("[Node {0}] Requested to decode more bytes than available. Requested: {1}"
-                          .format(messageSequenceList[seqid].nodeid, size))
-        #appLogger.warning("[Node {0}] Requested to decode more bytes than available. Requested: {1}"
-        #                  .format(messageSequenceList[seqid].nodeid, size))
-    finally:
-        #dataLogger.info(raw_data)
-        return
-
-
 def log_contact_data(seqid):
-    seq = messageSequenceList[seqid]
+    seq = g.messageSequenceList[seqid]
     timestamp = seq.timestamp
     source = seq.nodeid
     logstring = "{0} Node {1} ".format(timestamp, source)
@@ -1249,54 +1109,31 @@ def log_contact_data(seqid):
 
     contactLogger.info(logstring)
 
-def get_sequence_index(nodeid):
-    for x in range(len(messageSequenceList)):
-        if messageSequenceList[x].nodeid == nodeid:
-            return x
-    return -1
-
-
-def check_for_packetdrop(nodeid, pktnum):
-    if pktnum == 0:
-        return
-    for x in range(len(nodeDropInfoList)):
-        if nodeDropInfoList[x].nodeid == nodeid:
-            global dropCounter
-            dropCounter += pktnum - nodeDropInfoList[x].lastpkt - 1
-            #appLogger.debug("[Node {0}] Dropped {1} packet(s). Latest packet: {2}, new packet: {3}"
-            #                .format(nodeid, pktnum - nodeDropInfoList[x].lastpkt - 1, nodeDropInfoList[x].lastpkt,
-            #                         pktnum))
-            return
-    nodeDropInfoList.append(NodeDropInfo(nodeid, pktnum))
-
 def to_byte(hex_text):
     return binascii.unhexlify(hex_text)
 
 if __name__ == "__main__":
   net = Network()
   net.addPrint("[APPLICATION] Starting...")
-  mqtt_client=None
-  mqtt_connected=False
-  while mqtt_client==None:
-      try:
-          mqtt_client=connect_mqtt()
-      except Exception:
-          net.addPrint("[MQTT] Not connected, I will retry")
-          time.sleep(1)
-  mqtt_client.loop_start()
+  while g.mqtt_client==None:
+    g.mqtt_client=connect_mqtt()
+      # except Exception:
+      #     net.addPrint("[MQTT] Not connected, I will retry")
+      #     time.sleep(1)
+  g.mqtt_client.loop_start()
 
   user_input_thread=USER_INPUT_THREAD(4,"user input thread")
   user_input_thread.setDaemon(True)
   user_input_thread.start()
 
-  proximity_detector_in_queue=deque()
-  proximity_detector_thread=PROXIMITY_DETECTOR_THREAD(5,"proximity detection process")
-  proximity_detector_thread.setDaemon(True)
-  proximity_detector_thread.start()
+  # proximity_detector_in_queue=deque()
+  # proximity_detector_thread=PROXIMITY_DETECTOR_THREAD(5,"proximity detection process")
+  # proximity_detector_thread.setDaemon(True)
+  # proximity_detector_thread.start()
 
-  proximity_detec_poll_thread=PROXIMITY_DETECTOR_POLL_THREAD(6,"periodic proximity detection trigger process")
-  proximity_detec_poll_thread.setDaemon(True)
-  proximity_detec_poll_thread.start()
+  # proximity_detec_poll_thread=PROXIMITY_DETECTOR_POLL_THREAD(6,"periodic proximity detection trigger process")
+  # proximity_detec_poll_thread.setDaemon(True)
+  # proximity_detec_poll_thread.start()
 
   network_stat_poll_thread=NETWORK_STATUS_POLL_THREAD(7,"periodic network status monitor")
   network_stat_poll_thread.setDaemon(True)
@@ -1317,148 +1154,140 @@ if __name__ == "__main__":
                   bytesWaiting = ser.in_waiting
               except Exception as e:
                   net.addPrint("[UART] Serial Port input exception:"+ str(e))
-                  #appLogger.error("Serial Port input exception: {0}".format(e))
                   bytesWaiting = 0
                   ser.close()
                   time.sleep(1)
                   continue
-
               try:
 
                   if bytesWaiting > 0:
                       rawline = ser.readline() #can block if no timeout is provided when the port is open
                       UARTLogger.info('[SINK] ' + str(rawline))
-
                       start = rawline[0:1].hex()
+
                       if start == serial_params.START_CHAR:
-                          if startCharErr or otherkindofErr:
-                              net.processUARTError()
+                          if startCharErr or otherkindofErr: # if the reading of the previous uart stream went wrong
+                              net.processUARTError()         # just go to the next line
                               startCharErr=False
                               otherkindofErr=False
 
                           line = to_byte(rawline[1:-1])
-                          cursor=0
                           deliverCounter += 1
-                          # TODO change the way pktnum's are being tracked
-                          source_addr_bytes=line[cursor:cursor+16]
-                          nodeid_int = int.from_bytes(source_addr_bytes, "big", signed=False) 
-                          nodeid='%(nodeid_int)X'%{"nodeid_int": nodeid_int}
-                          cursor+=16
-                          pkttype = int(line[cursor:cursor+2].hex(),16)
-                          cursor+=2
-                          pktnum = int.from_bytes(line[cursor:cursor+1], "little", signed=False) 
-                          cursor+=1
+                          cursor, nodeid, pkttype, pktnum = utils.decode_node_info(line)
 
                           if printVerbosity > 0:
                               net.addPrint("[NODEID " + str(nodeid) + "] pkttype " + hex(pkttype) + ", pktnum " + str(pktnum))
 
-                          check_for_packetdrop(nodeid, pktnum)
+                          utils.check_for_packetdrop(nodeid, pktnum)
 
                           #TODO: add here the check for duplicates. Any duplicate should be discarded HERE!!!
-                          if PacketType.network_new_sequence == pkttype:
-                              datalen = int(line[cursor:cursor+2].hex(), 16) #int(ser.read(2).hex(), 16)
+
+                          # Here starts the sequence of if-else to check the type of packet recieved 
+                          if com_par.PacketType.network_new_sequence == pkttype:
+                              datalen = int(line[cursor:cursor+2].hex(), 16)
                               cursor+=2
                               payload = line[cursor:].hex()
                               cursor = len(line)
-                              if datalen % SINGLE_NODE_REPORT_SIZE != 0:
+                              if datalen % net_par.SINGLE_NODE_REPORT_SIZE != 0:
                                   if printVerbosity > 1:
                                       net.addPrint("  [PACKET DECODE] Invalid datalength: "+ str(datalen))
-                              seqid = get_sequence_index(nodeid)
+                              seqid = utils.get_sequence_index(nodeid)
 
                               #at this point, since we just received 'network_new_sequence', there should not be any sequence associated with this nodeid
                               if seqid != -1: #if this is true something went wrong (duplicate or packet lost from previous report)
-                                  if messageSequenceList[seqid].lastPktnum == pktnum: #duplicate
+                                  if g.messageSequenceList[seqid].lastPktnum == pktnum: #duplicate
                                       if printVerbosity > 1:
                                           net.addPrint("  [PACKET DECODE] Duplicate packet from node "+ str(nodeid)+ " with pktnum "+ str(pktnum))
                                       continue
-                                  else:                                               #'network_new_sequence' arrived before 'network_last_sequence'. Probably the last packet of the previous report has been lost
+                                  else:   #'network_new_sequence' arrived before 'network_last_sequence'. Probably the last packet of the previous report has been lost
                                       if printVerbosity > 1:
                                           net.addPrint("  [PACKET DECODE] Previous sequence has not been completed yet")
                                       # TODO what to do now? For now, assume last packet was dropped
                                       log_contact_data(seqid)                         # store received data instead of deleting it all
-                                      del messageSequenceList[seqid]                  # remove data already stored
+                                      del g.messageSequenceList[seqid]                  # remove data already stored
 
-                              messageSequenceList.append(MessageSequence(int(time.time()*1000), nodeid, pktnum, 0, 0, [], time.time()))
-                              seqid = len(messageSequenceList) - 1
-                              messageSequenceList[seqid].sequenceSize += datalen
+                              g.messageSequenceList.append(g.MessageSequence(int(time.time()*1000), nodeid, pktnum, 0, 0, [], time.time()))
+                              seqid = len(g.messageSequenceList) - 1
+                              g.messageSequenceList[seqid].sequenceSize += datalen
 
-                              if messageSequenceList[seqid].sequenceSize > MAX_PACKET_PAYLOAD: #this is the typical behaviour
-                                  decode_payload(payload, seqid, MAX_PACKET_PAYLOAD, PacketType.network_new_sequence, pktnum)
+                              if g.messageSequenceList[seqid].sequenceSize > net_par.MAX_PACKET_PAYLOAD: #this is the typical behaviour
+                                  utils.decode_payload(payload, seqid, net_par.MAX_PACKET_PAYLOAD, pktnum)
                               else:   #this is when the sequence is made by only one packet.
-                                  decode_payload(payload, seqid, datalen, PacketType.network_new_sequence, pktnum)
+                                  utils.decode_payload(payload, seqid, datalen, pktnum)
 
                                   if printVerbosity > 1:
-                                      net.addPrint("  [PACKET DECODE] Bluetooth sequence decoded. Contact elements: "+ str(len(messageSequenceList[seqid].datalist)))
+                                      net.addPrint("  [PACKET DECODE] Bluetooth sequence decoded. Contact elements: "+ str(len(g.messageSequenceList[seqid].datalist)))
+                                      net.addPrint(" [GGG] {}".format(g.messageSequenceList))
                                   log_contact_data(seqid)
                                   net.processBTReportMessage(str(nodeid))
 
-                                  del messageSequenceList[seqid]
+                                  del g.messageSequenceList[seqid]
 
-                          elif PacketType.network_active_sequence == pkttype:
-                              seqid = get_sequence_index(nodeid)
+                          elif com_par.PacketType.network_active_sequence == pkttype:
+                              seqid = utils.get_sequence_index(nodeid)
                               payload = line[cursor:].hex()
                               cursor = len(line)
                               if seqid == -1:             #if this is true something went wrong. Maybe we have lost the network_new_sequence packet of this report. It means we received 'network_active_sequence' before receiving a valid 'network_new_sequence'
                                   if printVerbosity > 1:
-                                      net.addPrint("  [PACKET DECODE] First part of sequence dropped, creating incomplete sequence at index "+ str(len(messageSequenceList)) +" from pktnum "+ str(pktnum))
-                                  messageSequenceList.append( MessageSequence(int(time.time()*1000), nodeid, pktnum, -1, 0, [], time.time()))
-                                  seqid = len(messageSequenceList) - 1
+                                      net.addPrint("  [PACKET DECODE] First part of sequence dropped, creating incomplete sequence at index "+ str(len(g.messageSequenceList)) +" from pktnum "+ str(pktnum))
+                                  g.messageSequenceList.append( g.MessageSequence(int(time.time()*1000), nodeid, pktnum, -1, 0, [], time.time()))
+                                  seqid = len(g.messageSequenceList) - 1
                                   headerDropCounter += 1
 
-                              elif messageSequenceList[seqid].lastPktnum == pktnum: #duplicate
+                              elif g.messageSequenceList[seqid].lastPktnum == pktnum: #duplicate
                                   if printVerbosity > 1:
                                       net.addPrint("  [PACKET DECODE] Duplicate packet from node "+ str(nodeid) +" with pktnum "+ str(pktnum))
                                   continue
 
-                              messageSequenceList[seqid].lastPktnum = pktnum
-                              messageSequenceList[seqid].latestTime = time.time()
-                              decode_payload(payload,seqid, MAX_PACKET_PAYLOAD, PacketType.network_active_sequence, pktnum)
+                              g.messageSequenceList[seqid].lastPktnum = pktnum
+                              g.messageSequenceList[seqid].latestTime = time.time()
+                              utils.decode_payload(payload,seqid, net_par.MAX_PACKET_PAYLOAD, pktnum)
 
-                          elif PacketType.network_last_sequence == pkttype:
-                              seqid = get_sequence_index(nodeid)
+                          elif com_par.PacketType.network_last_sequence == pkttype:
+                              seqid = utils.get_sequence_index(nodeid)
                               payload = line[cursor:].hex()
                               cursor = len(line)
                               if seqid == -1:             #if this is true something went wrong. Maybe we just received network_last_sequence for this report. It means we received 'network_last_sequence' before receiving a valid 'network_new_sequence'
-                                  messageSequenceList.append(MessageSequence(int(time.time()*1000), nodeid, pktnum, 0, 0, [], time.time()))
-                                  seqid = len(messageSequenceList) - 1
+                                  g.messageSequenceList.append(g.MessageSequence(int(time.time()*1000), nodeid, pktnum, 0, 0, [], time.time()))
+                                  seqid = len(g.messageSequenceList) - 1
 
-                                  decode_payload(payload,seqid, MAX_PACKET_PAYLOAD, PacketType.network_last_sequence, pktnum)
+                                  utils.decode_payload(payload,seqid, net_par.MAX_PACKET_PAYLOAD, pktnum)
                                   if printVerbosity > 1:
-                                      net.addPrint("  [PACKET DECODE] Bluetooth sequence decoded but header files were never received.  datacounter: "+ str(messageSequenceList[seqid].datacounter) +" ContactData elements: "+ str(len(messageSequenceList[seqid].datalist)))
+                                      net.addPrint("  [PACKET DECODE] Bluetooth sequence decoded but header files were never received.  datacounter: "+ str(g.messageSequenceList[seqid].datacounter) +" ContactData elements: "+ str(len(g.messageSequenceList[seqid].datalist)))
 
                                   headerDropCounter += 1
                                   log_contact_data(seqid)
-                                  net.processBTReportMessage(str(messageSequenceList[seqid].nodeid))
-                                  del messageSequenceList[seqid]
+                                  net.processBTReportMessage(str(g.messageSequenceList[seqid].nodeid))
+                                  del g.messageSequenceList[seqid]
 
-                              elif messageSequenceList[seqid].sequenceSize == -1: # if we have lost network_new_sequence, but at least one network_active_sequence is correctly received, sequense size is initialized to -1 (the real value was in network_new_sequence, therefore we lost it)
-                                  decode_payload(payload,seqid, MAX_PACKET_PAYLOAD, PacketType.network_last_sequence, pktnum)
+                              elif g.messageSequenceList[seqid].sequenceSize == -1: # if we have lost network_new_sequence, but at least one network_active_sequence is correctly received, sequense size is initialized to -1 (the real value was in network_new_sequence, therefore we lost it)
+                                  utils.decode_payload(payload,seqid, net_par.MAX_PACKET_PAYLOAD, pktnum)
                                   if printVerbosity > 1:
-                                      net.addPrint("  [PACKET DECODE] Bluetooth sequence decoded but header files were never received.  datacounter: "+ str(messageSequenceList[seqid].datacounter) +" ContactData elements: "+ str(len(messageSequenceList[seqid].datalist)))
+                                      net.addPrint("  [PACKET DECODE] Bluetooth sequence decoded but header files were never received.  datacounter: "+ str(g.messageSequenceList[seqid].datacounter) +" ContactData elements: "+ str(len(g.messageSequenceList[seqid].datalist)))
                                   log_contact_data(seqid)
-                                  net.processBTReportMessage(str(messageSequenceList[seqid].nodeid))
-                                  del messageSequenceList[seqid]
+                                  net.processBTReportMessage(str(g.messageSequenceList[seqid].nodeid))
+                                  del g.messageSequenceList[seqid]
 
                               else:                       # normal behaviour
-                                  remainingDataSize = messageSequenceList[seqid].sequenceSize - messageSequenceList[seqid].datacounter
+                                  remainingDataSize = g.messageSequenceList[seqid].sequenceSize - g.messageSequenceList[seqid].datacounter
                                   #TODO: remainingDataSize now should be equal to the size of this payload, instead of using inequalities use straigt ==. But carefully check the cases and sizes
-                                  if remainingDataSize > MAX_PACKET_PAYLOAD: #the value in sequenceSize is probably not correct. Did we lost a lot of packets?
-                                      decode_payload(payload,seqid, MAX_PACKET_PAYLOAD, PacketType.network_last_sequence, pktnum)
+                                  if remainingDataSize > net_par.MAX_PACKET_PAYLOAD: #the value in sequenceSize is probably not correct. Did we lost a lot of packets?
+                                      utils.decode_payload(payload,seqid, net_par.MAX_PACKET_PAYLOAD, pktnum)
                                   else:                   # normal behaviour
-                                      decode_payload(payload,seqid, remainingDataSize, PacketType.network_last_sequence, pktnum)
+                                      utils.decode_payload(payload,seqid, remainingDataSize, pktnum)
 
-                                  if messageSequenceList[seqid].sequenceSize != messageSequenceList[seqid].datacounter:
+                                  if g.messageSequenceList[seqid].sequenceSize != g.messageSequenceList[seqid].datacounter:
                                       if printVerbosity > 1:
                                           net.addPrint("  [PACKET DECODE] ERROR: Messagesequence ended, but datacounter is not equal to sequencesize")
 
                                   if printVerbosity > 1:
-                                      net.addPrint("  [PACKET DECODE] Bluetooth sequence decoded. "+" sequencesize: "+ str(messageSequenceList[seqid].sequenceSize)+ " ContactData elements: "+ str(len(messageSequenceList[seqid].datalist)))
+                                      net.addPrint("  [PACKET DECODE] Bluetooth sequence decoded. "+" sequencesize: "+ str(g.messageSequenceList[seqid].sequenceSize)+ " ContactData elements: "+ str(len(g.messageSequenceList[seqid].datalist)))
 
                                   log_contact_data(seqid)
-                                  net.processBTReportMessage(str(messageSequenceList[seqid].nodeid))
-                                  del messageSequenceList[seqid]
+                                  net.processBTReportMessage(str(g.messageSequenceList[seqid].nodeid))
+                                  del g.messageSequenceList[seqid]
 
-                          elif PacketType.network_bat_data == pkttype: #deprecated, will be removed soon
+                          elif com_par.PacketType.network_bat_data == pkttype: #deprecated, will be removed soon
                               batCapacity = float(int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False)) 
                               cursor+=2
                               batSoC = float(int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False)) / 10 
@@ -1478,7 +1307,7 @@ if __name__ == "__main__":
                                   net.addPrint("  [PACKET DECODE] Battery data, Cap: %.0f mAh SoC: %.1f ETA: %s (hh:mm) Consumption: %.1f mA Voltage: %.3f Temperature %.2f"% (batCapacity, batSoC, batELT, batAvgConsumption, batAvgVoltage, batAvgTemp))
 
 
-                          elif PacketType.network_respond_ping == pkttype:
+                          elif com_par.PacketType.network_respond_ping == pkttype:
                               payload = int(line[cursor:cursor+2].hex(), 16) #int(ser.read(1).hex(), 16)
                               cursor+=2
                               if payload == 233:
@@ -1488,7 +1317,7 @@ if __name__ == "__main__":
                               else:
                                   net.addPrint("  [PACKET DECODE] Node id "+ str(nodeid)+" wrong ping payload: %d" % payload )
 
-                          elif PacketType.network_keep_alive == pkttype:
+                          elif com_par.PacketType.network_keep_alive == pkttype:
                               #new_keepalive=True
                             # if new_keepalive:
                               batCapacity = float(int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False)) 
@@ -1570,7 +1399,7 @@ if __name__ == "__main__":
                               #    nbr_info=line[cursor:-1]
                               #    net.addPrint("  [PACKET DECODE] nbr info: "+nbr_info.decode("utf-8"))
                                   
-                          elif PacketType.ota_ack == pkttype:
+                          elif com_par.PacketType.ota_ack == pkttype:
                               firmwareChunkDownloaded_event_data=line[cursor:]
                               data = int(line[cursor:].hex(), 16) 
                               cursor+=2
@@ -1599,10 +1428,10 @@ if __name__ == "__main__":
               if currentTime - previousTimeTimeout > timeoutInterval:
                   previousTimeTimeout = time.time()
                   deletedCounter = 0
-                  for x in range(len(messageSequenceList)):
-                      if currentTime - messageSequenceList[x - deletedCounter].latestTime > timeoutTime:
-                          deleted_nodeid=messageSequenceList[x - deletedCounter].nodeid
-                          del messageSequenceList[x - deletedCounter]
+                  for x in range(len(g.messageSequenceList)):
+                      if currentTime - g.messageSequenceList[x - deletedCounter].latestTime > timeoutTime:
+                          deleted_nodeid=g.messageSequenceList[x - deletedCounter].nodeid
+                          del g.messageSequenceList[x - deletedCounter]
                           deletedCounter += 1
                           if printVerbosity > 1:
                               xd = x + deletedCounter
@@ -1613,12 +1442,12 @@ if __name__ == "__main__":
                   if btToggleBool:
                       # net.addPrint("Turning bt off")
                       # appLogger.debug("[SENDING] Disable Bluetooth")
-                      ptype = PacketType.nordic_turn_bt_off
+                      ptype = com_par.PacketType.nordic_turn_bt_off
                       # btToggleBool = False
                   else:
                       # net.addPrint("Turning bt on")
                       # appLogger.debug("[SENDING] Enable Bluetooth")
-                      ptype = PacketType.nordic_turn_bt_on
+                      ptype = com_par.PacketType.nordic_turn_bt_on
                       btToggleBool = True
                   # send_serial_msg(ptype, None)
                   btPreviousTime = currentTime
@@ -1648,9 +1477,9 @@ if __name__ == "__main__":
   except KeyboardInterrupt:
       print("[APPLICATION] -----Packet delivery stats summary-----")
       print("[APPLICATION] Total packets delivered: ", deliverCounter)
-      print("[APPLICATION] Total packets dropped: ", dropCounter)
+      print("[APPLICATION] Total packets dropped: ", g.dropCounter)
       print("[APPLICATION] Total header packets dropped: ", headerDropCounter)
-      print("[APPLICATION] Packet delivery rate: ", 100 * (deliverCounter / (deliverCounter + dropCounter)))
+      print("[APPLICATION] Packet delivery rate: ", 100 * (deliverCounter / (deliverCounter + g.dropCounter)))
       print("[APPLICATION] Messages defragmented: ", defragmentationCounter)
       print("[APPLICATION] Logs are in: "+logfolderpath)
 
