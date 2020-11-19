@@ -1,6 +1,6 @@
 from itertools import chain, starmap
 import global_variables as g
-import network_params as net_par
+import params as par
 
 def flatten_json(dictionary):
     """Flatten a nested json file"""
@@ -66,7 +66,7 @@ def get_sequence_index(nodeid):
 def decode_payload(payload, seqid, size, pktnum): #TODO: packettype can be removed
     cur=0
     try:
-        for x in range(round(size / net_par.SINGLE_NODE_REPORT_SIZE)):
+        for x in range(round(size / par.SINGLE_NODE_REPORT_SIZE)):
             nid = int(payload[cur:cur+12], 16)
             cur=cur+12
             lastrssi = int(payload[cur:cur+2], 16)
@@ -77,7 +77,7 @@ def decode_payload(payload, seqid, size, pktnum): #TODO: packettype can be remov
             cur=cur+2
             contact = g.ContactData(nid, lastrssi, maxrssi, pktcounter)
             g.messageSequenceList[seqid].datalist.append(contact)
-            g.messageSequenceList[seqid].datacounter += net_par.SINGLE_NODE_REPORT_SIZE
+            g.messageSequenceList[seqid].datacounter += par.SINGLE_NODE_REPORT_SIZE
 
     except ValueError:
         print("[Node {0}] Requested to decode more bytes than available. Requested: {1}"
