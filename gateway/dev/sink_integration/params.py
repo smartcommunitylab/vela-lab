@@ -1,5 +1,6 @@
-from enum import IntEnum, unique
 from recordtype import recordtype
+from enum import IntEnum, unique
+import logging
 import os
 
 
@@ -64,6 +65,12 @@ SINGLE_NODE_REPORT_SIZE = 9      #must be the same as in common/inc/contraints.h
 MAX_REPORTS_PER_PACKET = 5       # max number of beacons in a message, if bigger it get splitted
 MAX_PACKET_PAYLOAD = SINGLE_NODE_REPORT_SIZE*MAX_REPORTS_PER_PACKET
 
+NETWORK_STATUS_POLL_INTERVAL_DEF = 60
+
+"""-------------------------------STRUCTURES----------------------------- """
+ContactData = recordtype("ContactData", "nodeid lastRSSI maxRSSI pktCounter")
+MessageSequence = recordtype("MessageSequence","timestamp,nodeid,lastPktnum,sequenceSize,datacounter,datalist,latestTime")
+NodeDropInfo = recordtype("NodeDropInfo", "nodeid, lastpkt")
 
 """---------------------------------UART--------------------------------- """
 BAUD_RATE = 1000000 #57600 #921600 #1000000
@@ -83,7 +90,7 @@ else:
     SUBCHUNK_INTERVAL=0.02 #with 0.1 it is stable, less who knows? 0.03 -> no error in 3 ota downloads. 0.02 no apparten problem...
     CHUNK_INTERVAL_ADD=0.01
 
-
+TIMEOUT_INTERVAL = 300
 """-----------------------------OTA----------------------------------------"""
 REBOOT_DELAY_S=20
 MAX_OTA_ATTEMPTS=100
@@ -93,6 +100,8 @@ MAX_OTA_TIMEOUT_COUNT=100
 MAX_CHUNK_SIZE=256                  #must be the same as OTA_BUFFER_SIZE in ota-download.h and OTA_CHUNK_SIZE in sink_receiver.c
 
 FIRMWARE_FILENAME = "./../../../network_board/integrate_sender_uart/vela_node_ota"
+CHUNK_DOWNLOAD_TIMEOUT=7
+MAX_SUBCHUNK_SIZE=128               #MAX_SUBCHUNK_SIZE should be always strictly less than MAX_CHUNK_SIZE (if a chunk doesn't get spitted problems might arise, the case is not managed)
 
 
 """ ---------------------------LOG------------------------------------------"""
@@ -103,3 +112,5 @@ octave_files_folder="../data_plotting/matlab_version" #./
 
 contact_log_file_folder=logfolderpath #./
 octave_to_log_folder_r_path=os.path.relpath(contact_log_file_folder, octave_files_folder)
+
+LOG_LEVEL = logging.DEBUG

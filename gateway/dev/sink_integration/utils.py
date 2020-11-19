@@ -1,6 +1,12 @@
 from itertools import chain, starmap
 import global_variables as g
 import params as par
+import binascii
+import logging
+import serial
+import time
+import os
+
 
 def flatten_json(dictionary):
     """Flatten a nested json file"""
@@ -55,7 +61,7 @@ def check_for_packetdrop(nodeid, pktnum):
         if g.nodeDropInfoList[x].nodeid == nodeid:
             g.dropCounter += pktnum - g.nodeDropInfoList[x].lastpkt - 1
             return
-    g.nodeDropInfoList.append(g.NodeDropInfo(nodeid, pktnum))
+    g.nodeDropInfoList.append(par.NodeDropInfo(nodeid, pktnum))
 
 def get_sequence_index(nodeid):
     for x in range(len(g.messageSequenceList)):
@@ -75,7 +81,7 @@ def decode_payload(payload, seqid, size, pktnum): #TODO: packettype can be remov
             cur=cur+2
             pktcounter = int(payload[cur:cur+2], 16)
             cur=cur+2
-            contact = g.ContactData(nid, lastrssi, maxrssi, pktcounter)
+            contact = par.ContactData(nid, lastrssi, maxrssi, pktcounter)
             g.messageSequenceList[seqid].datalist.append(contact)
             g.messageSequenceList[seqid].datacounter += par.SINGLE_NODE_REPORT_SIZE
 
@@ -84,3 +90,80 @@ def decode_payload(payload, seqid, size, pktnum): #TODO: packettype can be remov
                           .format(g.messageSequenceList[seqid].nodeid, size))
     finally:
         return
+
+def create_log_folder():
+  if not os.path.exists(par.logfolderpath):
+      try:
+          os.mkdir(par.logfolderpath)
+          print("Log directory not found.")
+          print("%s Created " % par.logfolderpath)
+      except Exception as e:
+          print("Can't get the access to the log folder %s." % par.logfolderpath)
+          print("Exception: %s" % str(e))
+      time.sleep(2)
+  return
+
+def init_serial():
+  g.ser = serial.Serial()
+  g.ser.port = par.SERIAL_PORT
+  g.ser.baudrate = par.BAUD_RATE
+  g.ser.timeout = par.TIMEOUT
+  #g.ser.inter_byte_timeout = 0.1 #not the space between stop/start condition
+  return
+""" initialize various loggers """
+def init_logs():
+  formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s', datefmt='%Y/%m/%d %H:%M:%S')
+  timestr = time.strftime("%Y%m%d-%H%M%S")
+
+  nameConsoleLog = "consoleLogger"
+  filenameConsoleLog = timestr + "-console.log"
+  fullpathConsoleLog = par.logfolderpath + filenameConsoleLog
+
+  g.consolelog_handler = logging.FileHandler(fullpathConsoleLog)
+  g.consolelog_handler.setFormatter(formatter)
+  g.consoleLogger = logging.getLogger(nameConsoleLog)
+  g.consoleLogger.setLevel(par.LOG_LEVEL)
+  g.consoleLogger.addHandler(g.consolelog_handler)
+
+  nameUARTLog = "UARTLogger"
+  filenameUARTLog = timestr + "-UART.log"
+  fullpathUARTLog = par.logfolderpath+filenameUARTLog
+  g.uartlog_handler = logging.FileHandler(fullpathUARTLog)
+  g.uartlog_handler.setFormatter(formatter)
+  g.UARTLogger = logging.getLogger(nameUARTLog)
+  g.UARTLogger.setLevel(par.LOG_LEVEL)
+  g.UARTLogger.addHandler(g.uartlog_handler)
+
+  nameContactLog = "contactLogger"
+  g.filenameContactLog = timestr + "-contact.log" # global variable for proximity detection function
+  fullpathContactLog = par.logfolderpath+g.filenameContactLog
+  contact_formatter = logging.Formatter('%(message)s')
+
+  g.contactlog_handler = logging.FileHandler(fullpathContactLog)
+  g.contactlog_handler.setFormatter(contact_formatter)
+  g.contactLogger = logging.getLogger(nameContactLog)
+  g.contactLogger.setLevel(par.LOG_LEVEL)
+  g.contactLogger.addHandler(g.contactlog_handler)
+
+  nameErrorLog = "errorLogger"
+  filenameErrorLog = timestr + "-errorLogger.log"
+  fullpathErrorLog = par.logfolderpath+filenameErrorLog
+  errorlog_formatter= logging.Formatter('%(message)s')
+
+  g.errorlog_handler = logging.FileHandler(fullpathErrorLog)
+  g.errorlog_handler.setFormatter(errorlog_formatter)
+  g.errorLogger = logging.getLogger(nameErrorLog)
+  g.errorLogger.setLevel(par.LOG_LEVEL)
+  g.errorLogger.addHandler(g.errorlog_handler)
+  return
+
+def close_logs():
+  logging.shutdown()
+  g.consoleLogger.removeHandler(g.consolelog_handler)
+  g.UARTLogger.removeHandler(g.uartlog_handler)
+  g.contactLogger.removeHandler(g.contactlog_handler)
+  g.errorLogger.removeHandler(g.errorlog_handler)
+  return
+
+def to_byte(hex_text):
+    return binascii.unhexlify(hex_text)
