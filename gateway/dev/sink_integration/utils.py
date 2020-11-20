@@ -3,6 +3,7 @@ import global_variables as g
 import params as par
 import binascii
 import logging
+import shutil
 import serial
 import time
 import os
@@ -92,13 +93,13 @@ def decode_payload(payload, seqid, size, pktnum): #TODO: packettype can be remov
         return
 
 def create_log_folder():
-  if not os.path.exists(par.logfolderpath):
+  if not os.path.exists(par.LOG_FOLDER_PATH):
       try:
-          os.mkdir(par.logfolderpath)
+          os.mkdir(par.LOG_FOLDER_PATH)
           print("Log directory not found.")
-          print("%s Created " % par.logfolderpath)
+          print("%s Created " % par.LOG_FOLDER_PATH)
       except Exception as e:
-          print("Can't get the access to the log folder %s." % par.logfolderpath)
+          print("Can't get the access to the log folder %s." % par.LOG_FOLDER_PATH)
           print("Exception: %s" % str(e))
       time.sleep(2)
   return
@@ -117,7 +118,7 @@ def init_logs():
 
   nameConsoleLog = "consoleLogger"
   filenameConsoleLog = timestr + "-console.log"
-  fullpathConsoleLog = par.logfolderpath + filenameConsoleLog
+  fullpathConsoleLog = par.LOG_FOLDER_PATH + filenameConsoleLog
 
   g.consolelog_handler = logging.FileHandler(fullpathConsoleLog)
   g.consolelog_handler.setFormatter(formatter)
@@ -127,7 +128,7 @@ def init_logs():
 
   nameUARTLog = "UARTLogger"
   filenameUARTLog = timestr + "-UART.log"
-  fullpathUARTLog = par.logfolderpath+filenameUARTLog
+  fullpathUARTLog = par.LOG_FOLDER_PATH+filenameUARTLog
   g.uartlog_handler = logging.FileHandler(fullpathUARTLog)
   g.uartlog_handler.setFormatter(formatter)
   g.UARTLogger = logging.getLogger(nameUARTLog)
@@ -136,7 +137,7 @@ def init_logs():
 
   nameContactLog = "contactLogger"
   g.filenameContactLog = timestr + "-contact.log" # global variable for proximity detection function
-  fullpathContactLog = par.logfolderpath+g.filenameContactLog
+  fullpathContactLog = par.LOG_FOLDER_PATH+g.filenameContactLog
   contact_formatter = logging.Formatter('%(message)s')
 
   g.contactlog_handler = logging.FileHandler(fullpathContactLog)
@@ -147,7 +148,7 @@ def init_logs():
 
   nameErrorLog = "errorLogger"
   filenameErrorLog = timestr + "-errorLogger.log"
-  fullpathErrorLog = par.logfolderpath+filenameErrorLog
+  fullpathErrorLog = par.LOG_FOLDER_PATH+filenameErrorLog
   errorlog_formatter= logging.Formatter('%(message)s')
 
   g.errorlog_handler = logging.FileHandler(fullpathErrorLog)
@@ -167,3 +168,11 @@ def close_logs():
 
 def to_byte(hex_text):
     return binascii.unhexlify(hex_text)
+
+def is_tool(name):
+    """Check whether `name` is on PATH and marked as executable."""
+
+    return shutil.which(name) is not None
+
+def cls():
+    os.system('cls' if os.name=='nt' else 'clear')

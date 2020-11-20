@@ -35,12 +35,9 @@ btToggleBool = True
 firmwareChunkDownloaded_event=threading.Event()
 firmwareChunkDownloaded_event_data=[]
 
-octave_launch_command="/usr/bin/flatpak run org.octave.Octave -qf" #octave 5 is required. Some distro install octave 4 as default, to overcome this install octave through flatpak
-detector_octave_script="run_detector.m"
 events_file_json="json_events.txt"
 
 PROXIMITY_DETECTOR_POLL_INTERVAL=10*60
-ENABLE_PROCESS_OUTPUT_ON_CONSOLE=True
 
 TELEMETRY_TOPIC="v1/gateway/telemetry"
 
@@ -102,7 +99,7 @@ class PROXIMITY_DETECTOR_THREAD(threading.Thread):
 
     def get_result(self):
         try:
-            with open(par.octave_files_folder+'/'+events_file_json) as f: # Use file to refer to the file object
+            with open(par.OCTAVE_FILES_FOLDER+'/'+events_file_json) as f: # Use file to refer to the file object
                 data=f.read()
                 return json.loads(data)
         except OSError:
@@ -120,7 +117,7 @@ class PROXIMITY_DETECTOR_THREAD(threading.Thread):
             g.net.addPrint("[EVENT EXTRACTOR] Events: "+str(evts)) #NOTE: At this point the variable evts contains the proximity events. As example I plot the first 10
             if evts!=None:
                 self.on_events(evts)
-                os.remove(par.octave_files_folder+'/'+events_file_json) #remove the file to avoid double processing of it
+                os.remove(par.OCTAVE_FILES_FOLDER+'/'+events_file_json) #remove the file to avoid double processing of it
 
                 evts=None
             else:
@@ -143,14 +140,16 @@ class PROXIMITY_DETECTOR_THREAD(threading.Thread):
         while self.__loop:
             try:
                 if self.file_processed:
-                    file_to_process=g.proximity_detector_in_queue.popleft()
+                    file_to_process=g.proximity_detector_in_queue.popleft() # TODO sleep and pass if no element in the queue, not through exception
+
                     self.file_processed=False
 
-                    command=octave_launch_command+" "+detector_octave_script+" "+par.octave_to_log_folder_r_path+'/'+file_to_process
+                    command=par.OCTAVE_LAUNCH_COMMAND +" "+par.DETECTOR_OCTAVE_SCRIPT+" "+par.octave_to_log_folder_r_path+'/'+file_to_process
+                    command = "{} {} {}/{}".format(par.OCTAVE_LAUNCH_COMMAND, par.DETECTOR_OCTAVE_SCRIPT, par.octave_to_log_folder_r_path,file_to_process)
                     g.net.addPrint("[EVENT EXTRACTOR] Sending this command: "+command)
-                    octave_process=pexpect.spawnu(command,echo=False,cwd=par.octave_files_folder)
+                    octave_process=pexpect.spawnu(command,echo=False,cwd=par.OCTAVE_FILES_FOLDER)
 
-                if ENABLE_PROCESS_OUTPUT_ON_CONSOLE:
+                if par.ENABLE_PROCESS_OUTPUT_ON_CONSOLE:
                     octave_process.expect("\n",timeout=60)
                     octave_return=octave_process.before.split('\r')
                     for s in octave_return:
@@ -495,7 +494,7 @@ class Network(object):
         netSize = len(self.__nodes)
 
         if par.CLEAR_CONSOLE:
-            cls()
+            utils.cls()
 
 
         print("|----------------------------------------------------------------------------------------------------------------------------------------------|")
@@ -689,9 +688,6 @@ class Node(object):
             print("| %3s%1s| %3.2fV %3.0f%% %4.0fmAh %6.1fmA  %5.1f°  |  %6.0f |   %5s  |   %3d | %6d | %54s |" % (str(self.name[-6:]), onlineMarker, self.batteryData["voltage"], self.batteryData["state_of_charge"], self.batteryData["capacity"], self.batteryData["consumption"], self.batteryData["temperature"], self.getLastMessageElapsedTime(), self.getMetadataVersionString(), self.lastTrickleCount, self.amountOfBTReports, self.nbr_string))
         else:
             print("| %3s |                                       |  %6.0f |          |   %3d | %6d |                                                      |" % (str(self.name[-6:]), self.getLastMessageElapsedTime(), self.lastTrickleCount, self.amountOfBTReports))
-        
-def cls():
-    os.system('cls' if os.name=='nt' else 'clear')
 
 class USER_INPUT_THREAD(threading.Thread):
     def __init__(self, threadID, name):
@@ -891,9 +887,9 @@ if __name__ == "__main__":
   proximity_detector_thread.setDaemon(True)
   proximity_detector_thread.start()
 
-  # proximity_detec_poll_thread=PROXIMITY_DETECTOR_POLL_THREAD(6,"periodic proximity detection trigger process")
-  # proximity_detec_poll_thread.setDaemon(True)
-  # proximity_detec_poll_thread.start()
+  proximity_detec_poll_thread=PROXIMITY_DETECTOR_POLL_THREAD(6,"periodic proximity detection trigger process")
+  proximity_detec_poll_thread.setDaemon(True)
+  proximity_detec_poll_thread.start()
 
   network_stat_poll_thread=NETWORK_STATUS_POLL_THREAD(7,"periodic network status monitor")
   network_stat_poll_thread.setDaemon(True)

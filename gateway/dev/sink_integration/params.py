@@ -103,14 +103,17 @@ FIRMWARE_FILENAME = "./../../../network_board/integrate_sender_uart/vela_node_ot
 CHUNK_DOWNLOAD_TIMEOUT=7
 MAX_SUBCHUNK_SIZE=128               #MAX_SUBCHUNK_SIZE should be always strictly less than MAX_CHUNK_SIZE (if a chunk doesn't get spitted problems might arise, the case is not managed)
 
+"""--------------------------OCTAVE proximity detection -------------------"""
+OCTAVE_LAUNCH_COMMAND="/usr/bin/flatpak run org.octave.Octave -qf" #octave 5 is required. Some distro install octave 4 as default, to overcome this install octave through flatpak
+DETECTOR_OCTAVE_SCRIPT = "run_detector.m"
+OCTAVE_FILES_FOLDER = "../data_plotting/matlab_version" 
+ENABLE_PROCESS_OUTPUT_ON_CONSOLE=True
 
 """ ---------------------------LOG------------------------------------------"""
 printVerbosity = 10
-logfolderpath = os.path.dirname(os.path.realpath(__file__))+'/log/'
+LOG_FOLDER_PATH = os.path.dirname(os.path.realpath(__file__))+'/log/'
 
-octave_files_folder="../data_plotting/matlab_version" #./
-
-contact_log_file_folder=logfolderpath #./
-octave_to_log_folder_r_path=os.path.relpath(contact_log_file_folder, octave_files_folder)
+contact_log_file_folder=LOG_FOLDER_PATH #./
 
 LOG_LEVEL = logging.DEBUG
+octave_to_log_folder_r_path=os.path.relpath(contact_log_file_folder, OCTAVE_FILES_FOLDER)
