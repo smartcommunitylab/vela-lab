@@ -163,7 +163,7 @@ class PROXIMITY_DETECTOR_THREAD(threading.Thread):
             except pexpect.exceptions.EOF:
                 self.on_processed()
                 pass
-            except IndexError:
+            except IndexError: # if proximity_detector_in_queue is empty
                 time.sleep(1)
                 pass
 

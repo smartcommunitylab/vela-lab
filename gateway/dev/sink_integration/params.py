@@ -91,6 +91,7 @@ else:
     CHUNK_INTERVAL_ADD=0.01
 
 TIMEOUT_INTERVAL = 300
+
 """-----------------------------OTA----------------------------------------"""
 REBOOT_DELAY_S=20
 MAX_OTA_ATTEMPTS=100
@@ -107,14 +108,14 @@ MAX_SUBCHUNK_SIZE=128               #MAX_SUBCHUNK_SIZE should be always strictly
 OCTAVE_LAUNCH_COMMAND="/usr/bin/flatpak run org.octave.Octave -qf" #octave 5 is required. Some distro install octave 4 as default, to overcome this install octave through flatpak
 DETECTOR_OCTAVE_SCRIPT = "run_detector.m"
 OCTAVE_FILES_FOLDER = "../data_plotting/matlab_version" 
-ENABLE_PROCESS_OUTPUT_ON_CONSOLE=True
+ENABLE_PROCESS_OUTPUT_ON_CONSOLE=True # enable the output of OCTAVE to be displayed in the terminal
+PROXIMITY_DETECTOR_POLL_INTERVAL=60 # slot of time [s] between two proximity detection executions. However, user can start the process via the command line
 
-PROXIMITY_DETECTOR_POLL_INTERVAL=10 # slot of time [s] between two proximity detection executions. However, user can start the process via the command line
 """ ---------------------------LOG------------------------------------------"""
 printVerbosity = 10
 LOG_FOLDER_PATH = os.path.dirname(os.path.realpath(__file__))+'/log/'
 
-contact_log_file_folder=LOG_FOLDER_PATH #./
+contact_log_file_folder=LOG_FOLDER_PATH 
 
 LOG_LEVEL = logging.DEBUG
 octave_to_log_folder_r_path=os.path.relpath(contact_log_file_folder, OCTAVE_FILES_FOLDER)
