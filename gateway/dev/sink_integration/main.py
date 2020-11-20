@@ -37,8 +37,6 @@ firmwareChunkDownloaded_event_data=[]
 
 events_file_json="json_events.txt"
 
-PROXIMITY_DETECTOR_POLL_INTERVAL=10*60
-
 TELEMETRY_TOPIC="v1/gateway/telemetry"
 
 def obtain_and_send_network_status():
@@ -86,7 +84,7 @@ class PROXIMITY_DETECTOR_POLL_THREAD(threading.Thread):
 
     def run(self):
         while self.__loop:
-            time.sleep(PROXIMITY_DETECTOR_POLL_INTERVAL)
+            time.sleep(par.PROXIMITY_DETECTOR_POLL_INTERVAL)
             start_poximity_detection()
             
 class PROXIMITY_DETECTOR_THREAD(threading.Thread):

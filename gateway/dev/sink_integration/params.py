@@ -109,6 +109,7 @@ DETECTOR_OCTAVE_SCRIPT = "run_detector.m"
 OCTAVE_FILES_FOLDER = "../data_plotting/matlab_version" 
 ENABLE_PROCESS_OUTPUT_ON_CONSOLE=True
 
+PROXIMITY_DETECTOR_POLL_INTERVAL=10 # slot of time [s] between two proximity detection executions. However, user can start the process via the command line
 """ ---------------------------LOG------------------------------------------"""
 printVerbosity = 10
 LOG_FOLDER_PATH = os.path.dirname(os.path.realpath(__file__))+'/log/'
