@@ -45,7 +45,7 @@ MQTT_PORT=1883
 # DEVICE_TOKEN="9ovXYK9SOMgcbaIrWvZ2"     #vela-gateway-test
 DEVICE_TOKEN="Xk5yuRNrGlcFHoWhC3AW"     #gm-gateway-test
 
-# TELEMETRY_TOPIC="v1/gateway/telemetry"
+TELEMETRY_TOPIC="v1/gateway/telemetry"
 CONNECT_TOPIC="v1/gateway/connect"
 
 
@@ -110,6 +110,7 @@ DETECTOR_OCTAVE_SCRIPT = "run_detector.m"
 OCTAVE_FILES_FOLDER = "../data_plotting/matlab_version" 
 ENABLE_PROCESS_OUTPUT_ON_CONSOLE=True # enable the output of OCTAVE to be displayed in the terminal
 PROXIMITY_DETECTOR_POLL_INTERVAL=60 # slot of time [s] between two proximity detection executions. However, user can start the process via the command line
+EVENTS_FILE_JSON="json_events.txt"
 
 """ ---------------------------LOG------------------------------------------"""
 printVerbosity = 10

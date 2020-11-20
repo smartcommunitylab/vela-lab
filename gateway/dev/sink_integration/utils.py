@@ -6,6 +6,7 @@ import logging
 import shutil
 import serial
 import time
+import json
 import os
 
 
@@ -169,10 +170,17 @@ def close_logs():
 def to_byte(hex_text):
     return binascii.unhexlify(hex_text)
 
-def is_tool(name):
-    """Check whether `name` is on PATH and marked as executable."""
-
-    return shutil.which(name) is not None
-
 def cls():
+    """ to clear the screen, used by the console """
     os.system('cls' if os.name=='nt' else 'clear')
+
+def get_result():
+    """ open the JSON file with the proximity events and load it """
+    try:
+        with open(par.OCTAVE_FILES_FOLDER+'/'+par.EVENTS_FILE_JSON) as f: # Use file to refer to the file object
+            data=f.read()
+            return json.loads(data)
+    except OSError:
+        return None
+        
+    return None

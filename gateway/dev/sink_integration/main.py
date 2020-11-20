@@ -15,7 +15,6 @@ import traceback
 import pexpect
 import shutil
 import math
-import json
 import time
 import sys
 import os
@@ -35,10 +34,6 @@ btToggleBool = True
 firmwareChunkDownloaded_event=threading.Event()
 firmwareChunkDownloaded_event_data=[]
 
-events_file_json="json_events.txt"
-
-TELEMETRY_TOPIC="v1/gateway/telemetry"
-
 def obtain_and_send_network_status():
     try:
         net_descr=g.net.obtainNetworkDescriptorObject()
@@ -49,7 +44,7 @@ def obtain_and_send_network_status():
             for n in node_names:
                 node_desc={}
                 node_desc[n]=net_descr[n]
-                mqtt_utils.publish_mqtt(g.mqtt_client, node_desc, TELEMETRY_TOPIC)
+                mqtt_utils.publish_mqtt(g.mqtt_client, node_desc, par.TELEMETRY_TOPIC)
                 with open("net_stat_store.txt", "a") as f:
                     f.write(datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S')+" "+str(node_desc)+"\n")
     except Exception:
@@ -95,41 +90,29 @@ class PROXIMITY_DETECTOR_THREAD(threading.Thread):
         self.__loop=True
         self.file_processed=True
 
-    def get_result(self):
-        try:
-            with open(par.OCTAVE_FILES_FOLDER+'/'+events_file_json) as f: # Use file to refer to the file object
-                data=f.read()
-                return json.loads(data)
-        except OSError:
-            return None
-            
-        return None
-
     def on_processed(self):
+        """ this method is called when the octave script processed the contact log """
+        
         g.net.addPrint("[EVENT EXTRACTOR] Contact log file processed!")
         self.file_processed=True
-        #octave_process.kill(0)
-        jdata=self.get_result()
+        jdata=utils.get_result()
         try:
             evts=jdata["proximity_events"]
             g.net.addPrint("[EVENT EXTRACTOR] Events: "+str(evts)) #NOTE: At this point the variable evts contains the proximity events. As example I plot the first 10
-            if evts!=None:
-                self.on_events(evts)
-                os.remove(par.OCTAVE_FILES_FOLDER+'/'+events_file_json) #remove the file to avoid double processing of it
+            if evts!=None: # when events are detected, the last event is appended to a file, while the last events are sent to mqtt 
+                t_string=datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S')
+                with open("proximity_event_store.txt", "a") as f:
+                    f.write(t_string+" "+str(evts)+"\n")
 
+                mqtt_utils.publish_mqtt(g.mqtt_client, evts, par.TELEMETRY_TOPIC)      
+
+                os.remove(par.OCTAVE_FILES_FOLDER+'/'+ par.EVENTS_FILE_JSON) #remove the file to avoid double processing of it
                 evts=None
             else:
                 g.net.addPrint("[EVENT EXTRACTOR] No event found!")
         except (KeyError, TypeError):
             g.net.addPrint("[EVENT EXTRACTOR] No event found!")
             return
-
-    def on_events(self,evts):
-        t_string=datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S')
-        with open("proximity_event_store.txt", "a") as f:
-            f.write(t_string+" "+str(evts)+"\n")
-
-        mqtt_utils.publish_mqtt(g.mqtt_client, evts, TELEMETRY_TOPIC)      
 
     def run(self):
         
@@ -160,7 +143,7 @@ class PROXIMITY_DETECTOR_THREAD(threading.Thread):
             except pexpect.exceptions.TIMEOUT:
                 g.net.addPrint("[EVENT EXTRACTOR] Octave is processing...")
                 pass
-            except pexpect.exceptions.EOF:
+            except pexpect.exceptions.EOF: # end of octave console, so just after octave execution
                 self.on_processed()
                 pass
             except IndexError: # if proximity_detector_in_queue is empty
