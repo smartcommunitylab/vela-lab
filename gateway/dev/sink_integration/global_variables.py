@@ -21,7 +21,9 @@ no_of_sub_chunks_in_this_chunk = 0
 
 headerDropCounter = 0
 
-proximity_detector_in_queue = deque()
+# queue shared between the launcher of proximity detection, that just append a contact file to the list, and the thread that executes
+# proximity detection. If the list is empty, the octave program is not launched.
+proximity_detector_in_queue = deque()  
 
 network_status_poll_interval=par.NETWORK_STATUS_POLL_INTERVAL_DEF
 
