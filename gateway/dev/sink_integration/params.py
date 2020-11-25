@@ -120,3 +120,12 @@ contact_log_file_folder=LOG_FOLDER_PATH
 
 LOG_LEVEL = logging.DEBUG
 octave_to_log_folder_r_path=os.path.relpath(contact_log_file_folder, OCTAVE_FILES_FOLDER)
+
+"""--------------------------Bluetooth Scheduler-----------------------------"""
+# H between 0 and 23, M between 0 and 59
+
+BT_ON_TIME_H = 8 
+BT_ON_TIME_M = 0
+
+BT_OFF_TIME_H = 18
+BT_OFF_TIME_H = 0
