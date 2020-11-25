@@ -19,8 +19,6 @@ import time
 import sys
 import os
 
-
-
 # Timeout variables
 timeoutTime = 60
 
@@ -37,6 +35,7 @@ firmwareChunkDownloaded_event_data=[]
 def obtain_and_send_network_status():
     try:
         net_descr=g.net.obtainNetworkDescriptorObject()
+        g.net.addPrint(net_descr)
         if len(net_descr):
             g.net.addPrint("[EVENT] Network status collected, pushing it to cloud with mqtt.")
             
@@ -44,7 +43,9 @@ def obtain_and_send_network_status():
             for n in node_names:
                 node_desc={}
                 node_desc[n]=net_descr[n]
-                mqtt_utils.publish_mqtt(g.mqtt_client, node_desc, par.TELEMETRY_TOPIC)
+                g.net.addPrint("[GMELIA] before net status contacts")
+                g.net.addPrint("[GMELIA] {}".format(node_desc))
+                mqtt_utils.publish_mqtt(g.mqtt_client, node_desc, par.TELEMETRY_TOPIC) # TODO it stops around 200
                 with open("net_stat_store.txt", "a") as f:
                     f.write(datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S')+" "+str(node_desc)+"\n")
     except Exception:
@@ -62,6 +63,26 @@ class NETWORK_STATUS_POLL_THREAD(threading.Thread):
         while self.__loop:
             time.sleep(g.network_status_poll_interval)
             obtain_and_send_network_status()
+
+class BLUETOOTH_SCHEDULING_THREAD(threading.Thread):
+    def __init__(self, threadID, name):
+        threading.Thread.__init__(self)
+        self.threadID= threadID
+        self.name = name
+        self.__loop=True
+        self.bt_state = "off"
+
+    def run(self):
+        forced = True
+        while self.__loop:
+            time.sleep(10)
+            if self.bt_state == "off":
+                g.net.sendNewTrickle(build_outgoing_serial_message(par.PacketType.nordic_turn_bt_on, None),forced)
+                self.bt_state = "on"
+            elif self.bt_state == "on":
+                g.net.sendNewTrickle(build_outgoing_serial_message(par.PacketType.nordic_turn_bt_off, None),forced)
+                self.bt_state = "off"
+            time.sleep(60)
 
 def start_poximity_detection():
     file_to_process=g.filenameContactLog
@@ -104,8 +125,10 @@ class PROXIMITY_DETECTOR_THREAD(threading.Thread):
                 with open("proximity_event_store.txt", "a") as f:
                     f.write(t_string+" "+str(evts)+"\n")
 
+                g.net.addPrint("[GMELIA] before telemetry contacts")
+                g.net.addPrint("[GMELIA] {}".format(evts))
                 mqtt_utils.publish_mqtt(g.mqtt_client, evts, par.TELEMETRY_TOPIC)      
-
+                g.net.addPrint("[GMELIA] after telemetry contacts")
                 os.remove(par.OCTAVE_FILES_FOLDER+'/'+ par.EVENTS_FILE_JSON) #remove the file to avoid double processing of it
                 evts=None
             else:
@@ -850,8 +873,8 @@ def log_contact_data(seqid):
 
 if __name__ == "__main__":
   
-  utils.init_logs()
   utils.create_log_folder()
+  utils.init_logs()
   utils.init_serial()
 
   g.net = Network()
@@ -875,6 +898,10 @@ if __name__ == "__main__":
   network_stat_poll_thread=NETWORK_STATUS_POLL_THREAD(7,"periodic network status monitor")
   network_stat_poll_thread.setDaemon(True)
   network_stat_poll_thread.start()
+
+  # bluetooth_scheduling_thread=BLUETOOTH_SCHEDULING_THREAD(7,"bluetooth scheduling")
+  # bluetooth_scheduling_thread.setDaemon(True)
+  # bluetooth_scheduling_thread.start()
 
   if g.ser.is_open:
       g.net.addPrint("[UART] Serial Port already open! "+ g.ser.port + " open before initialization... closing first")
@@ -1182,7 +1209,6 @@ if __name__ == "__main__":
                       # net.addPrint("Turning bt on")
                       ptype = par.PacketType.nordic_turn_bt_on
                       btToggleBool = True
-                  # send_serial_msg(ptype, None)
                   btPreviousTime = currentTime
 
 
@@ -1210,7 +1236,7 @@ if __name__ == "__main__":
       print("[APPLICATION] Total packets delivered: ", g.deliverCounter)
       print("[APPLICATION] Total packets dropped: ", g.dropCounter)
       print("[APPLICATION] Total header packets dropped: ", g.headerDropCounter)
-      print("[APPLICATION] Packet delivery rate: ", 100 * (g.deliverCounter / (g.deliverCounter + g.dropCounter)))
+      print("[APPLICATION] Packet delivery rate: ", 100 * (g.deliverCounter / (g.deliverCounter + g.dropCounter))) # TODO bassissimo
       raise
   finally:
       print("done")
