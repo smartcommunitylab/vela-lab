@@ -42,3 +42,8 @@ errorLogger = None
 errorlog_handler = None
 
 filenameContactLog = None
+
+"""-------------------------BLUETOOTH PARAMETERS-------------------------"""
+btPreviousTime = 0
+btToggleBool = True
+

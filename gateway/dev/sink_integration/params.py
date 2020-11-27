@@ -44,6 +44,7 @@ MQTT_PORT=1883
 #DEVICE_TOKEN="iOn25YbEvRBN9sp6xdCd"     #vela-gateway
 # DEVICE_TOKEN="9ovXYK9SOMgcbaIrWvZ2"     #vela-gateway-test
 DEVICE_TOKEN="Xk5yuRNrGlcFHoWhC3AW"     #gm-gateway-test
+DEVICE_TOKEN="kWHL0HVrjSn17jZfdSC3"     # random generator
 
 TELEMETRY_TOPIC="v1/gateway/telemetry"
 CONNECT_TOPIC="v1/gateway/connect"
@@ -51,7 +52,6 @@ CONNECT_TOPIC="v1/gateway/connect"
 
 """ ----------------------------NETWORK----------------------------------------"""
 MAX_TRICKLE_C_VALUE = 256
-CONNECT_TOPIC="v1/gateway/connect"
 
 REBOOT_INTERVAL=0.5
 
@@ -66,6 +66,9 @@ MAX_REPORTS_PER_PACKET = 5       # max number of beacons in a message, if bigger
 MAX_PACKET_PAYLOAD = SINGLE_NODE_REPORT_SIZE*MAX_REPORTS_PER_PACKET
 
 NETWORK_STATUS_POLL_INTERVAL_DEF = 60
+
+# Timeout variables
+TIMEOUT_TIME = 60
 
 """-------------------------------STRUCTURES----------------------------- """
 ContactData = recordtype("ContactData", "nodeid lastRSSI maxRSSI pktCounter")
@@ -109,7 +112,7 @@ OCTAVE_LAUNCH_COMMAND="/usr/bin/flatpak run org.octave.Octave -qf" #octave 5 is 
 DETECTOR_OCTAVE_SCRIPT = "run_detector.m"
 OCTAVE_FILES_FOLDER = "../data_plotting/matlab_version" 
 ENABLE_PROCESS_OUTPUT_ON_CONSOLE=True # enable the output of OCTAVE to be displayed in the terminal
-PROXIMITY_DETECTOR_POLL_INTERVAL=60 # slot of time [s] between two proximity detection executions. However, user can start the process via the command line
+PROXIMITY_DETECTOR_POLL_INTERVAL=60 * 10 # slot of time [s] between two proximity detection executions. However, user can start the process via the command line
 EVENTS_FILE_JSON="json_events.txt"
 
 """ ---------------------------LOG------------------------------------------"""
@@ -121,7 +124,7 @@ contact_log_file_folder=LOG_FOLDER_PATH
 LOG_LEVEL = logging.DEBUG
 octave_to_log_folder_r_path=os.path.relpath(contact_log_file_folder, OCTAVE_FILES_FOLDER)
 
-"""--------------------------Bluetooth Scheduler-----------------------------"""
+"""------------------------------Bluetooth--------------------------------"""
 # H between 0 and 23, M between 0 and 59
 
 BT_ON_TIME_H = 8 

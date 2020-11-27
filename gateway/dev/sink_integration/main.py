@@ -19,15 +19,6 @@ import time
 import sys
 import os
 
-# Timeout variables
-timeoutTime = 60
-
-previousTimePing = 0
-pingInterval = 115
-
-btPreviousTime = 0
-btToggleInterval = 1800
-btToggleBool = True
 
 firmwareChunkDownloaded_event=threading.Event()
 firmwareChunkDownloaded_event_data=[]
@@ -43,8 +34,8 @@ def obtain_and_send_network_status():
             for n in node_names:
                 node_desc={}
                 node_desc[n]=net_descr[n]
-                g.net.addPrint("[GMELIA] before net status contacts")
-                g.net.addPrint("[GMELIA] {}".format(node_desc))
+                # g.net.addPrint("[GMELIA] before net status contacts")
+                # g.net.addPrint("[GMELIA] {}".format(node_desc))
                 mqtt_utils.publish_mqtt(g.mqtt_client, node_desc, par.TELEMETRY_TOPIC) # TODO it stops around 200
                 with open("net_stat_store.txt", "a") as f:
                     f.write(datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S')+" "+str(node_desc)+"\n")
@@ -981,7 +972,9 @@ if __name__ == "__main__":
 
                                   if par.printVerbosity > 1:
                                       g.net.addPrint("  [PACKET DECODE] Bluetooth sequence decoded. Contact elements: "+ str(len(g.messageSequenceList[seqid].datalist)))
-                                      g.net.addPrint(" [GGG] {}".format(g.messageSequenceList))
+                                      # g.net.addPrint(" [GGG] {}".format(g.messageSequenceList))
+                                  contact_descriptor = utils.create_contact_descriptor(g.messageSequenceList)
+                                  # mqtt_utils.publish_mqtt(g.mqtt_client, contact_descriptor, par.TELEMETRY_TOPIC)
                                   log_contact_data(seqid)
                                   g.net.processBTReportMessage(str(nodeid))
 
@@ -1191,25 +1184,13 @@ if __name__ == "__main__":
                   previousTimeTimeout = time.time()
                   deletedCounter = 0
                   for x in range(len(g.messageSequenceList)):
-                      if currentTime - g.messageSequenceList[x - deletedCounter].latestTime > timeoutTime:
+                      if currentTime - g.messageSequenceList[x - deletedCounter].latestTime > par.TIMEOUT_TIME:
                           deleted_nodeid=g.messageSequenceList[x - deletedCounter].nodeid
                           del g.messageSequenceList[x - deletedCounter]
                           deletedCounter += 1
                           if par.printVerbosity > 1:
                               xd = x + deletedCounter
                               g.net.addPrint("[APPLICATION] Deleted seqid %d of node %d because of timeout" %(xd, deleted_nodeid))
-
-              if currentTime - btPreviousTime > btToggleInterval:
-                  ptype = 0
-                  if btToggleBool:
-                      # net.addPrint("Turning bt off")
-                      ptype = par.PacketType.nordic_turn_bt_off
-                      # btToggleBool = False
-                  else:
-                      # net.addPrint("Turning bt on")
-                      ptype = par.PacketType.nordic_turn_bt_on
-                      btToggleBool = True
-                  btPreviousTime = currentTime
 
 
           else: # !ser.is_open (serial port is not open)
