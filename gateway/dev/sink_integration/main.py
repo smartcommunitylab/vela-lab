@@ -743,15 +743,6 @@ class USER_INPUT_THREAD(threading.Thread):
                 elif user_input == 3:
                     g.net.addPrint("[USER_INPUT] Turn bluetooth off")
                     g.net.sendNewTrickle(build_outgoing_serial_message(par.PacketType.nordic_turn_bt_off, None),forced)
-                #elif user_input == 4:
-                #    net.addPrint("Turning bt on low")
-                #    net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_turn_bt_on_low, None),forced)
-                #elif user_input == 4:
-                #    net.addPrint("[USER_INPUT] Turn bluetooth on with default settings stored on the nodes")
-                #    net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_turn_bt_on_def, None),forced)
-                #elif user_input == 6:
-                #    net.addPrint("Turning bt on high")
-                #    net.sendNewTrickle(build_outgoing_serial_message(PacketType.nordic_turn_bt_on_high, None),forced)
                 elif user_input == 4:
                     if ble_tof_enabled:
                         g.net.addPrint("[USER_INPUT] disabling ble tof, WARNING: never really tested in vela")
@@ -763,34 +754,20 @@ class USER_INPUT_THREAD(threading.Thread):
                     g.net.sendNewTrickle(build_outgoing_serial_message(par.PacketType.nordic_ble_tof_enable, ble_tof_enabled.to_bytes(1, byteorder="big", signed=False)),forced)
                         
                 elif user_input == 5:
-                    SCAN_INTERVAL_MS = 1500
-                    SCAN_WINDOW_MS = 3000
-                    SCAN_TIMEOUT_S = 0
-                    REPORT_TIMEOUT_S = 15
 
                     active_scan = 1
-                    scan_interval = int(SCAN_INTERVAL_MS*1000/625)
-                    scan_window = int(SCAN_WINDOW_MS*1000/625)
-                    timeout = int(SCAN_TIMEOUT_S)
-                    report_timeout_ms = int(REPORT_TIMEOUT_S*1000)
+                    scan_interval = int(par.SCAN_INTERVAL_MS*1000/625)
+                    scan_window = int(par.SCAN_WINDOW_MS*1000/625)
+                    timeout = int(par.SCAN_TIMEOUT_S)
+                    report_timeout_ms = int(par.REPORT_TIMEOUT_S*1000)
                     bactive_scan = active_scan.to_bytes(1, byteorder="big", signed=False)
                     bscan_interval = scan_interval.to_bytes(2, byteorder="big", signed=False)
                     bscan_window = scan_window.to_bytes(2, byteorder="big", signed=False)
                     btimeout = timeout.to_bytes(2, byteorder="big", signed=False)
                     breport_timeout_ms = report_timeout_ms.to_bytes(4, byteorder="big", signed=False)
                     payload = bactive_scan + bscan_interval + bscan_window + btimeout + breport_timeout_ms
-                    g.net.addPrint("[USER_INPUT] Turn bluetooth on with parameters: scan_int="+str(SCAN_INTERVAL_MS)+"ms, scan_win="+str(SCAN_WINDOW_MS)+"ms, timeout="+str(SCAN_TIMEOUT_S)+"s, report_int="+str(REPORT_TIMEOUT_S)+"s")
+                    g.net.addPrint("[USER_INPUT] Turn bluetooth on with parameters: scan_int="+str(par.SCAN_INTERVAL_MS)+"ms, scan_win="+str(par.SCAN_WINDOW_MS)+"ms, timeout="+str(par.SCAN_TIMEOUT_S)+"s, report_int="+str(par.REPORT_TIMEOUT_S)+"s")
                     g.net.sendNewTrickle(build_outgoing_serial_message(par.PacketType.nordic_turn_bt_on_w_params, payload),forced)
-                elif user_input == 6:
-                    g.net.addPrint("[USER_INPUT] Deprecated command, ignored!")
-                    #bat_info_interval_s = 90
-                    #net.addPrint("[USER_INPUT] Enable battery info with interval: "+str(bat_info_interval_s))
-                    #net.sendNewTrickle(build_outgoing_serial_message(PacketType.ti_set_batt_info_int, bat_info_interval_s.to_bytes(1, byteorder="big", signed=False)),forced)
-                elif user_input == 7:
-                    g.net.addPrint("[USER_INPUT] Deprecated command, ignored!")
-                    #bat_info_interval_s = 0
-                    #net.addPrint("[USER_INPUT] Disable battery info")
-                    #net.sendNewTrickle(build_outgoing_serial_message(PacketType.ti_set_batt_info_int, bat_info_interval_s.to_bytes(1, byteorder="big", signed=False)),forced)
                 elif user_input == 8:
                     g.net.addPrint("[USER_INPUT] Reset nordic")
                     g.net.sendNewTrickle(build_outgoing_serial_message(par.PacketType.nordic_reset, None),forced)
@@ -973,8 +950,6 @@ if __name__ == "__main__":
                                   if par.printVerbosity > 1:
                                       g.net.addPrint("  [PACKET DECODE] Bluetooth sequence decoded. Contact elements: "+ str(len(g.messageSequenceList[seqid].datalist)))
                                       # g.net.addPrint(" [GGG] {}".format(g.messageSequenceList))
-                                  contact_descriptor = utils.create_contact_descriptor(g.messageSequenceList)
-                                  # mqtt_utils.publish_mqtt(g.mqtt_client, contact_descriptor, par.TELEMETRY_TOPIC)
                                   log_contact_data(seqid)
                                   g.net.processBTReportMessage(str(nodeid))
 
@@ -1044,26 +1019,6 @@ if __name__ == "__main__":
                                   g.net.processBTReportMessage(str(g.messageSequenceList[seqid].nodeid))
                                   del g.messageSequenceList[seqid]
 
-                          elif par.PacketType.network_bat_data == pkttype: #deprecated, will be removed soon
-                              batCapacity = float(int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False)) 
-                              cursor+=2
-                              batSoC = float(int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False)) / 10 
-                              cursor+=2
-                              bytesELT = line[cursor:cursor+2] #ser.read(2)
-                              cursor+=2
-                              batELT = str(datetime.timedelta(minutes=int.from_bytes(bytesELT, byteorder="big", signed=False)))[:-3] # Convert minutes to hours and minutes
-                              batAvgConsumption = float(int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=True)) / 10 
-                              cursor+=2
-                              batAvgVoltage = float(int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False))/1000 
-                              cursor+=2
-                              batAvgTemp = float(int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=True)) / 100 
-                              cursor+=2
-                              g.net.processBatteryDataMessage(str(nodeid), batAvgVoltage, batCapacity, batSoC, batAvgConsumption, batAvgTemp)
-
-                              if par.printVerbosity > 1:
-                                  g.net.addPrint("  [PACKET DECODE] Battery data, Cap: %.0f mAh SoC: %.1f ETA: %s (hh:mm) Consumption: %.1f mA Voltage: %.3f Temperature %.2f"% (batCapacity, batSoC, batELT, batAvgConsumption, batAvgVoltage, batAvgTemp))
-
-
                           elif par.PacketType.network_respond_ping == pkttype:
                               payload = int(line[cursor:cursor+2].hex(), 16) #int(ser.read(1).hex(), 16)
                               cursor+=2
@@ -1073,58 +1028,7 @@ if __name__ == "__main__":
                                   g.net.addPrint("  [PACKET DECODE] Node id "+ str(nodeid)+" wrong ping payload: %d" % payload )
 
                           elif par.PacketType.network_keep_alive == pkttype:
-                              #new_keepalive=True
-                            # if new_keepalive:
-                              batCapacity = float(int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False)) 
-                              cursor+=2
-                              batSoC = float(int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False)) / 10 
-                              cursor+=2
-                              bytesELT = line[cursor:cursor+2] #ser.read(2)
-                              cursor+=2
-                              batELT = str(datetime.timedelta(minutes=int.from_bytes(bytesELT, byteorder="big", signed=False)))[:-3] # Convert minutes to hours and minutes
-                              batAvgConsumption = float(int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=True)) / 10 
-                              cursor+=2
-                              batAvgVoltage = float(int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False))/1000 
-                              cursor+=2
-                              batAvgTemp = float(int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=True)) / 100 
-                              cursor+=2
-                              
-                              fw_metadata_crc_int = int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False)
-                              cursor+=2
-                              fw_metadata_crc_shadow_int = int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False)
-                              cursor+=2
-                              fw_metadata_size_int = int.from_bytes(line[cursor:cursor+4], byteorder="big", signed=False)
-                              cursor+=4
-                              fw_metadata_uuid_int = int.from_bytes(line[cursor:cursor+4], byteorder="big", signed=False)
-                              cursor+=4
-                              fw_metadata_version_int = int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False)
-                              cursor+=2
-                                    
-                              fw_metadata_crc_str = "{0}".format(hex(fw_metadata_crc_int))
-                              fw_metadata_crc_shadow_str = "{0}".format(hex(fw_metadata_crc_shadow_int))
-                              fw_metadata_size_str = "{0}".format(hex(fw_metadata_size_int))
-                              fw_metadata_uuid_str = "{0}".format(hex(fw_metadata_uuid_int))
-                              fw_metadata_version_str = "{0}".format(hex(fw_metadata_version_int))
-
-                              trickle_count = int.from_bytes(line[cursor:cursor+1], byteorder="big", signed=False) 
-                              cursor+=1
-
-                              #g.net.addPrint("  [PACKET DECODE] Firmware metadata: crc: "+fw_metadata_crc_str+" crc_shadow: "+fw_metadata_crc_shadow_str+" size: "+fw_metadata_size_str+" uuid: "+fw_metadata_uuid_str+" version: "+fw_metadata_version_str)
-
-                              battery_data=dict()
-                              battery_data["capacity"]=batCapacity
-                              battery_data["state_of_charge"]=batSoC
-                              battery_data["estimated_lifetime"]=batELT
-                              battery_data["consumption"]=batAvgConsumption
-                              battery_data["voltage"]=batAvgVoltage
-                              battery_data["temperature"]=batAvgTemp
-
-                              fw_metadata=dict()
-                              fw_metadata["crc"]=fw_metadata_crc_int
-                              fw_metadata["crc_shadow"]=fw_metadata_crc_shadow_int
-                              fw_metadata["size"]=fw_metadata_size_int
-                              fw_metadata["uuid"]=fw_metadata_uuid_int
-                              fw_metadata["version"]=fw_metadata_version_int
+                              cursor, trickle_count, battery_data, fw_metadata = utils.keepalive_decode(line, cursor)
                               
                               nbr_info_str=None
                               if len(line)>cursor:
@@ -1133,27 +1037,9 @@ if __name__ == "__main__":
                       
                               g.net.processKeepAliveMessage(str(nodeid), trickle_count, battery_data, fw_metadata, nbr_info_str)
 
-                                  #net.processBatteryDataMessage(str(nodeid), batAvgVoltage, batCapacity, batSoC, batAvgConsumption, batAvgTemp)
-                                  #net.processFWMetadata(str(nodeid), fw_metadata_crc_str, fw_metadata_crc_shadow_str, fw_metadata_size_str, fw_metadata_uuid_str, fw_metadata_version_str)
-                              #else:
-                              #    batCapacity = float(int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False)) 
-                              #    cursor+=2
-                              #    batAvgVoltage = float(int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False))/1000 
-                              #    cursor+=2
-
-                              #    trickle_count = int.from_bytes(line[cursor:cursor+1], byteorder="big", signed=False) 
-                              #    cursor+=1
-
-                              #    net.processKeepAliveMessage(str(nodeid), trickle_count, batAvgVoltage, batCapacity)
-
-
                               if par.printVerbosity > 1:
-                                  g.net.addPrint("  [PACKET DECODE] Keep alive packet. Cap: "+ str(batCapacity) +" Voltage: "+ str(batAvgVoltage*1000) +" Trickle count: "+ str(trickle_count))
+                                  g.net.addPrint("  [PACKET DECODE] Keep alive packet. Cap: "+ str(battery_data["capacity"]) +" Voltage: "+ str(battery_data["voltage"]*1000) +" Trickle count: "+ str(trickle_count))
 
-                              #if len(line)>cursor:
-                              #    nbr_info=line[cursor:-1]
-                              #    net.addPrint("  [PACKET DECODE] nbr info: "+nbr_info.decode("utf-8"))
-                                  
                           elif par.PacketType.ota_ack == pkttype:
                               firmwareChunkDownloaded_event_data=line[cursor:]
                               data = int(line[cursor:].hex(), 16) 

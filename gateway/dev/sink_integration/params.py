@@ -127,6 +127,11 @@ octave_to_log_folder_r_path=os.path.relpath(contact_log_file_folder, OCTAVE_FILE
 """------------------------------Bluetooth--------------------------------"""
 # H between 0 and 23, M between 0 and 59
 
+SCAN_INTERVAL_MS = 1500
+SCAN_WINDOW_MS = 3000
+SCAN_TIMEOUT_S = 0
+REPORT_TIMEOUT_S = 15
+
 BT_ON_TIME_H = 8 
 BT_ON_TIME_M = 0
 
