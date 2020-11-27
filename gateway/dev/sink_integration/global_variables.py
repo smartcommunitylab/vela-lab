@@ -1,5 +1,7 @@
 from collections import deque
 import params as par
+import threading
+
 
 mqtt_client = None
 mqtt_connected=False
@@ -27,7 +29,6 @@ proximity_detector_in_queue = deque()
 
 network_status_poll_interval=par.NETWORK_STATUS_POLL_INTERVAL_DEF
 
-
 """--------------------------VARIOUS LOGGERS-----------------------------"""
 consoleLogger = None
 consolelog_handler = None
@@ -43,7 +44,8 @@ errorlog_handler = None
 
 filenameContactLog = None
 
-"""-------------------------BLUETOOTH PARAMETERS-------------------------"""
-btPreviousTime = 0
-btToggleBool = True
+"""----------------------------OTA---------------------------------------"""
+firmwareChunkDownloaded_event=threading.Event()
+
+firmwareChunkDownloaded_event_data=[]
 

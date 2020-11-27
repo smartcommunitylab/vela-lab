@@ -2,6 +2,7 @@ from itertools import chain, starmap
 import global_variables as g
 import params as par
 import binascii
+import datetime
 import logging
 import shutil
 import serial
@@ -174,7 +175,7 @@ def cls():
     """ to clear the screen, used by the console """
     os.system('cls' if os.name=='nt' else 'clear')
 
-def get_result():
+def get_result():  
     """ open the JSON file with the proximity events and load it """
     try:
         with open(par.OCTAVE_FILES_FOLDER+'/'+par.EVENTS_FILE_JSON) as f: # Use file to refer to the file object
@@ -184,3 +185,76 @@ def get_result():
         return None
         
     return None
+
+def keepalive_decode(line,cursor):
+  batCapacity = float(int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False)) 
+  cursor+=2
+  batSoC = float(int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False)) / 10 
+  cursor+=2
+  bytesELT = line[cursor:cursor+2] 
+  cursor+=2
+  batELT = str(datetime.timedelta(minutes=int.from_bytes(bytesELT, byteorder="big", signed=False)))[:-3] # Convert minutes to hours and minutes
+  batAvgConsumption = float(int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=True)) / 10 
+  cursor+=2
+  batAvgVoltage = float(int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False))/1000 
+  cursor+=2
+  batAvgTemp = float(int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=True)) / 100 
+  cursor+=2
+  
+  fw_metadata_crc_int = int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False)
+  cursor+=2
+  fw_metadata_crc_shadow_int = int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False)
+  cursor+=2
+  fw_metadata_size_int = int.from_bytes(line[cursor:cursor+4], byteorder="big", signed=False)
+  cursor+=4
+  fw_metadata_uuid_int = int.from_bytes(line[cursor:cursor+4], byteorder="big", signed=False)
+  cursor+=4
+  fw_metadata_version_int = int.from_bytes(line[cursor:cursor+2], byteorder="big", signed=False)
+  cursor+=2
+
+  trickle_count = int.from_bytes(line[cursor:cursor+1], byteorder="big", signed=False) 
+  cursor+=1
+
+  battery_data=dict()
+  battery_data["capacity"]=batCapacity
+  battery_data["state_of_charge"]=batSoC
+  battery_data["estimated_lifetime"]=batELT
+  battery_data["consumption"]=batAvgConsumption
+  battery_data["voltage"]=batAvgVoltage
+  battery_data["temperature"]=batAvgTemp
+
+  fw_metadata=dict()
+  fw_metadata["crc"]=fw_metadata_crc_int
+  fw_metadata["crc_shadow"]=fw_metadata_crc_shadow_int
+  fw_metadata["size"]=fw_metadata_size_int
+  fw_metadata["uuid"]=fw_metadata_uuid_int
+  fw_metadata["version"]=fw_metadata_version_int
+
+  return cursor, trickle_count, battery_data, fw_metadata
+
+def console_header(netSize, uartLogLines, netMinTrickle, netMaxTrickle, expTrickle, trickleQueue):
+  print("|----------------------------------------------------------------------------------------------------------------------------------------------|")
+  print("|---------------------------------------------------|  Network size %3s log lines %7s |----------------------------------------------------|" %(str(netSize), uartLogLines))
+  print("|------------------------------------------| Trickle: min %3d; max %3d; exp %3d; queue size %2d |-----------------------------------------------|" %(netMinTrickle, netMaxTrickle, expTrickle, len(trickleQueue)))
+  print("|----------------------------------------------------------------------------------------------------------------------------------------------|")
+  print("| NodeID | Battery                              | Last    | Firmware | Trick |   #BT  |                                  Neighbors info string |")
+  print("|        | Volt   SoC Capacty    Cons    Temp   | seen[s] | version  | Count |   Rep  |          P: a parent,  P*: actual parent,  N: neighbor |")
+
+def console_middle(showHelp):
+  print("|----------------------------------------------------------------------------------------------------------------------------------------------|")
+  if showHelp:
+      print("|    AVAILABLE COMMANDS:")
+      print("| key    command\n|")
+      print("| 1      request ping\n"
+            "| 2      enable bluetooth\n"
+            "| 3      disable bluetooth\n"
+            "| 4      bt_def\n"
+            "| 5      bt_with_params\n"
+            "| 8      reset nordic\n"
+            "| 9      set time between sends\n"
+            "| >9     set keep alive interval in seconds")
+  else:
+      print("|     h+enter    : Show available commands                                                                                                     |")
+  print("|----------------------------------------------------------------------------------------------------------------------------------------------|")
+  print("|--------------------------------------------------|               CONSOLE                  |--------------------------------------------------|")
+  print("|----------------------------------------------------------------------------------------------------------------------------------------------|")

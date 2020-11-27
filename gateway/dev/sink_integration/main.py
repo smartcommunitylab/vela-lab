@@ -3,6 +3,7 @@ import paho.mqtt.client as mqtt
 from collections import deque
 
 import global_variables as g
+from node_class import Node
 import params as par
 import mqtt_utils
 
@@ -20,8 +21,6 @@ import sys
 import os
 
 
-firmwareChunkDownloaded_event=threading.Event()
-firmwareChunkDownloaded_event_data=[]
 
 def obtain_and_send_network_status():
     try:
@@ -199,8 +198,6 @@ class Network(object):
 
     def __trickleCheck(self):
         for n in self.__nodes:
-            #with n.lock:
-            #self.addPrint("Node "+ n.name + "lastTrickleCount: " + str(n.lastTrickleCount))
             if n==self.__nodes[0]:
                 self.__netMaxTrickle = n.lastTrickleCount
                 self.__netMinTrickle = n.lastTrickleCount
@@ -335,29 +332,28 @@ class Network(object):
             else:
                 time_to_wait = par.CHUNK_DOWNLOAD_TIMEOUT
                             
-            if firmwareChunkDownloaded_event.wait(time_to_wait):
-                firmwareChunkDownloaded_event.clear()
+            if g.firmwareChunkDownloaded_event.wait(time_to_wait):
+                g.firmwareChunkDownloaded_event.clear()
                 time.sleep(par.CHUNK_INTERVAL_ADD)
 
                 if chunk_no != g.n_chunks_in_firmware: #not the last chunk
                     zero=0
                     chunk_no_b=chunk_no%256
                     ackok=chunk_no_b.to_bytes(1, byteorder="big", signed=False)+zero.to_bytes(1, byteorder="big", signed=True)
-                    if firmwareChunkDownloaded_event_data==ackok:
+                    if g.firmwareChunkDownloaded_event_data==ackok:
                         chunk_timeout_count=0
                         self.addPrint("[DEBUG] OTA ack OK!!") #ok go on
                         lastCorrectChunkReceived=chunk_no
                     else:                   
-                        self.addPrint("[DEBUG] OTA ack NOT OK!! Err: "+str(firmwareChunkDownloaded_event_data[1])+". The chunk will be retrasmitted in a moment...")
+                        self.addPrint("[DEBUG] OTA ack NOT OK!! Err: "+str(g.firmwareChunkDownloaded_event_data[1])+". The chunk will be retrasmitted in a moment...")
                         time.sleep(5) #in case a full chunk is transmitted to the node twice (because of a ota_ack loss), we might get multiple nacks for a chunk
-                        while firmwareChunkDownloaded_event.isSet():
-                            firmwareChunkDownloaded_event.clear()
+                        while g.firmwareChunkDownloaded_event.isSet():
+                            g.firmwareChunkDownloaded_event.clear()
                             self.addPrint("[DEBUG] More than one ACK/NACK received for this firmware chunk. I should be able to recover...just give me some time")
-                            lastCorrectChunkReceived=firmwareChunkDownloaded_event_data[0]+256*int(chunk_no/256)
+                            lastCorrectChunkReceived=g.firmwareChunkDownloaded_event_data[0]+256*int(chunk_no/256)
                             time.sleep(5)
 
                     chunk_no=lastCorrectChunkReceived + 1
-                    #self.addPrint("[DEBUG] I'll send chunk_no: "+str(chunk_no)+" in a moment")
                     offset=(chunk_no-1)*par.MAX_CHUNK_SIZE
                 else:
                     zero=0
@@ -365,11 +361,11 @@ class Network(object):
                     chunk_no_b=chunk_no%256
                     ackok=chunk_no_b.to_bytes(1, byteorder="big", signed=False)+zero.to_bytes(1, byteorder="big", signed=True) #everithing fine on the node
                     ackok_alt=chunk_no_b.to_bytes(1, byteorder="big", signed=False)+one.to_bytes(1, byteorder="big", signed=True) #crc ok, but there was memory overflow during CRC verification. The firmware will be vefiried on the next reboot
-                    if firmwareChunkDownloaded_event_data==ackok:
+                    if g.firmwareChunkDownloaded_event_data==ackok:
                         chunk_no+=1
                         offset=(chunk_no-1)*par.MAX_CHUNK_SIZE
                         return 0 #OTA update correctly closed
-                    elif firmwareChunkDownloaded_event_data==ackok_alt:
+                    elif g.firmwareChunkDownloaded_event_data==ackok_alt:
                         self.addPrint("[OTA] CRC ok but not written on the node...")
                         chunk_no+=1
                         offset=(chunk_no-1)*par.MAX_CHUNK_SIZE
@@ -491,37 +487,15 @@ class Network(object):
         if par.CLEAR_CONSOLE:
             utils.cls()
 
-
-        print("|----------------------------------------------------------------------------------------------------------------------------------------------|")
-        print("|---------------------------------------------------|  Network size %3s log lines %7s |----------------------------------------------------|" %(str(netSize), self.__uartLogLines))
-        print("|------------------------------------------| Trickle: min %3d; max %3d; exp %3d; queue size %2d |-----------------------------------------------|" %(self.__netMinTrickle, self.__netMaxTrickle, self.__expTrickle, len(self.__trickleQueue)))
-        print("|----------------------------------------------------------------------------------------------------------------------------------------------|")
-        print("| NodeID | Battery                              | Last    | Firmware | Trick |   #BT  |                                  Neighbors info string |")
-        print("|        | Volt   SoC Capacty    Cons    Temp   | seen[s] | version  | Count |   Rep  |          P: a parent,  P*: actual parent,  N: neighbor |")
-        #print("|           |                 |                     |             |            |")
+        # Drawing the console
+        utils.console_header(netSize, self.__uartLogLines, self.__netMinTrickle, self.__netMaxTrickle, self.__expTrickle, self.__trickleQueue)
         for n in self.__nodes:
             n.printNodeInfo()
-        #print("|           |                 |                     |             |            |")
-        print("|----------------------------------------------------------------------------------------------------------------------------------------------|")
-        if self.showHelp:
-            print("|    AVAILABLE COMMANDS:")
-            print("| key    command\n|")
-            print("| 1      request ping\n"
-                  "| 2      enable bluetooth\n"
-                  "| 3      disable bluetooth\n"
-                  "| 4      bt_def\n"
-                  "| 5      bt_with_params\n"
-                  "| 8      reset nordic\n"
-                  "| 9      set time between sends\n"
-                  "| >9     set keep alive interval in seconds")
-        else:
-            print("|     h+enter    : Show available commands                                                                                                     |")
-        print("|----------------------------------------------------------------------------------------------------------------------------------------------|")
-        print("|--------------------------------------------------|            CONSOLE                     |--------------------------------------------------|")
-        print("|----------------------------------------------------------------------------------------------------------------------------------------------|")
-
+        utils.console_middle(self.showHelp)
+        # end of console main header
+        
         terminalSize = shutil.get_terminal_size(([80,20]))
-        if g.net.showHelp:
+        if self.showHelp:
             availableLines = terminalSize[1] - (24 + len(self.__nodes))
         else:
             availableLines = terminalSize[1] - (12 + len(self.__nodes))
@@ -609,81 +583,6 @@ class Network(object):
         self.__trickleCheck()
         self.__expTrickle = self.__netMaxTrickle
         
-class Node(object):
-
-    # The class "constructor" - It's actually an initializer
-    def __init__(self, label, trickleCount=0):
-        self.lock = threading.Lock()
-        self.name = label
-        self.lastTrickleCount = trickleCount
-        self.lastMessageTime = float(time.time())
-        self.batteryData=None
-        self.amountOfBTReports = 0
-        self.online=True
-        self.fw_metadata=None
-        self.nbr_string=""
-
-    def updateTrickleCount(self,trickleCount):
-        with self.lock:
-            self.lastTrickleCount = trickleCount
-            self.lastMessageTime = float(time.time())
-
-    def updateBatteryData(self,batteryData):
-        with self.lock:
-            self.batteryData=batteryData
-
-    def BTReportHandler(self):
-        with self.lock:
-            self.amountOfBTReports = self.amountOfBTReports + 1
-            self.lastMessageTime = float(time.time())
-
-    def updateFWMetadata(self, fw_metadata):
-        with self.lock:
-            self.fw_metadata=fw_metadata
-
-    def getMetadataVersionString(self):
-        if(self.fw_metadata!=None):
-            fw_metadata_version_str = "{0}".format(hex(self.fw_metadata["version"]))
-            return fw_metadata_version_str
-        else:
-            return ""
-
-    def updateNbrString(self,nbr_string):
-        with self.lock:
-            self.nbr_string=nbr_string
-
-    def getLastMessageElapsedTime(self):
-        now = float(time.time())
-        return now-self.lastMessageTime
-
-    def resetNodeTimeout(self):
-        with self.lock:
-            self.lastMessageTime = float(time.time())
- 
-    def getNodeDescriptorObject(self):
-        desc=dict()
-        with self.lock:
-            #desc["name"]=self.name
-            #desc["ts"]=int(time.time()*1000)
-            desc["battery"]=self.batteryData
-            desc["firmware"]=self.fw_metadata
-            desc["neighbors_info"]=self.nbr_string
-            desc["online"]=self.online
-            desc["number_of_bt_reports"]=self.amountOfBTReports
-            
-        return desc
-
-    def printNodeInfo(self):
-        if self.online:
-            onlineMarker=' '
-        else:
-            onlineMarker='*'
-
-        if self.batteryData != None and self.fw_metadata != None:
-            print("| %3s%1s| %3.2fV %3.0f%% %4.0fmAh %6.1fmA  %5.1f°  |  %6.0f |   %5s  |   %3d | %6d | %54s |" % (str(self.name[-6:]), onlineMarker, self.batteryData["voltage"], self.batteryData["state_of_charge"], self.batteryData["capacity"], self.batteryData["consumption"], self.batteryData["temperature"], self.getLastMessageElapsedTime(), self.getMetadataVersionString(), self.lastTrickleCount, self.amountOfBTReports, self.nbr_string))
-        else:
-            print("| %3s |                                       |  %6.0f |          |   %3d | %6d |                                                      |" % (str(self.name[-6:]), self.getLastMessageElapsedTime(), self.lastTrickleCount, self.amountOfBTReports))
-
 class USER_INPUT_THREAD(threading.Thread):
     def __init__(self, threadID, name):
         threading.Thread.__init__(self)
@@ -754,7 +653,7 @@ class USER_INPUT_THREAD(threading.Thread):
                     g.net.sendNewTrickle(build_outgoing_serial_message(par.PacketType.nordic_ble_tof_enable, ble_tof_enabled.to_bytes(1, byteorder="big", signed=False)),forced)
                         
                 elif user_input == 5:
-
+                    # TODO pack everython in a util function, as soon as you can test this code
                     active_scan = 1
                     scan_interval = int(par.SCAN_INTERVAL_MS*1000/625)
                     scan_window = int(par.SCAN_WINDOW_MS*1000/625)
@@ -1041,13 +940,13 @@ if __name__ == "__main__":
                                   g.net.addPrint("  [PACKET DECODE] Keep alive packet. Cap: "+ str(battery_data["capacity"]) +" Voltage: "+ str(battery_data["voltage"]*1000) +" Trickle count: "+ str(trickle_count))
 
                           elif par.PacketType.ota_ack == pkttype:
-                              firmwareChunkDownloaded_event_data=line[cursor:]
+                              g.firmwareChunkDownloaded_event_data=line[cursor:]
                               data = int(line[cursor:].hex(), 16) 
                               cursor+=2
                               if par.printVerbosity > 1:
                                   g.net.addPrint("  [PACKET DECODE] ota_ack received. Data: "+str(data))
                               g.net.resetNodeTimeout(str(nodeid))
-                              firmwareChunkDownloaded_event.set()
+                              g.firmwareChunkDownloaded_event.set()
 
                           else:
                               g.net.addPrint("  [PACKET DECODE] Unknown packet (unrecognized packet type): "+str(rawline))
