@@ -44,7 +44,6 @@ MQTT_PORT=1883
 #DEVICE_TOKEN="iOn25YbEvRBN9sp6xdCd"     #vela-gateway
 # DEVICE_TOKEN="9ovXYK9SOMgcbaIrWvZ2"     #vela-gateway-test
 DEVICE_TOKEN="Xk5yuRNrGlcFHoWhC3AW"     #gm-gateway-test
-DEVICE_TOKEN="kWHL0HVrjSn17jZfdSC3"     # random generator
 
 TELEMETRY_TOPIC="v1/gateway/telemetry"
 CONNECT_TOPIC="v1/gateway/connect"
@@ -58,7 +57,7 @@ REBOOT_INTERVAL=0.5
 CLEAR_CONSOLE = False #True
 
 NETWORK_PERIODIC_CHECK_INTERVAL = 2 # check interval for node disappeared in the network
-NODE_TIMEOUT_S = 60*1 # timeout before declaring a node as disappeared
+NODE_TIMEOUT_S = 60*10 # timeout before declaring a node as disappeared
 
 SINGLE_NODE_REPORT_SIZE = 9      #must be the same as in common/inc/contraints.h
 
@@ -112,7 +111,7 @@ OCTAVE_LAUNCH_COMMAND="/usr/bin/flatpak run org.octave.Octave -qf" #octave 5 is 
 DETECTOR_OCTAVE_SCRIPT = "run_detector.m"
 OCTAVE_FILES_FOLDER = "../data_plotting/matlab_version" 
 ENABLE_PROCESS_OUTPUT_ON_CONSOLE=True # enable the output of OCTAVE to be displayed in the terminal
-PROXIMITY_DETECTOR_POLL_INTERVAL=60 * 10 # slot of time [s] between two proximity detection executions. However, user can start the process via the command line
+PROXIMITY_DETECTOR_POLL_INTERVAL= 60 * 1000 # slot of time [s] between two proximity detection executions. However, user can start the process via the command line
 EVENTS_FILE_JSON="json_events.txt"
 
 """ ---------------------------LOG------------------------------------------"""

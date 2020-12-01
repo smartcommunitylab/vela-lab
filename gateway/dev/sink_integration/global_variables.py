@@ -49,3 +49,6 @@ firmwareChunkDownloaded_event=threading.Event()
 
 firmwareChunkDownloaded_event_data=[]
 
+'''---------------------------------------------------------------------'''
+publish_callback_counter = 0
+publish_function_counter = 0

@@ -4,6 +4,7 @@ import params as par
 import json
 
 def on_publish_cb(client, data, result):
+    g.publish_callback_counter += 1
     g.net.addPrint("[MQTT] on_publish_cb. data: "+str(data)+", result: "+str(result))
 
 def on_disconnect_cb(client, userdata, result):
@@ -43,7 +44,9 @@ def publish_mqtt(mqtt_client, data_to_publish, topic):
         g.net.addPrint("[MQTT] Not yet connected, cannot publish "+str(data_to_publish))    
     qos=1
     try:
+        g.publish_function_counter += 1
         ret=mqtt_client.publish(topic, json.dumps(data_to_publish),qos)
+        g.net.addPrint("[GGG] counters: function {}, callback {}".format(g.publish_function_counter, g.publish_callback_counter))
         if ret.rc: #print only in case of error
             g.net.addPrint("[MQTT] publish return: "+str(ret.rc))
     except Exception:

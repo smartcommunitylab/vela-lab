@@ -33,8 +33,6 @@ def obtain_and_send_network_status():
             for n in node_names:
                 node_desc={}
                 node_desc[n]=net_descr[n]
-                # g.net.addPrint("[GMELIA] before net status contacts")
-                # g.net.addPrint("[GMELIA] {}".format(node_desc))
                 mqtt_utils.publish_mqtt(g.mqtt_client, node_desc, par.TELEMETRY_TOPIC) # TODO it stops around 200
                 with open("net_stat_store.txt", "a") as f:
                     f.write(datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S')+" "+str(node_desc)+"\n")
@@ -114,11 +112,8 @@ class PROXIMITY_DETECTOR_THREAD(threading.Thread):
                 t_string=datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S')
                 with open("proximity_event_store.txt", "a") as f:
                     f.write(t_string+" "+str(evts)+"\n")
-
-                g.net.addPrint("[GMELIA] before telemetry contacts")
-                g.net.addPrint("[GMELIA] {}".format(evts))
-                mqtt_utils.publish_mqtt(g.mqtt_client, evts, par.TELEMETRY_TOPIC)      
-                g.net.addPrint("[GMELIA] after telemetry contacts")
+                # GGG removed the callback to process of data, replace if needed
+                # mqtt_utils.publish_mqtt(g.mqtt_client, evts, par.TELEMETRY_TOPIC)      
                 os.remove(par.OCTAVE_FILES_FOLDER+'/'+ par.EVENTS_FILE_JSON) #remove the file to avoid double processing of it
                 evts=None
             else:
@@ -191,7 +186,8 @@ class Network(object):
 
         #notify thingsboard that a new node has join the network
         connect_data={"device":n.name}
-        mqtt_utils.publish_mqtt(g.mqtt_client, connect_data, par.CONNECT_TOPIC)
+        # GGG commented temporary
+        # mqtt_utils.publish_mqtt(g.mqtt_client, connect_data, par.CONNECT_TOPIC)
 
     def removeNode(self,n):
         self.__nodes.remove(n)
