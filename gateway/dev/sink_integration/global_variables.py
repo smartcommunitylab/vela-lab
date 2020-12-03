@@ -52,3 +52,5 @@ firmwareChunkDownloaded_event_data=[]
 '''---------------------------------------------------------------------'''
 publish_callback_counter = 0
 publish_function_counter = 0
+
+is_bt_on = False

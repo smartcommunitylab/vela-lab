@@ -258,3 +258,27 @@ def console_middle(showHelp):
   print("|----------------------------------------------------------------------------------------------------------------------------------------------|")
   print("|--------------------------------------------------|               CONSOLE                  |--------------------------------------------------|")
   print("|----------------------------------------------------------------------------------------------------------------------------------------------|")
+
+
+def should_be_on_bt(timestamp):
+  ''' the function returns a boolean value if the actual time is between some predefined interval in the parameters file
+  The function is used in the main loop to schedule the on and off period of bluetooth '''
+  now = datetime.datetime.fromtimestamp(timestamp)
+
+  # I copy only year, month and day from "now" variable
+  date_on = [datetime.datetime(now.year, now.month, now.day, hour = par.on_hours[0], minute = par.on_minutes[0], second = par.on_seconds[0] ),\
+             datetime.datetime(now.year, now.month, now.day, hour = par.on_hours[1], minute = par.on_minutes[1], second = par.on_seconds[1] )]
+  
+  date_off = [datetime.datetime(now.year, now.month, now.day, hour = par.off_hours[0], minute = par.off_minutes[0], second = par.off_seconds[0] ),\
+              datetime.datetime(now.year, now.month, now.day, hour = par.off_hours[1], minute = par.off_minutes[1], second = par.off_seconds[1] )]
+
+  if now < date_on[0]:
+    return False
+  elif now >= date_on[0] and now < date_off[0]:
+    return True 
+  elif now >= date_off[0] and now < date_on[1]:
+    return False
+  elif now >= date_on[1] and now < date_off[1]:
+    return True
+  else:
+    return False

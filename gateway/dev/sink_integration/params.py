@@ -131,8 +131,9 @@ SCAN_WINDOW_MS = 3000
 SCAN_TIMEOUT_S = 0
 REPORT_TIMEOUT_S = 15
 
-BT_ON_TIME_H = 8 
-BT_ON_TIME_M = 0
-
-BT_OFF_TIME_H = 18
-BT_OFF_TIME_H = 0
+on_seconds = [0,0]
+on_minutes = [52,25] 
+on_hours = [15,16]
+off_seconds = [0,0]
+off_minutes = [55,27]
+off_hours = [15,15]

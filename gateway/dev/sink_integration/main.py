@@ -58,19 +58,21 @@ class BLUETOOTH_SCHEDULING_THREAD(threading.Thread):
         self.threadID= threadID
         self.name = name
         self.__loop=True
-        self.bt_state = "off"
+        self.forced = True
+        time.sleep(10) # wait for the network to set up
 
     def run(self):
-        forced = True
         while self.__loop:
+            now = time.time()
+            if utils.should_be_on_bt(now) and (not g.is_bt_on):
+                g.net.addPrint("[BT SCHEDULER]: Turning bluetooth on")
+                g.net.sendNewTrickle(build_outgoing_serial_message(par.PacketType.nordic_turn_bt_on, None),self.forced)
+                g.is_bt_on = True
+            elif (not utils.should_be_on_bt(now)) and g.is_bt_on:
+                g.net.addPrint("[BT SCHEDULER]: Turning bluetooth off")
+                g.net.sendNewTrickle(build_outgoing_serial_message(par.PacketType.nordic_turn_bt_off, None),self.forced)
+                g.is_bt_on = False
             time.sleep(10)
-            if self.bt_state == "off":
-                g.net.sendNewTrickle(build_outgoing_serial_message(par.PacketType.nordic_turn_bt_on, None),forced)
-                self.bt_state = "on"
-            elif self.bt_state == "on":
-                g.net.sendNewTrickle(build_outgoing_serial_message(par.PacketType.nordic_turn_bt_off, None),forced)
-                self.bt_state = "off"
-            time.sleep(60)
 
 def start_poximity_detection():
     file_to_process=g.filenameContactLog
@@ -762,9 +764,9 @@ if __name__ == "__main__":
   network_stat_poll_thread.setDaemon(True)
   network_stat_poll_thread.start()
 
-  # bluetooth_scheduling_thread=BLUETOOTH_SCHEDULING_THREAD(7,"bluetooth scheduling")
-  # bluetooth_scheduling_thread.setDaemon(True)
-  # bluetooth_scheduling_thread.start()
+  bluetooth_scheduling_thread=BLUETOOTH_SCHEDULING_THREAD(7,"bluetooth scheduling")
+  bluetooth_scheduling_thread.setDaemon(True)
+  bluetooth_scheduling_thread.start()
 
   if g.ser.is_open:
       g.net.addPrint("[UART] Serial Port already open! "+ g.ser.port + " open before initialization... closing first")
