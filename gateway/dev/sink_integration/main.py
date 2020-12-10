@@ -822,7 +822,7 @@ if __name__ == "__main__":
 
                                   if g.messageSequenceList[seqid].sequenceSize != g.messageSequenceList[seqid].datacounter:
                                       if par.printVerbosity > 1:
-                                          g.net.addPrint("  [PACKET DECODE] ERROR: Messagesequence ended, but datacounter is not equal to sequencesize")
+                                          g.net.addPrint("  [PACKET DECODE] ERROR: Messagesequence ended, but datacounter ({}) is not equal to sequencesize ({})".format(g.messageSequenceList[seqid].datacounter,g.messageSequenceList[seqid].sequenceSize ))
 
                                   if par.printVerbosity > 1:
                                       g.net.addPrint("  [PACKET DECODE] Bluetooth sequence decoded. "+" sequencesize: "+ str(g.messageSequenceList[seqid].sequenceSize)+ " ContactData elements: "+ str(len(g.messageSequenceList[seqid].datalist)))
