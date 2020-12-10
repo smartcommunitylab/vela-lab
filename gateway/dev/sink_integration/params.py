@@ -115,7 +115,7 @@ PROXIMITY_DETECTOR_POLL_INTERVAL= 60 * 1000 # slot of time [s] between two proxi
 EVENTS_FILE_JSON="json_events.txt"
 
 """ ---------------------------LOG------------------------------------------"""
-printVerbosity = 10
+printVerbosity = 2
 LOG_FOLDER_PATH = os.path.dirname(os.path.realpath(__file__))+'/log/'
 
 contact_log_file_folder=LOG_FOLDER_PATH 
@@ -131,9 +131,10 @@ SCAN_WINDOW_MS = 3000
 SCAN_TIMEOUT_S = 0
 REPORT_TIMEOUT_S = 15
 
+on_hours = [13,23]
+on_minutes = [00,50] 
 on_seconds = [0,0]
-on_minutes = [52,25] 
-on_hours = [15,16]
+
+off_hours = [13,23]
 off_seconds = [0,0]
-off_minutes = [55,27]
-off_hours = [15,15]
+off_minutes = [30,55]

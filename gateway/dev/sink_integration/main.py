@@ -1,6 +1,7 @@
 # from datetime import timedelta
 import paho.mqtt.client as mqtt
 from collections import deque
+import bt_scheduler
 
 import global_variables as g
 from node_class import Node
@@ -20,12 +21,9 @@ import time
 import sys
 import os
 
-
-
 def obtain_and_send_network_status():
     try:
         net_descr=g.net.obtainNetworkDescriptorObject()
-        g.net.addPrint(net_descr)
         if len(net_descr):
             g.net.addPrint("[EVENT] Network status collected, pushing it to cloud with mqtt.")
             
@@ -51,28 +49,6 @@ class NETWORK_STATUS_POLL_THREAD(threading.Thread):
         while self.__loop:
             time.sleep(g.network_status_poll_interval)
             obtain_and_send_network_status()
-
-class BLUETOOTH_SCHEDULING_THREAD(threading.Thread):
-    def __init__(self, threadID, name):
-        threading.Thread.__init__(self)
-        self.threadID= threadID
-        self.name = name
-        self.__loop=True
-        self.forced = True
-        time.sleep(10) # wait for the network to set up
-
-    def run(self):
-        while self.__loop:
-            now = time.time()
-            if utils.should_be_on_bt(now) and (not g.is_bt_on):
-                g.net.addPrint("[BT SCHEDULER]: Turning bluetooth on")
-                g.net.sendNewTrickle(build_outgoing_serial_message(par.PacketType.nordic_turn_bt_on, None),self.forced)
-                g.is_bt_on = True
-            elif (not utils.should_be_on_bt(now)) and g.is_bt_on:
-                g.net.addPrint("[BT SCHEDULER]: Turning bluetooth off")
-                g.net.sendNewTrickle(build_outgoing_serial_message(par.PacketType.nordic_turn_bt_off, None),self.forced)
-                g.is_bt_on = False
-            time.sleep(10)
 
 def start_poximity_detection():
     file_to_process=g.filenameContactLog
@@ -114,7 +90,6 @@ class PROXIMITY_DETECTOR_THREAD(threading.Thread):
                 t_string=datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S')
                 with open("proximity_event_store.txt", "a") as f:
                     f.write(t_string+" "+str(evts)+"\n")
-                # GGG removed the callback to process of data, replace if needed
                 # mqtt_utils.publish_mqtt(g.mqtt_client, evts, par.TELEMETRY_TOPIC)      
                 os.remove(par.OCTAVE_FILES_FOLDER+'/'+ par.EVENTS_FILE_JSON) #remove the file to avoid double processing of it
                 evts=None
@@ -188,7 +163,6 @@ class Network(object):
 
         #notify thingsboard that a new node has join the network
         connect_data={"device":n.name}
-        # GGG commented temporary
         # mqtt_utils.publish_mqtt(g.mqtt_client, connect_data, par.CONNECT_TOPIC)
 
     def removeNode(self,n):
@@ -222,9 +196,9 @@ class Network(object):
         payload = breboot_delay_ms
 
         if destination_ipv6_addr!=None:
-            self.sendNewRipple(destination_ipv6_addr,build_outgoing_serial_message(par.PacketType.ota_reboot_node, payload))
+            self.sendNewRipple(destination_ipv6_addr,utils.build_outgoing_serial_message(par.PacketType.ota_reboot_node, payload))
         else:
-            self.sendNewTrickle(build_outgoing_serial_message(par.PacketType.ota_reboot_node, payload),True)    #by default ingore any ongoing trickle queue and force the reboot
+            self.sendNewTrickle(utils.build_outgoing_serial_message(par.PacketType.ota_reboot_node, payload),True)    #by default ingore any ongoing trickle queue and force the reboot
             
     def startFirmwareUpdate(self,autoreboot=True):
         nodes_updated=[]
@@ -412,7 +386,7 @@ class Network(object):
 
         data=chunk_no_8b.to_bytes(1, byteorder="big", signed=False)+sub_chunk_no_8b.to_bytes(1, byteorder="big", signed=False)+sub_chunk
         
-        self.sendNewRipple(destination_ipv6_addr,build_outgoing_serial_message(packetType, data))
+        self.sendNewRipple(destination_ipv6_addr,utils.build_outgoing_serial_message(packetType, data))
 
     def sendNewRipple(self, destination_addr, message):
         destination_addr_bytes=destination_addr.to_bytes(length=16, byteorder='big', signed=False)
@@ -421,9 +395,7 @@ class Network(object):
         destination_addr_ascii_encoded=destination_addr_ascii.encode('utf-8')
         message=destination_addr_ascii_encoded+message
 
-        #g.net.addPrint("[APPLICATION] Ripple message going to be sent...")
-        send_serial_msg(message)
-        #g.net.addPrint("[APPLICATION] Ripple message sent.")
+        utils.send_serial_msg(message)
 
     def sendNewTrickle(self, message,forced=False):
         broadcast_ipv6_addr=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
@@ -435,12 +407,12 @@ class Network(object):
 
         if forced or destination_addr_bytes==broadcast_ipv6_addr:
             self.__trickleQueue.clear()
-            send_serial_msg(message)
+            utils.send_serial_msg(message)
             g.net.addPrint("[APPLICATION] Trickle message: 0x {0} force send".format((message).hex()))
         else:
             if self.__trickleCheck():
                 self.__expTrickle = (self.__netMaxTrickle + 1)%par.MAX_TRICKLE_C_VALUE
-                send_serial_msg(message)
+                utils.send_serial_msg(message)
                 g.net.addPrint("[APPLICATION] Trickle message: 0x {0} sent".format((message).hex()))
             else:
                 self.__trickleQueue.append(message)
@@ -534,20 +506,17 @@ class Network(object):
             if self.__trickleCheck():
                 self.__expTrickle = (self.__netMaxTrickle + 1)%par.MAX_TRICKLE_C_VALUE
                 message=self.__trickleQueue.popleft()
-                send_serial_msg(message)
+                utils.send_serial_msg(message)
                 self.addPrint("[APPLICATION] Trickle message: 0x {0} automatically sent".format((message).hex()))
         else:
             self.__trickleCheck()
         self.printNetworkStatus()
 
     def processBTReportMessage(self, label):
+        """ this method keeps track of the amount of bluetooth packet recieved for each node """
         n = self.getNode(label)
         if n != None:
             n.BTReportHandler()
-        #else:
-        #    n=Node(label, 0)
-        #    self.addNode(n)
-        #    n.BTReportHandler()
 
     def processUARTError(self):
         self.__uartLogLines=self.__uartLogLines+1
@@ -633,13 +602,13 @@ class USER_INPUT_THREAD(threading.Thread):
                 if user_input == 1:
                     payload = 233
                     g.net.addPrint("[USER_INPUT] Ping request")
-                    g.net.sendNewTrickle(build_outgoing_serial_message(par.PacketType.network_request_ping, payload.to_bytes(1, byteorder="big", signed=False)),forced)
+                    g.net.sendNewTrickle(utils.build_outgoing_serial_message(par.PacketType.network_request_ping, payload.to_bytes(1, byteorder="big", signed=False)),forced)
                 elif user_input == 2:
                     g.net.addPrint("[USER_INPUT] Turn bluetooth on")
-                    g.net.sendNewTrickle(build_outgoing_serial_message(par.PacketType.nordic_turn_bt_on, None),forced)
+                    g.net.sendNewTrickle(utils.build_outgoing_serial_message(par.PacketType.nordic_turn_bt_on, None),forced)
                 elif user_input == 3:
                     g.net.addPrint("[USER_INPUT] Turn bluetooth off")
-                    g.net.sendNewTrickle(build_outgoing_serial_message(par.PacketType.nordic_turn_bt_off, None),forced)
+                    g.net.sendNewTrickle(utils.build_outgoing_serial_message(par.PacketType.nordic_turn_bt_off, None),forced)
                 elif user_input == 4:
                     if ble_tof_enabled:
                         g.net.addPrint("[USER_INPUT] disabling ble tof, WARNING: never really tested in vela")
@@ -648,7 +617,7 @@ class USER_INPUT_THREAD(threading.Thread):
                         g.net.addPrint("[USER_INPUT] enabling ble tof, WARNING: never really tested in vela")
                         ble_tof_enabled=True
                     
-                    g.net.sendNewTrickle(build_outgoing_serial_message(par.PacketType.nordic_ble_tof_enable, ble_tof_enabled.to_bytes(1, byteorder="big", signed=False)),forced)
+                    g.net.sendNewTrickle(utils.build_outgoing_serial_message(par.PacketType.nordic_ble_tof_enable, ble_tof_enabled.to_bytes(1, byteorder="big", signed=False)),forced)
                         
                 elif user_input == 5:
                     # TODO pack everython in a util function, as soon as you can test this code
@@ -664,77 +633,24 @@ class USER_INPUT_THREAD(threading.Thread):
                     breport_timeout_ms = report_timeout_ms.to_bytes(4, byteorder="big", signed=False)
                     payload = bactive_scan + bscan_interval + bscan_window + btimeout + breport_timeout_ms
                     g.net.addPrint("[USER_INPUT] Turn bluetooth on with parameters: scan_int="+str(par.SCAN_INTERVAL_MS)+"ms, scan_win="+str(par.SCAN_WINDOW_MS)+"ms, timeout="+str(par.SCAN_TIMEOUT_S)+"s, report_int="+str(par.REPORT_TIMEOUT_S)+"s")
-                    g.net.sendNewTrickle(build_outgoing_serial_message(par.PacketType.nordic_turn_bt_on_w_params, payload),forced)
+                    g.net.sendNewTrickle(utils.build_outgoing_serial_message(par.PacketType.nordic_turn_bt_on_w_params, payload),forced)
                 elif user_input == 8:
                     g.net.addPrint("[USER_INPUT] Reset nordic")
-                    g.net.sendNewTrickle(build_outgoing_serial_message(par.PacketType.nordic_reset, None),forced)
+                    g.net.sendNewTrickle(utils.build_outgoing_serial_message(par.PacketType.nordic_reset, None),forced)
                 elif user_input == 9:
                     time_between_send_ms = 1500
                     time_between_send = time_between_send_ms.to_bytes(2, byteorder="big", signed=False)
                     g.net.addPrint("[USER_INPUT] Set time between sends to "+ str(time_between_send_ms) + "ms")
-                    g.net.sendNewTrickle(build_outgoing_serial_message(par.PacketType.network_set_time_between_send, time_between_send),forced)
+                    g.net.sendNewTrickle(utils.build_outgoing_serial_message(par.PacketType.network_set_time_between_send, time_between_send),forced)
                 elif user_input > 9:
                     interval = user_input
                     g.net.addPrint("[USER_INPUT] Set keep alive interval to "+ str(interval) + "s")
-                    g.net.sendNewTrickle(build_outgoing_serial_message(par.PacketType.ti_set_keep_alive, interval.to_bytes(1, byteorder="big", signed=False)),forced)
+                    g.net.sendNewTrickle(utils.build_outgoing_serial_message(par.PacketType.ti_set_keep_alive, interval.to_bytes(1, byteorder="big", signed=False)),forced)
                     g.network_status_poll_interval=interval
             except Exception as e:
                 g.net.addPrint("[USER_INPUT] Read failed. Read data: "+ input_str)
                 traceback.print_exc()
                 pass
-
-def build_outgoing_serial_message(pkttype, ser_payload):
-    payload_size = 0
-
-    if ser_payload is not None:
-        payload_size = len(ser_payload)
-
-    #the packet data starts with the size of the payload
-    packet = payload_size.to_bytes(length=1, byteorder='big', signed=False) + pkttype.to_bytes(length=2, byteorder='big', signed=False)
-
-    #add the payload
-    if ser_payload is not None:
-        packet=packet+ser_payload
-
-    #calculate the payload checksum
-    cs=0
-    if ser_payload!=None:
-        for c in ser_payload:                                       #calculate the checksum on the payload and the len field
-            cs+=int.from_bytes([c], "big", signed=False) 
-    cs=cs%256                                                   #trunkate to 8 bit
-    
-    #net.addPrint("[DEBUG] Packet checksum: "+str(cs))
-    
-    #add the checksum
-    packet=packet+cs.to_bytes(1, byteorder='big', signed=False)
-
-    #net.addPrint("[DEBUG] Packet : "+str(packet))
-    ascii_packet=''.join('%02X'%i for i in packet)
-
-    return ascii_packet.encode('utf-8')
-
-def send_serial_msg(message):
-
-    line = message + par.SER_END_CHAR
-    
-    if par.TANSMIT_ONE_CHAR_AT_THE_TIME:
-        for c in line: #this makes it deadly slowly (1 byte every 2ms more or less). However during OTA this makes the transfer safer if small buffer on the sink is available
-            g.ser.write(bytes([c]))
-    else:
-        g.ser.write(line)
-
-    g.ser.flush()
-    g.UARTLogger.info('[GATEWAY] ' + str(line))
-
-def log_contact_data(seqid):
-    seq = g.messageSequenceList[seqid]
-    timestamp = seq.timestamp
-    source = seq.nodeid
-    logstring = "{0} Node {1} ".format(timestamp, source)
-    for x in range(len(seq.datalist)):
-        logstring += "{:012X}".format(seq.datalist[x].nodeid) + '{:02X}'.format(seq.datalist[x].lastRSSI) + '{:02X}'.format(seq.datalist[x].maxRSSI) + '{:02X}'.format(seq.datalist[x].pktCounter)
-
-    g.contactLogger.info(logstring)
 
 if __name__ == "__main__":
   
@@ -764,7 +680,7 @@ if __name__ == "__main__":
   network_stat_poll_thread.setDaemon(True)
   network_stat_poll_thread.start()
 
-  bluetooth_scheduling_thread=BLUETOOTH_SCHEDULING_THREAD(7,"bluetooth scheduling")
+  bluetooth_scheduling_thread=bt_scheduler.BLUETOOTH_SCHEDULING_THREAD(7,"bluetooth scheduling")
   bluetooth_scheduling_thread.setDaemon(True)
   bluetooth_scheduling_thread.start()
 
@@ -832,7 +748,7 @@ if __name__ == "__main__":
                                       if par.printVerbosity > 1:
                                           g.net.addPrint("  [PACKET DECODE] Previous sequence has not been completed yet")
                                       # TODO what to do now? For now, assume last packet was dropped
-                                      log_contact_data(seqid)                         # store received data instead of deleting it all
+                                      utils.log_contact_data(g.messageSequenceList[seqid])                         # store received data instead of deleting it all
                                       del g.messageSequenceList[seqid]                  # remove data already stored
 
                               g.messageSequenceList.append(par.MessageSequence(int(time.time()*1000), nodeid, pktnum, 0, 0, [], time.time()))
@@ -846,8 +762,7 @@ if __name__ == "__main__":
 
                                   if par.printVerbosity > 1:
                                       g.net.addPrint("  [PACKET DECODE] Bluetooth sequence decoded. Contact elements: "+ str(len(g.messageSequenceList[seqid].datalist)))
-                                      # g.net.addPrint(" [GGG] {}".format(g.messageSequenceList))
-                                  log_contact_data(seqid)
+                                  utils.log_contact_data(g.messageSequenceList[seqid])
                                   g.net.processBTReportMessage(str(nodeid))
 
                                   del g.messageSequenceList[seqid]
@@ -885,7 +800,7 @@ if __name__ == "__main__":
                                       g.net.addPrint("  [PACKET DECODE] Bluetooth sequence decoded but header files were never received.  datacounter: "+ str(g.messageSequenceList[seqid].datacounter) +" ContactData elements: "+ str(len(g.messageSequenceList[seqid].datalist)))
 
                                   g.headerDropCounter += 1
-                                  log_contact_data(seqid)
+                                  utils.log_contact_data(g.messageSequenceList[seqid])
                                   g.net.processBTReportMessage(str(g.messageSequenceList[seqid].nodeid))
                                   del g.messageSequenceList[seqid]
 
@@ -893,7 +808,7 @@ if __name__ == "__main__":
                                   utils.decode_payload(payload,seqid, par.MAX_PACKET_PAYLOAD, pktnum)
                                   if par.printVerbosity > 1:
                                       g.net.addPrint("  [PACKET DECODE] Bluetooth sequence decoded but header files were never received.  datacounter: "+ str(g.messageSequenceList[seqid].datacounter) +" ContactData elements: "+ str(len(g.messageSequenceList[seqid].datalist)))
-                                  log_contact_data(seqid)
+                                  utils.log_contact_data(g.messageSequenceList[seqid])
                                   g.net.processBTReportMessage(str(g.messageSequenceList[seqid].nodeid))
                                   del g.messageSequenceList[seqid]
 
@@ -912,7 +827,7 @@ if __name__ == "__main__":
                                   if par.printVerbosity > 1:
                                       g.net.addPrint("  [PACKET DECODE] Bluetooth sequence decoded. "+" sequencesize: "+ str(g.messageSequenceList[seqid].sequenceSize)+ " ContactData elements: "+ str(len(g.messageSequenceList[seqid].datalist)))
 
-                                  log_contact_data(seqid)
+                                  utils.log_contact_data(g.messageSequenceList[seqid])
                                   g.net.processBTReportMessage(str(g.messageSequenceList[seqid].nodeid))
                                   del g.messageSequenceList[seqid]
 
@@ -952,8 +867,9 @@ if __name__ == "__main__":
 
                       else:   #start != START_CHAR
                           startCharErr=True
-                          g.net.addPrint("[UART] Not a packet: "+str(rawline))
                           g.errorLogger.info("%s" %(str(rawline)))
+                          if par.printVerbosity > 2:
+                              g.net.addPrint("[UART] Not a packet: "+str(rawline))
                   else:   #in_waiting==0
                       time.sleep(0.1)
 

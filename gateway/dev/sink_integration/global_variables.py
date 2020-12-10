@@ -18,7 +18,6 @@ deliverCounter = 0
 ser = None # the serial used for the communication
 net  = None # the network class, which the code uses to do all the prints
 
-
 no_of_sub_chunks_in_this_chunk = 0
 
 headerDropCounter = 0

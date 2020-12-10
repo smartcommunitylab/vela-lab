@@ -46,7 +46,7 @@ def publish_mqtt(mqtt_client, data_to_publish, topic):
     try:
         g.publish_function_counter += 1
         ret=mqtt_client.publish(topic, json.dumps(data_to_publish),qos)
-        g.net.addPrint("[GGG] counters: function {}, callback {}".format(g.publish_function_counter, g.publish_callback_counter))
+        # g.net.addPrint("[GGG] counters: function {}, callback {}".format(g.publish_function_counter, g.publish_callback_counter))
         if ret.rc: #print only in case of error
             g.net.addPrint("[MQTT] publish return: "+str(ret.rc))
     except Exception:

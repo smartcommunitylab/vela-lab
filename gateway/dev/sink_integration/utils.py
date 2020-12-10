@@ -72,26 +72,27 @@ def get_sequence_index(nodeid):
             return x
     return -1
 
-def decode_payload(payload, seqid, size, pktnum): #TODO: packettype can be removed
+def decode_payload(payload, seqid, size, packettype): #TODO: packettype can be removed
     cur=0
     try:
         for x in range(round(size / par.SINGLE_NODE_REPORT_SIZE)):
-            nid = int(payload[cur:cur+12], 16)
+            nid = int(payload[cur:cur+12], 16) #int(ser.read(6).hex(), 16)
             cur=cur+12
-            lastrssi = int(payload[cur:cur+2], 16)
+            lastrssi = int(payload[cur:cur+2], 16) #int(ser.read(1).hex(), 16)
             cur=cur+2
-            maxrssi = int(payload[cur:cur+2], 16)
+            maxrssi = int(payload[cur:cur+2], 16) #int(ser.read(1).hex(), 16)
             cur=cur+2
-            pktcounter = int(payload[cur:cur+2], 16)
+            pktcounter = int(payload[cur:cur+2], 16) #int(ser.read(1).hex(), 16)
             cur=cur+2
+            #net.addPrint("id = {:012X}".format(nid, 8))
             contact = par.ContactData(nid, lastrssi, maxrssi, pktcounter)
             g.messageSequenceList[seqid].datalist.append(contact)
             g.messageSequenceList[seqid].datacounter += par.SINGLE_NODE_REPORT_SIZE
-
     except ValueError:
-        print("[Node {0}] Requested to decode more bytes than available. Requested: {1}"
+        g.net.addPrint("[Node {0}] Requested to decode more bytes than available. Requested: {1}"
                           .format(g.messageSequenceList[seqid].nodeid, size))
     finally:
+        #dataLogger.info(raw_data)
         return
 
 def create_log_folder():
@@ -259,26 +260,57 @@ def console_middle(showHelp):
   print("|--------------------------------------------------|               CONSOLE                  |--------------------------------------------------|")
   print("|----------------------------------------------------------------------------------------------------------------------------------------------|")
 
+def log_contact_data(seq):
+    ''' this function dump the contact data in the contact file, the only use of contact file is
+        further processing'''
+    timestamp = seq.timestamp
+    source = seq.nodeid
+    logstring = "{},{},".format(timestamp, source)
+    # g.net.addPrint("[GGG] len datalist {}".format(len(seq.datalist)))
+    for ct in seq.datalist:
+        logstring += "{:012X},{},{},{},".format(ct.nodeid,ct.lastRSSI, ct.maxRSSI,ct.pktCounter)
+    g.contactLogger.info(logstring)
 
-def should_be_on_bt(timestamp):
-  ''' the function returns a boolean value if the actual time is between some predefined interval in the parameters file
-  The function is used in the main loop to schedule the on and off period of bluetooth '''
-  now = datetime.datetime.fromtimestamp(timestamp)
+def build_outgoing_serial_message(pkttype, ser_payload):
+    ''' it creates the serial message to be sent to the texas board, that will be there converted
+        in a message for the network'''
 
-  # I copy only year, month and day from "now" variable
-  date_on = [datetime.datetime(now.year, now.month, now.day, hour = par.on_hours[0], minute = par.on_minutes[0], second = par.on_seconds[0] ),\
-             datetime.datetime(now.year, now.month, now.day, hour = par.on_hours[1], minute = par.on_minutes[1], second = par.on_seconds[1] )]
-  
-  date_off = [datetime.datetime(now.year, now.month, now.day, hour = par.off_hours[0], minute = par.off_minutes[0], second = par.off_seconds[0] ),\
-              datetime.datetime(now.year, now.month, now.day, hour = par.off_hours[1], minute = par.off_minutes[1], second = par.off_seconds[1] )]
+    payload_size = 0
 
-  if now < date_on[0]:
-    return False
-  elif now >= date_on[0] and now < date_off[0]:
-    return True 
-  elif now >= date_off[0] and now < date_on[1]:
-    return False
-  elif now >= date_on[1] and now < date_off[1]:
-    return True
-  else:
-    return False
+    if ser_payload is not None:
+        payload_size = len(ser_payload)
+
+    #the packet data starts with the size of the payload
+    packet = payload_size.to_bytes(length=1, byteorder='big', signed=False) + pkttype.to_bytes(length=2, byteorder='big', signed=False)
+
+    #add the payload
+    if ser_payload is not None:
+        packet=packet+ser_payload
+
+    #calculate the payload checksum
+    cs=0
+    if ser_payload!=None:
+        for c in ser_payload:                                       #calculate the checksum on the payload and the len field
+            cs+=int.from_bytes([c], "big", signed=False) 
+    cs=cs%256                                                   #trunkate to 8 bit
+      
+    #add the checksum
+    packet=packet+cs.to_bytes(1, byteorder='big', signed=False)
+
+    #net.addPrint("[DEBUG] Packet : "+str(packet))
+    ascii_packet=''.join('%02X'%i for i in packet)
+
+    return ascii_packet.encode('utf-8')
+
+def send_serial_msg(message):
+
+    line = message + par.SER_END_CHAR
+    
+    if par.TANSMIT_ONE_CHAR_AT_THE_TIME:
+        for c in line: #this makes it deadly slowly (1 byte every 2ms more or less). However during OTA this makes the transfer safer if small buffer on the sink is available
+            g.ser.write(bytes([c]))
+    else:
+        g.ser.write(line)
+
+    g.ser.flush()
+    g.UARTLogger.info('[GATEWAY] ' + str(line))
