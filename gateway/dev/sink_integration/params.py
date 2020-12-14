@@ -61,7 +61,7 @@ NODE_TIMEOUT_S = 60*10 # timeout before declaring a node as disappeared
 
 SINGLE_NODE_REPORT_SIZE = 9      #must be the same as in common/inc/contraints.h
 
-MAX_REPORTS_PER_PACKET = 5       # max number of beacons in a message, if bigger it get splitted
+MAX_REPORTS_PER_PACKET = 7       # max number of beacons in a message, if bigger it get splitted. SHOULD BE THE SAME AS common/inc
 MAX_PACKET_PAYLOAD = SINGLE_NODE_REPORT_SIZE*MAX_REPORTS_PER_PACKET
 
 NETWORK_STATUS_POLL_INTERVAL_DEF = 60
@@ -115,7 +115,7 @@ PROXIMITY_DETECTOR_POLL_INTERVAL= 60 * 1000 # slot of time [s] between two proxi
 EVENTS_FILE_JSON="json_events.txt"
 
 """ ---------------------------LOG------------------------------------------"""
-printVerbosity = 2
+printVerbosity = 3 # 3 includes serial messages
 LOG_FOLDER_PATH = os.path.dirname(os.path.realpath(__file__))+'/log/'
 
 contact_log_file_folder=LOG_FOLDER_PATH 
