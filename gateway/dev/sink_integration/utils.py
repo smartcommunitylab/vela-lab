@@ -67,33 +67,33 @@ def check_for_packetdrop(nodeid, pktnum):
     g.nodeDropInfoList.append(par.NodeDropInfo(nodeid, pktnum))
 
 def get_sequence_index(nodeid):
+    ''' nodeid: id of the node that the function analize
+        return value: return the element of the list that matches with the node
+                      if no such element in the net exist, it means that it is the first element ''' 
     for x in range(len(g.messageSequenceList)):
         if g.messageSequenceList[x].nodeid == nodeid:
             return x
     return -1
 
-def decode_payload(payload, seqid, size, packettype): #TODO: packettype can be removed
+def decode_payload(payload, seqid, size): #TODO: packettype can be removed
     cur=0
-    try:
-        for x in range(round(size / par.SINGLE_NODE_REPORT_SIZE)):
-            nid = int(payload[cur:cur+12], 16) #int(ser.read(6).hex(), 16)
-            cur=cur+12
-            lastrssi = int(payload[cur:cur+2], 16) #int(ser.read(1).hex(), 16)
-            cur=cur+2
-            maxrssi = int(payload[cur:cur+2], 16) #int(ser.read(1).hex(), 16)
-            cur=cur+2
-            pktcounter = int(payload[cur:cur+2], 16) #int(ser.read(1).hex(), 16)
-            cur=cur+2
-            #net.addPrint("id = {:012X}".format(nid, 8))
-            contact = par.ContactData(nid, lastrssi, maxrssi, pktcounter)
-            g.messageSequenceList[seqid].datalist.append(contact)
-            g.messageSequenceList[seqid].datacounter += par.SINGLE_NODE_REPORT_SIZE
-    except ValueError:
-        g.net.addPrint("[Node {0}] Requested to decode more bytes than available. Requested: {1}"
-                          .format(g.messageSequenceList[seqid].nodeid, size))
-    finally:
-        #dataLogger.info(raw_data)
-        return
+    for i in range(round(size / par.SINGLE_NODE_REPORT_SIZE)):
+        nid = int(payload[cur:cur+12], 16)
+        cur=cur+12
+        lastrssi = int(payload[cur:cur+2], 16)
+        cur=cur+2
+        maxrssi = int(payload[cur:cur+2], 16)
+        cur=cur+2
+        pktcounter = int(payload[cur:cur+2], 16)
+        cur=cur+2
+        contact = par.ContactData(nid, lastrssi, maxrssi, pktcounter)
+        g.messageSequenceList[seqid].datalist.append(contact)
+        g.messageSequenceList[seqid].datacounter += par.SINGLE_NODE_REPORT_SIZE
+
+    # except ValueError:
+    #     print("[Node {0}] Requested to decode more bytes than available. Requested: {1}"
+    #                       .format(g.messageSequenceList[seqid].nodeid, size))
+
 
 def create_log_folder():
   if not os.path.exists(par.LOG_FOLDER_PATH):

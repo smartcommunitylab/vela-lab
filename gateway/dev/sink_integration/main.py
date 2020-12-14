@@ -63,7 +63,6 @@ class PROXIMITY_DETECTOR_POLL_THREAD(threading.Thread):
         self.name = name
         self.__loop=True
 
-
     def run(self):
         while self.__loop:
             time.sleep(par.PROXIMITY_DETECTOR_POLL_INTERVAL)
@@ -729,10 +728,10 @@ if __name__ == "__main__":
 
                           # Here starts the sequence of if-else to check the type of packet recieved 
                           if par.PacketType.network_new_sequence == pkttype:
-                              datalen = int(line[cursor:cursor+2].hex(), 16)
+                              datalen = int(line[cursor:cursor+2].hex(), 16)                              
                               cursor+=2
                               payload = line[cursor:].hex()
-                              cursor = len(line)
+                              cursor = len(line) # TODO try to remove this line, looks useless
                               if datalen % par.SINGLE_NODE_REPORT_SIZE != 0:
                                   if par.printVerbosity > 1:
                                       g.net.addPrint("  [PACKET DECODE] Invalid datalength: "+ str(datalen))
@@ -749,16 +748,17 @@ if __name__ == "__main__":
                                           g.net.addPrint("  [PACKET DECODE] Previous sequence has not been completed yet")
                                       # TODO what to do now? For now, assume last packet was dropped
                                       utils.log_contact_data(g.messageSequenceList[seqid])                         # store received data instead of deleting it all
-                                      del g.messageSequenceList[seqid]                  # remove data already stored
+                                      del g.messageSequenceList[seqid]                  # remove data already stored, seqid comes from the get sequence index function
 
                               g.messageSequenceList.append(par.MessageSequence(int(time.time()*1000), nodeid, pktnum, 0, 0, [], time.time()))
                               seqid = len(g.messageSequenceList) - 1
+
                               g.messageSequenceList[seqid].sequenceSize += datalen
 
-                              if g.messageSequenceList[seqid].sequenceSize > par.MAX_PACKET_PAYLOAD: #this is the typical behaviour
-                                  utils.decode_payload(payload, seqid, par.MAX_PACKET_PAYLOAD, pktnum)
-                              else:   #this is when the sequence is made by only one packet.
-                                  utils.decode_payload(payload, seqid, datalen, pktnum)
+                              if g.messageSequenceList[seqid].sequenceSize > par.MAX_PACKET_PAYLOAD: # There will be a following packet
+                                  utils.decode_payload(payload, seqid, par.MAX_PACKET_PAYLOAD)
+                              else:   #this is when the sequence is made by only one packet
+                                  utils.decode_payload(payload, seqid, datalen)
 
                                   if par.printVerbosity > 1:
                                       g.net.addPrint("  [PACKET DECODE] Bluetooth sequence decoded. Contact elements: "+ str(len(g.messageSequenceList[seqid].datalist)))
@@ -785,7 +785,7 @@ if __name__ == "__main__":
 
                               g.messageSequenceList[seqid].lastPktnum = pktnum
                               g.messageSequenceList[seqid].latestTime = time.time()
-                              utils.decode_payload(payload,seqid, par.MAX_PACKET_PAYLOAD, pktnum)
+                              utils.decode_payload(payload,seqid, par.MAX_PACKET_PAYLOAD)
 
                           elif par.PacketType.network_last_sequence == pkttype:
                               seqid = utils.get_sequence_index(nodeid)
@@ -795,7 +795,7 @@ if __name__ == "__main__":
                                   g.messageSequenceList.append(par.MessageSequence(int(time.time()*1000), nodeid, pktnum, 0, 0, [], time.time()))
                                   seqid = len(g.messageSequenceList) - 1
 
-                                  utils.decode_payload(payload,seqid, par.MAX_PACKET_PAYLOAD, pktnum)
+                                  utils.decode_payload(payload,seqid, par.MAX_PACKET_PAYLOAD)
                                   if par.printVerbosity > 1:
                                       g.net.addPrint("  [PACKET DECODE] Bluetooth sequence decoded but header files were never received.  datacounter: "+ str(g.messageSequenceList[seqid].datacounter) +" ContactData elements: "+ str(len(g.messageSequenceList[seqid].datalist)))
 
@@ -805,7 +805,7 @@ if __name__ == "__main__":
                                   del g.messageSequenceList[seqid]
 
                               elif g.messageSequenceList[seqid].sequenceSize == -1: # if we have lost network_new_sequence, but at least one network_active_sequence is correctly received, sequense size is initialized to -1 (the real value was in network_new_sequence, therefore we lost it)
-                                  utils.decode_payload(payload,seqid, par.MAX_PACKET_PAYLOAD, pktnum)
+                                  utils.decode_payload(payload,seqid, par.MAX_PACKET_PAYLOAD)
                                   if par.printVerbosity > 1:
                                       g.net.addPrint("  [PACKET DECODE] Bluetooth sequence decoded but header files were never received.  datacounter: "+ str(g.messageSequenceList[seqid].datacounter) +" ContactData elements: "+ str(len(g.messageSequenceList[seqid].datalist)))
                                   utils.log_contact_data(g.messageSequenceList[seqid])
@@ -814,11 +814,12 @@ if __name__ == "__main__":
 
                               else:                       # normal behaviour
                                   remainingDataSize = g.messageSequenceList[seqid].sequenceSize - g.messageSequenceList[seqid].datacounter
+
                                   #TODO: remainingDataSize now should be equal to the size of this payload, instead of using inequalities use straigt ==. But carefully check the cases and sizes
                                   if remainingDataSize > par.MAX_PACKET_PAYLOAD: #the value in sequenceSize is probably not correct. Did we lost a lot of packets?
-                                      utils.decode_payload(payload,seqid, par.MAX_PACKET_PAYLOAD, pktnum)
+                                      utils.decode_payload(payload,seqid, par.MAX_PACKET_PAYLOAD)
                                   else:                   # normal behaviour
-                                      utils.decode_payload(payload,seqid, remainingDataSize, pktnum)
+                                      utils.decode_payload(payload,seqid, remainingDataSize)
 
                                   if g.messageSequenceList[seqid].sequenceSize != g.messageSequenceList[seqid].datacounter:
                                       if par.printVerbosity > 1:
