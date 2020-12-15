@@ -107,6 +107,8 @@ CHUNK_DOWNLOAD_TIMEOUT=7
 MAX_SUBCHUNK_SIZE=128               #MAX_SUBCHUNK_SIZE should be always strictly less than MAX_CHUNK_SIZE (if a chunk doesn't get spitted problems might arise, the case is not managed)
 
 """--------------------------OCTAVE proximity detection -------------------"""
+PROXIMITY_DETECTION = False
+
 OCTAVE_LAUNCH_COMMAND="/usr/bin/flatpak run org.octave.Octave -qf" #octave 5 is required. Some distro install octave 4 as default, to overcome this install octave through flatpak
 DETECTOR_OCTAVE_SCRIPT = "run_detector.m"
 OCTAVE_FILES_FOLDER = "../data_plotting/matlab_version" 
@@ -125,6 +127,8 @@ octave_to_log_folder_r_path=os.path.relpath(contact_log_file_folder, OCTAVE_FILE
 
 """------------------------------Bluetooth--------------------------------"""
 # H between 0 and 23, M between 0 and 59
+
+BLUETOOTH_SCHEDULE = False
 
 SCAN_INTERVAL_MS = 1500
 SCAN_WINDOW_MS = 3000

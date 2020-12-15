@@ -667,21 +667,23 @@ if __name__ == "__main__":
   user_input_thread.setDaemon(True)
   user_input_thread.start()
 
-  proximity_detector_thread=PROXIMITY_DETECTOR_THREAD(5,"proximity detection process")
-  proximity_detector_thread.setDaemon(True)
-  proximity_detector_thread.start()
-
-  proximity_detec_poll_thread=PROXIMITY_DETECTOR_POLL_THREAD(6,"periodic proximity detection trigger process")
-  proximity_detec_poll_thread.setDaemon(True)
-  proximity_detec_poll_thread.start()
-
   network_stat_poll_thread=NETWORK_STATUS_POLL_THREAD(7,"periodic network status monitor")
   network_stat_poll_thread.setDaemon(True)
   network_stat_poll_thread.start()
 
-  bluetooth_scheduling_thread=bt_scheduler.BLUETOOTH_SCHEDULING_THREAD(7,"bluetooth scheduling")
-  bluetooth_scheduling_thread.setDaemon(True)
-  bluetooth_scheduling_thread.start()
+  if par.PROXIMITY_DETECTION:
+    proximity_detector_thread=PROXIMITY_DETECTOR_THREAD(5,"proximity detection process")
+    proximity_detector_thread.setDaemon(True)
+    proximity_detector_thread.start()
+
+    proximity_detec_poll_thread=PROXIMITY_DETECTOR_POLL_THREAD(6,"periodic proximity detection trigger process")
+    proximity_detec_poll_thread.setDaemon(True)
+    proximity_detec_poll_thread.start()
+
+  if par.BLUETOOTH_SCHEDULE:
+    bluetooth_scheduling_thread=bt_scheduler.BLUETOOTH_SCHEDULING_THREAD(7,"bluetooth scheduling")
+    bluetooth_scheduling_thread.setDaemon(True)
+    bluetooth_scheduling_thread.start()
 
   if g.ser.is_open:
       g.net.addPrint("[UART] Serial Port already open! "+ g.ser.port + " open before initialization... closing first")
