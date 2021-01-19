@@ -245,11 +245,11 @@ CFLAGS += -DVERSION_STRING=$(VERSION_STRING)
 CFLAGS += -DUART_ENABLED=1
 CFLAGS += -DNRF_LOG_ENABLED=0 		# To stop logging module turn this to 0. Use if RTT output is desired.
 CFLAGS += -DNRF_LOG_DEFAULT_LEVEL=0 # To stop logging module turn this to 0
-CFLAGS += -DNRF_LOG_USES_RTT=1
-CFLAGS += -DNRF_LOG_BACKEND_SERIAL_USES_RTT=1
-CFLAGS += -DNRF_LOG_BACKEND_RTT_ENABLED=1
-CFLAGS += -DENABLE_TOF=1		# To disable ifs_tof disable this and gatt
-CFLAGS += -DENABLE_GATT=1			# To disable ifs_tof disable also this
+CFLAGS += -DNRF_LOG_USES_RTT=0
+CFLAGS += -DNRF_LOG_BACKEND_SERIAL_USES_RTT=0
+CFLAGS += -DNRF_LOG_BACKEND_RTT_ENABLED=0
+CFLAGS += -DENABLE_TOF=0		# To disable ifs_tof disable this and gatt
+CFLAGS += -DENABLE_GATT=0			# To disable ifs_tof disable also this
 CFLAGS += -DSDK_VERSION=14
 CFLAGS += -DBLE_DISTS_ENABLED=1
 CFLAGS += -DTIMER2_ENABLED=1
