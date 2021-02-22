@@ -26,6 +26,7 @@
 #include "vela_uart.h"
 #define UART_ACK_TIMEOUT                        CLOCK_SECOND/2
 #else
+#include "nrf_pwr_mgmt.h"
 #include "nrf_delay.h"
 #define UART_ACK_TIMEOUT						APP_TIMER_TICKS(500)
 #endif
@@ -66,9 +67,16 @@ NRF_SERIAL_CONFIG_DEF(serial_config, NRF_SERIAL_MODE_IRQ, &serial_queues, &seria
 
 APP_TIMER_DEF(m_ack_timer_id);
 
+// static void sleep_handler(void)
+// {
+// 	(void) nrf_pwr_mgmt_run();
+// }
+
 static void sleep_handler(void)
 {
-	(void) sd_app_evt_wait();
+    __WFE();
+    __SEV();
+    __WFE();
 }
 #endif
 
@@ -159,7 +167,6 @@ void process_uart_rx_data(uint8_t *uart_frame){
 	static uint16_t expected_lenght = 0;
 	static uart_rx_status_t status = waiting_start_seq;
 	static uart_rx_status_t new_status = waiting_start_seq;
-	new_status = waiting_start_seq;
 
 	static uint8_t temp_array[HEX_FRAME_LEN_LEN_SYMB];
 	static size_t written_size = 0;
