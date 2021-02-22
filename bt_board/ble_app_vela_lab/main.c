@@ -57,7 +57,8 @@
 #include "bsp_btn_ble.h"
 #include "ble_advdata.h"
 #include "ble_srv_common.h"
-#include "nrf_sdh.h"
+#include "nrf_sdh.h"	bsp_board_led_on(0);
+
 #include "nrf_sdh_ble.h"
 #include "nrf_ble_gatt.h"
 #include "app_timer.h"
@@ -71,17 +72,8 @@
 #include "uart_util.h"
 #include "constraints.h"
 #include "sequential_procedures.h"
-#if defined(ENABLE_TOF) && ENABLE_TOF==1
-#include "ble_db_discovery.h"
-#include "ifs_tof.h"
-#include "ble_dists.h"
-#if defined(ENABLE_GATT) && ENABLE_GATT==1
-#include "nrf_ble_gatt.h"
-NRF_BLE_GATT_DEF(m_gatt);                   /**< GATT module instance. */
-BLE_DB_DISCOVERY_DEF(m_ble_db_discovery);   /**< DB discovery module instance. */
-BLE_DISTS_DEF(m_dists);                                              /**< Heart rate service instance. */
-#endif
-#endif
+#include "nrf_pwr_mgmt.h"
+
 
 #include "nrf_log_default_backends.h"
 
@@ -123,7 +115,7 @@ NRF_LOG_MODULE_REGISTER();
 
 #define MAXIMUM_NETWORK_SIZE			MAX_NUMBER_OF_BT_BEACONS//NRF_SDH_BLE_TOTAL_LINK_COUNT
 #define MAXIMUM_NUMBER_OF_PERIPH_CONN	NRF_SDH_BLE_PERIPHERAL_LINK_COUNT
-#define MAXIMUM_NUMBER_OF_CENTRAL_CONN	6//IFT_TOF_MAX_NUM_OF_CENTRAL_LINKS
+#define MAXIMUM_NUMBER_OF_CENTRAL_CONN	6
 
 #define ENABLE_AMTv
 
@@ -239,19 +231,6 @@ uint8_t stop = 0;
 uint32_t beacon_timeout_ms = NODE_TIMEOUT_DEFAULT_MS;
 //uint32_t blinking_led_bit_map;
 
-#if defined(ENABLE_TOF) && ENABLE_TOF==1
-static uint8_t m_no_of_central_links = 0;
-static uint8_t m_no_of_peripheral_links = 0;
-static ifs_tof_t m_ifs_tof[MAXIMUM_NUMBER_OF_CENTRAL_CONN];
-static uint32_t ifs_offset_ticks;
-static bool allow_new_connections = false;
-static bool pending_connection_req = false;
-
-uint16_t total_number_of_connection_events;
-bool m_ifs_tof_active=false;
-
-//NRF_SDH_BLE_OBSERVER(m_ifs_tof_bel_obs, BLE_IFS_TOF_BLE_OBSERVER_PRIO, ifs_tof_on_ble_evt, NULL);
-#endif
 bool m_scan_active = false, m_advertising_active = false;
 
 static node_t m_network[MAXIMUM_NETWORK_SIZE];
@@ -315,12 +294,6 @@ extern void uart_util_rx_handler(uart_pkt_t* p_packet);
 extern void uart_util_ack_tx_done(void);
 extern void uart_util_ack_error(ack_wait_t* ack_wait_data);
 
-//ToF
-#if defined(ENABLE_TOF) && ENABLE_TOF==1
-static uint32_t calculate_ifs_offset(ble_gap_phys_t actual_phy);
-static void tof_results_print(ifs_tof_t * p_ctx);
-#endif
-
 //BT neighbors list management
 void on_scan_response(ble_gap_evt_adv_report_t const * p_adv_report);
 void on_adv(ble_gap_evt_adv_report_t const * p_adv_report);
@@ -352,9 +325,7 @@ static void gap_params_init(void);
 static void advertising_data_set(void);
 void preferred_phy_set(ble_gap_phys_t * p_phy);
 void conn_interval_set(uint16_t value);
-#if defined(ENABLE_TOF) && ENABLE_TOF==1
-static void db_disc_evt_handler(ble_db_discovery_evt_t * p_evt);
-#endif
+
 static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context);
 static void on_ble_gap_evt_disconnected(ble_gap_evt_t const * p_gap_evt);
 static void on_ble_gap_evt_connected(ble_gap_evt_t const * p_gap_evt);
@@ -363,10 +334,7 @@ static void scan_stop(void);
 static void scan_start(void);
 static void advertising_stop(void);
 static void advertising_start(void);
-#if defined(ENABLE_TOF) && ENABLE_TOF==1
-static void ble_tof_start(void);
-static void ble_tof_stop(void);
-#endif
+
 static void set_scan_params(uint8_t scan_active, uint16_t scan_interval, uint16_t scan_window, uint16_t scan_timeout);
 char const * phy_str(ble_gap_phys_t phys);
 static uint32_t adv_report_parse(uint8_t type, data_t * p_advdata, data_t * p_typedata);
@@ -389,11 +357,6 @@ static void button_evt_handler(uint8_t pin_no, uint8_t button_action);
 
 //system
 static void wait_for_event(void);
-
-#if defined(ENABLE_TOF) && ENABLE_TOF==1
-void ifs_tof_evt_handler(ifs_tof_evt_t * p_evt);
-static bool is_link_present(ble_gap_evt_adv_report_t const * p_adv_report);
-#endif
 
 PROCEDURE(ping, &send_ping);
 PROCEDURE(ready, &send_ready);
@@ -692,24 +655,9 @@ void uart_util_rx_handler(uart_pkt_t* p_packet) {
 		ack_value = APP_ERROR_NOT_IMPLEMENTED;
 		//still not implemented
 		break;
-    case uart_set_bt_tof_state:
-#if defined(ENABLE_TOF) && ENABLE_TOF==1
-        if(p_packet->payload.data_len == 1){
-            if(p_packet->payload.p_data[0]){
-                ble_tof_start();
-            }else{
-                ble_tof_stop();
-                disconnect_all_ifs_tof_devices();
-                //TODO: after the module is disabled disconnect all devices of type: IFS_TOF_DEVICE
-            }
-            ack_value = APP_ACK_SUCCESS;
-        }else{
-            ack_value = APP_ERROR_INVALID_LENGTH;
-        }
-#else
-        ack_value = APP_ERROR_NOT_IMPLEMENTED;
-#endif
-        break;
+  case uart_set_bt_tof_state:
+    ack_value = APP_ERROR_NOT_IMPLEMENTED;
+    break;
 	case uart_ping:
 		ack_value = APP_ACK_SUCCESS;
 		uart_util_send_ack(p_packet, ack_value,UART_ACK_DELAY_US); //send the ack before pong message
@@ -746,105 +694,6 @@ void uart_util_ack_error(ack_wait_t* ack_wait_data) {
 	m_tx_error = true;
 }
 
-#if defined(ENABLE_TOF) && ENABLE_TOF==1
-static uint32_t calculate_ifs_offset(ble_gap_phys_t actual_phy)
-{ //check/compare results with matlab!
-//#ifdef S140
-	uint8_t data_rate_mbps;
-	switch (actual_phy.rx_phys)
-	{
-		case BLE_GAP_PHY_1MBPS:
-		data_rate_mbps = 1;
-		return (uint32_t) (T_IFS_us + PREAMBLE_LEGNTH_us + ACCESS_ADDRESS_LENGTH_bit / data_rate_mbps + RX_CHAIN_DELAY_1MPHY_us)
-		* IFS_TIMER_TICK_FREQUENCY_MHZ;
-
-		case BLE_GAP_PHY_2MBPS:
-		data_rate_mbps = 2;
-		return (uint32_t) (T_IFS_us + PREAMBLE_LEGNTH_us + ACCESS_ADDRESS_LENGTH_bit / data_rate_mbps + RX_CHAIN_DELAY_2MPHY_us)
-		* IFS_TIMER_TICK_FREQUENCY_MHZ;
-
-		case BLE_GAP_PHY_CODED:
-		return 0;
-		break;
-		default:
-		data_rate_mbps = 1;
-		return (uint32_t) (T_IFS_us + PREAMBLE_LEGNTH_us + ACCESS_ADDRESS_LENGTH_bit / data_rate_mbps + RX_CHAIN_DELAY_1MPHY_us)
-		* IFS_TIMER_TICK_FREQUENCY_MHZ;
-		break;
-	}
-}
-
-void tof_results_print(ifs_tof_t * p_ctx) {
-//  if (m_board_role == BOARD_TESTER)
-    {
-        char c;
-        if (m_test_params.continuous_test) {
-            c = 's'; //when the test is continuous just print the summary
-        }else{
-            c = 'p';
-        }
-
-        if (c == 'p' || c == 's') {
-            int16_t d = (p_ctx->last_d_estimation)*10;
-            ble_dists_estimated_distance_send(&m_dists, p_ctx->conn_handle, d-728);
-
-
-            //static char addr_str[30]; //18 should be enough, but it mess up
-
-            //node_t* m_node = get_network_pos_by_conn_handle(p_ctx->conn_handle);
-            //bd_addr_to_string(&m_node->bd_address, addr_str, 30);
-
-            //char line[300];
-            //sprintf(line, "bd_addr = %s distance = "NRF_LOG_FLOAT_MARKER" m, velocity = "NRF_LOG_FLOAT_MARKER" m/s\n\r",addr_str,NRF_LOG_FLOAT(p_ctx->last_d_estimation),NRF_LOG_FLOAT(p_ctx->last_v_estimation));
-            //NRF_LOG_INFO("%s",nrf_log_push(line));
-        }
-    }
-}
-
-static bool is_adv_connectable(ble_gap_evt_adv_report_t const * p_adv_report)
-{
-	ret_code_t err_code;
-	data_t flags;
-	data_t adv_data;
-	adv_data.p_data = (uint8_t *)p_adv_report->data;
-	adv_data.data_len = p_adv_report->dlen;
-
-	// Look for the short local name if the complete name was not found.
-	err_code = adv_report_parse(BLE_GAP_AD_TYPE_FLAGS, &adv_data, &flags);
-
-	if (err_code != NRF_SUCCESS)
-	{
-		return false;
-	}
-	else
-	{
-		return flags.p_data[0] && (BLE_GAP_ADV_FLAG_LE_GENERAL_DISC_MODE | BLE_GAP_ADV_FLAG_BR_EDR_NOT_SUPPORTED);
-	}
-}
-
-static bool is_link_present(ble_gap_evt_adv_report_t const * p_adv_report)
-{
-	for(uint8_t n = 0; n < MAXIMUM_NETWORK_SIZE; n++)
-	{
-		if(m_network[n].conn_handle != BLE_CONN_HANDLE_INVALID)
-		{
-			if(memcmp(&p_adv_report->peer_addr, &m_network[n].bd_address, sizeof(ble_gap_addr_t) )== 0)
-			{
-				return true;
-			}
-		}
-	}
-	return false;
-}
-
-void tof_init()
-{
-    ifs_tof_init(m_ifs_tof, MAXIMUM_NUMBER_OF_CENTRAL_CONN);
-    ifs_tof_init_struct_buff(m_ifs_tof, MAXIMUM_NUMBER_OF_CENTRAL_CONN);
-}
-#endif
-
-
 void on_scan_response(ble_gap_evt_adv_report_t const * p_adv_report) {
 	node_t *node = get_network_pos_by_bdaddr(&p_adv_report->peer_addr);
 	if (node != NULL) {
@@ -880,73 +729,6 @@ void on_adv(ble_gap_evt_adv_report_t const * p_adv_report) {
 			update_node(NULL, p_adv_report, node);
 		}
 	}
-
-#if defined(ENABLE_TOF) && ENABLE_TOF==1
-//TODO: better manage the network:
-//  a node is a beacon till it is non-connected
-//  once a connectable beacon is found the connection is established, and once it is connected, regardless the BEACON_TYPE it becomes a IFS_TOF_DEVICE
-    if (!is_adv_connectable(p_adv_report)) {
-        return;
-    }
-
-//    if (node_type == UNKNOWN_TYPE)
-//    {
-//        return;
-//    }
-
-    if (//!find_adv_name(&p_gap_evt->params.adv_report, m_target_periph_name) &&
-            !is_known_name(p_adv_report, m_target_periph_name_alt2)
-            //&& !is_128bit_uuid_included(&p_gap_evt->params.adv_report,  m_target_uuid_lit_end)
-            )
-    {
-        return;
-    }
-
-    if(is_link_present(p_adv_report)){
-        return;
-    }
-
-    bsp_board_led_invert(PROGRESS_LED);
-
-//  if(m_board_role == BOARD_DUMMY){
-//      return;
-//  }
-
-    if (allow_new_connections && m_no_of_central_links < MAXIMUM_NUMBER_OF_CENTRAL_CONN ) {
-
-        static char addr_str[30]; //18 should be enough, but it mess up
-        bd_addr_to_string(&p_adv_report->peer_addr, addr_str,30);
-
-        NRF_LOG_INFO("Device \"%s\", bd_addr \"%s\" found, sending a connection request.\n\r", (uint32_t ) m_target_periph_name,addr_str);
-
-        scan_stop();
-        advertising_stop();
-
-
-        // Initiate connection.
-        m_conn_param.min_conn_interval = CONN_INTERVAL_DEFAULT;
-        m_conn_param.max_conn_interval = CONN_INTERVAL_DEFAULT;
-
-        ble_gap_scan_params_t const m_init_param =
-        {
-            .active         = 0x00,
-            .interval       = SCAN_WINDOW,
-            .window         = SCAN_WINDOW,
-            .use_whitelist  = 0x00,
-            .adv_dir_report = 0x00,
-            .timeout        = 0x0000, // No timeout.
-        };
-
-        ret_code_t err_code;
-        err_code = sd_ble_gap_connect(&p_adv_report->peer_addr, &m_init_param, &m_conn_param,APP_BLE_CONN_CFG_TAG);
-
-        if (err_code != NRF_SUCCESS) {
-            NRF_LOG_ERROR("sd_ble_gap_connect() failed: 0x%x.\n\r", err_code);
-        }else{
-            pending_connection_req = true;
-        }
-    }
-#endif
 }
 
 void network_maintainance_check(void) {
@@ -1280,21 +1062,6 @@ void conn_interval_set(uint16_t value) {
 	m_test_params.conn_interval = value;
 }
 
-#if defined(ENABLE_TOF) && ENABLE_TOF==1
-/**@brief Function for handling Database Discovery events.
- *
- * @details This function is a callback function to handle events from the database discovery module.
- *          Depending on the UUIDs that are discovered, this function should forward the events
- *          to their respective service instances.
- *
- * @param[in] p_evt  Pointer to the database discovery event.
- */
-static void db_disc_evt_handler(ble_db_discovery_evt_t * p_evt)
-{
-    //no module uses gatt, then there is no need of discovering database
-}
-#endif
-
 /**@brief Function for handling BLE Stack events.
  *
  * @param[in] p_ble_evt  Bluetooth stack event.
@@ -1398,170 +1165,18 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context) {
 		break;
 	}
 }
-#if defined(ENABLE_TOF) && ENABLE_TOF==1
-static void on_ifs_tof_buffer_full(ifs_tof_t * p_ctx)
-{
-	if (!m_test_params.continuous_test)
-	{
-		//test_terminate();
-	}
-	tof_results_print(p_ctx);
-}
-
-/**@brief Evt dispatcher for ifs_tof module*/
-void ifs_tof_evt_handler(ifs_tof_evt_t * p_evt)
-{
-
-    switch (p_evt->evt_type) {
-    case IFS_TOF_EVT_DISTANCE_READY: {
-        on_ifs_tof_buffer_full(p_evt->p_ctx); //TODO:change function name
-    }
-        break;
-    default: {
-//no implementation needed
-    }
-        break;
-    }
-}
-#endif
 
 /**@brief Function for handling BLE_GAP_EVT_DISCONNECTED events.
  * Unset the connection handle and terminate the test.
  */
 static void on_ble_gap_evt_disconnected(ble_gap_evt_t const * p_gap_evt) {
-#if defined(ENABLE_TOF) && ENABLE_TOF==1
-	ifs_tof_unregister_conn_handle(p_gap_evt->conn_handle);
-
-	//NRF_LOG_DEBUG("Disconnected: reason 0x%x.\n\r", p_gap_evt->params.disconnected.reason);
-
-	node_t * p_node = get_network_pos_by_conn_handle(p_gap_evt->conn_handle);
-	if (p_node->local_role == BLE_GAP_ROLE_CENTRAL)
-	{
-		m_no_of_central_links--;
-		//if (m_run_test)
-		//{
-			NRF_LOG_WARNING("GAP disconnection from Central role.\n\r")
-		//}
-	}
-	else
-	{
-		m_no_of_peripheral_links--;
-		//if (m_run_test)
-		//{
-			NRF_LOG_WARNING("GAP disconnection from Peripheral role.\n\r")
-		//}
-	}
-	//if(m_board_role == BOARD_DUMMY)
-	//{
-	//	advertising_start();
-	//}
-	scan_start();
-
-	if(m_no_of_central_links == 0)
-	{
-		//bsp_board_leds_off();
-		//	test_terminate();
-	}
-
-	remove_node_from_network(p_node);
-#endif
 }
 
 /**@brief Function for handling BLE_GAP_EVT_CONNECTED events.
  * Save the connection handle and GAP role, then discover the peer DB.
  */
 static void on_ble_gap_evt_connected(ble_gap_evt_t const * p_gap_evt) {
-#if defined(ENABLE_TOF) && ENABLE_TOF==1
-//#warning the node_t has changed. The logic of connecting/disconnecting may be broken
-	ret_code_t err_code;
-//    m_conn_handle = p_gap_evt->conn_handle;
-//    m_gap_role    = p_gap_evt->params.connected.role;
-	node_t* p_node = add_node_to_network(p_gap_evt, NULL, IFS_TOF_DEVICE);
-	if(p_node == NULL){
-	    NRF_LOG_WARNING("Node not added to the network!\n\r");
-	    return;
-	}
 
-#if 0
-    static char addr_str[30]; //18 should be enough, but it mess up
-    bd_addr_to_string(&p_node->bd_address, addr_str,30);
-    PRINTF("bdaddr %s - conn_handle %d\n",addr_str,p_node->conn_handle);
-    char addrstr[30];
-    char line[100];
-    bd_addr_to_string(&p_gap_evt->params.connected.peer_addr, addrstr, 30);
-    sprintf(line, "connected to: bd_addr = %s \n\r",addrstr);
-    NRF_LOG_DEBUG("%s",nrf_log_push(line));
-#endif
-
-	bsp_board_leds_off();
-
-	if (p_node->local_role == BLE_GAP_ROLE_PERIPH)
-	{
-		NRF_LOG_INFO("Connected as a peripheral.\n\r");
-		m_no_of_peripheral_links++;
-		if (m_no_of_peripheral_links < MAXIMUM_NUMBER_OF_PERIPH_CONN)
-		{
-			m_advertising_active = false; //workaround needed
-			//advertising_start();
-		}
-		else
-		{
-			//advertising_stop();
-		}
-	}
-	else if (p_node->local_role == BLE_GAP_ROLE_CENTRAL)
-	{
-		NRF_LOG_INFO("Connected as a central.\n\r");
-
-		m_no_of_central_links++;
-		ifs_tof_register_conn_handle(p_gap_evt->conn_handle, ifs_tof_evt_handler);
-		//if(m_board_role == BOARD_DUMMY)
-		//{
-		//	advertising_start();
-		//}
-		if (m_no_of_central_links < MAXIMUM_NUMBER_OF_CENTRAL_CONN)
-		{
-			scan_start();
-		}
-		else
-		{
-			scan_stop();
-		}
-
-		if (m_test_params.conn_interval != CONN_INTERVAL_DEFAULT)
-		{
-			NRF_LOG_DEBUG("Updating connection parameters..\n\r");
-			m_conn_param.min_conn_interval = m_test_params.conn_interval;
-			m_conn_param.max_conn_interval = m_test_params.conn_interval;
-			err_code = sd_ble_gap_conn_param_update(p_node->local_role, &m_conn_param);
-
-			if (err_code != NRF_SUCCESS)
-			{
-				NRF_LOG_ERROR("sd_ble_gap_conn_param_update() failed: 0x%x.\n\r", err_code);
-			}
-		}
-		else
-		{
-			m_conn_interval_configured = true;
-		}
-
-#ifdef ENABLE_PHY_UPDATE
-		if (m_gap_role == BLE_GAP_ROLE_PERIPH)
-		{
-#if defined(S140)
-			err_code = sd_ble_gap_phy_request(p_gap_evt->conn_handle, &m_test_params.phys);
-			APP_ERROR_CHECK(err_code);
-#else
-			err_code = sd_ble_gap_phy_update(p_gap_evt->conn_handle, &m_test_params.phys);
-			APP_ERROR_CHECK(err_code);
-#endif
-		}
-#endif
-	}
-
-	NRF_LOG_DEBUG("Connection interval: "NRF_LOG_FLOAT_MARKER" ms, Slave latency: %d, Supervision timeout %d ms.\n\r", NRF_LOG_FLOAT(1.25 * p_gap_evt->params.connected.conn_params.max_conn_interval), p_gap_evt->params.connected.conn_params.slave_latency, p_gap_evt->params.connected.conn_params.conn_sup_timeout * 10 );
-
-#endif
 }
 
 /**@brief Function for handling BLE_GAP_ADV_REPORT events.
@@ -1633,27 +1248,6 @@ static void advertising_start(void) {
 		APP_ERROR_CHECK(err_code);
 	}
 }
-#if defined(ENABLE_TOF) && ENABLE_TOF==1
-static void ble_tof_start(void) {
-    if (!m_ifs_tof_active) {
-        PRINTF("Starting ble tof\n");
-
-        ifs_tof_enable_module();
-        m_ifs_tof_active = true;
-        allow_new_connections = true;
-    }
-}
-
-static void ble_tof_stop(void) {
-    if (m_ifs_tof_active) {
-        PRINTF("Stopping ble tof\n");
-
-        ifs_tof_disable_module();
-        m_ifs_tof_active = false;
-        allow_new_connections = false;
-    }
-}
-#endif
 
 static void set_scan_params(uint8_t scan_active, uint16_t scan_interval, uint16_t scan_window, uint16_t scan_timeout) {
 	if (m_scan_active) {
@@ -1999,53 +1593,15 @@ static void buttons_enable(void) {
 	APP_ERROR_CHECK(err_code);
 }
 
-static void client_init(void)
-{
-#if defined(ENABLE_GATT) && ENABLE_GATT==1
-    ret_code_t err_code = ble_db_discovery_init(db_disc_evt_handler);
-    APP_ERROR_CHECK(err_code);
-#endif
-}
-
 void gatt_mtu_set(uint16_t att_mtu)
-{
-#if defined(ENABLE_GATT) && ENABLE_GATT==1
-    ret_code_t err_code;
-
-    m_test_params.att_mtu = att_mtu;
-
-    err_code = nrf_ble_gatt_att_mtu_periph_set(&m_gatt, att_mtu);
-    APP_ERROR_CHECK(err_code);
-
-    err_code = nrf_ble_gatt_att_mtu_central_set(&m_gatt, att_mtu);
-    APP_ERROR_CHECK(err_code);
-#endif
-}
+{}
 
 void data_len_ext_set(bool status)
-{
-#if defined(ENABLE_GATT) && ENABLE_GATT==1
-    m_test_params.data_len_ext_enabled = status;
-
-    uint8_t data_length = status ? (247 + L2CAP_HDR_LEN) : (23 + L2CAP_HDR_LEN);
-    (void) nrf_ble_gatt_data_length_set(&m_gatt, BLE_CONN_HANDLE_INVALID, data_length);
-#endif
-}
+{}
 
 
 static void conn_evt_len_ext_set(bool status)
-{
-#if defined(ENABLE_GATT) && ENABLE_GATT==1
-    ret_code_t err_code;
-    ble_opt_t  opt;
-
-    memset(&opt, 0x00, sizeof(opt));
-    opt.common_opt.conn_evt_ext.enable = status ? 1 : 0;
-
-    err_code = sd_ble_opt_set(BLE_COMMON_OPT_CONN_EVT_EXT, &opt);
-    APP_ERROR_CHECK(err_code);
-#endif
-}
+{}
 
 /**@brief Function for disabling button input. */
 //static void buttons_disable(void)
@@ -2053,6 +1609,8 @@ static void conn_evt_len_ext_set(bool status)
 //    ret_code_t err_code = app_button_disable();
 //    APP_ERROR_CHECK(err_code);
 //}
+
+
 /**@brief Function for handling events from the button handler module.
  *
  * @param[in] pin_no        The pin that the event applies to.
@@ -2093,28 +1651,13 @@ static void button_evt_handler(uint8_t pin_no, uint8_t button_action) {
         }
     }
         break;
-#if defined(ENABLE_TOF) && ENABLE_TOF==1
-    case TOGGLE_TOF_BUTTON:
-    {
-        if (m_ifs_tof_active)
-        {
-            ble_tof_stop();
-            disconnect_all_ifs_tof_devices();
-        }
-        else
-        {
-            ble_tof_start();
-        }
-    }
-        break;
-#endif
-        default:
+    default:
         break;
     }
     }
 
 static void wait_for_event(void) {
-	(void) sd_app_evt_wait();
+	(void) nrf_pwr_mgmt_run();
 }
 
 /**@brief Function for initializing the nrf log module.
@@ -2125,12 +1668,6 @@ static void log_init(void)
     APP_ERROR_CHECK(err_code);
 
     NRF_LOG_DEFAULT_BACKENDS_INIT();
-
-//    if (CoreDebug->DHCSR & CoreDebug_DHCSR_C_DEBUGEN_Msk)
-//    {
-//        ret_code_t err_code = nrf_cli_init(&m_cli_rtt, NULL, true, true, NRF_LOG_SEVERITY_DEBUG);
-//        APP_ERROR_CHECK(err_code);
-//    }
 }
 
 
@@ -2138,96 +1675,25 @@ static void log_init(void)
  *
  * @details Initialize the Heart Rate, Battery and Device Information services.
  */
-static void services_init(void)
-{
-#if defined(ENABLE_GATT) && ENABLE_GATT==1
-    ret_code_t     err_code;
-    ble_dist_init_t dists_init;
 
-    memset(&dists_init, 0, sizeof(dists_init));
-
-    dists_init.evt_handler                 = NULL;
-
-    // Here the sec level for the Heart Rate Service can be changed/increased.
-    BLE_GAP_CONN_SEC_MODE_SET_OPEN(&dists_init.dist_range_attr_md.cccd_write_perm);
-    BLE_GAP_CONN_SEC_MODE_SET_NO_ACCESS(&dists_init.dist_range_attr_md.read_perm);
-    BLE_GAP_CONN_SEC_MODE_SET_NO_ACCESS(&dists_init.dist_range_attr_md.write_perm);
-
-    err_code = ble_dists_init(&m_dists, &dists_init);
-    APP_ERROR_CHECK(err_code);
-
-    // Initialize Battery Service.
-//    memset(&bas_init, 0, sizeof(bas_init));
-//
-//    // Here the sec level for the Battery Service can be changed/increased.
-//    BLE_GAP_CONN_SEC_MODE_SET_OPEN(&bas_init.battery_level_char_attr_md.cccd_write_perm);
-//    BLE_GAP_CONN_SEC_MODE_SET_OPEN(&bas_init.battery_level_char_attr_md.read_perm);
-//    BLE_GAP_CONN_SEC_MODE_SET_NO_ACCESS(&bas_init.battery_level_char_attr_md.write_perm);
-//
-//    BLE_GAP_CONN_SEC_MODE_SET_OPEN(&bas_init.battery_level_report_read_perm);
-//
-//    bas_init.evt_handler          = NULL;
-//    bas_init.support_notification = true;
-//    bas_init.p_report_ref         = NULL;
-//    bas_init.initial_batt_level   = 100;
-//
-//    err_code = ble_bas_init(&m_bas, &bas_init);
-//    APP_ERROR_CHECK(err_code);
-
-    // Initialize Device Information Service.
-//    memset(&dis_init, 0, sizeof(dis_init));
-//
-//    ble_srv_ascii_to_utf8(&dis_init.manufact_name_str, (char *)MANUFACTURER_NAME);
-//
-//    BLE_GAP_CONN_SEC_MODE_SET_OPEN(&dis_init.dis_attr_md.read_perm);
-//    BLE_GAP_CONN_SEC_MODE_SET_NO_ACCESS(&dis_init.dis_attr_md.write_perm);
-//
-//    err_code = ble_dis_init(&dis_init);
-//    APP_ERROR_CHECK(err_code);
-#endif
-}
 
 int main(void) {
-    log_init();
+  log_init();
 	initialize_leds();
 	timer_init();
 	initialize_uart();
-	buttons_init();
 	ble_stack_init();
 	gap_params_init();
 
 	reset_network();
-	client_init();
-	services_init();
-    //gatt_mtu_set(m_test_params.att_mtu);
-    //data_len_ext_set(m_test_params.data_len_ext_enabled);
-    //conn_evt_len_ext_set(m_test_params.conn_evt_len_ext_enabled);
-    //preferred_phy_set(&m_test_params.phys);
 	advertising_data_set();
 
-//#ifdef DNRF52840_XXAA
-//    (void) sd_ble_gap_tx_power_set(9);
-//#else
-//    (void) sd_ble_gap_tx_power_set(4);
-//#endif
-
 	preferred_phy_set(&m_test_params.phys);
-
-	buttons_enable();
-
 	application_timers_start();
 
-    PRINTF("Running!\n");
+  PRINTF("Running!\n");
 
-#if defined(ENABLE_TOF) && ENABLE_TOF==1
-    tof_init();
-    ifs_offset_ticks = calculate_ifs_offset(m_test_params.phys);
-    if(m_ifs_tof_active){
-        ble_tof_start();
-    }
-#endif
-
-    nrf_delay_ms(1000); //delay a bit to allow all the hardware to be ready (not strictly necessary)
+  nrf_delay_ms(1000); //delay a bit to allow all the hardware to be ready (not strictly necessary)
 	start_procedure(&ready);
 
 	while (1) {
