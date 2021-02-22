@@ -69,7 +69,6 @@ SRC_FILES += \
   $(SDK_ROOT)/components/libraries/serial/nrf_serial.c \
   ${COMMON_DIR}/lib/uart_util/uart_util.c \
   ${COMMON_DIR}/lib/sequential_procedures/sequential_procedures.c \
-  $(SDK_ROOT)/external/ifs_tof/ifs_tof.c \
   $(SDK_ROOT)/components/drivers_nrf/ppi/nrf_drv_ppi.c \
   $(SDK_ROOT)/components/drivers_nrf/timer/nrf_drv_timer.c \
   $(SDK_ROOT)/external/AHRS_lib/AHRS_lib.c \
@@ -202,7 +201,6 @@ INC_FOLDERS += \
   ${COMMON_DIR}/inc \
   ${COMMON_DIR}/lib/sequential_procedures \
   $(SDK_ROOT)/components/ble/ble_radio_notification \
-  $(SDK_ROOT)/external/ifs_tof \
   $(SDK_ROOT)/external/AHRS_lib \
   $(SDK_ROOT)/components/ble/ble_services/ble_dists
 
@@ -248,11 +246,8 @@ CFLAGS += -DNRF_LOG_DEFAULT_LEVEL=0 # To stop logging module turn this to 0
 CFLAGS += -DNRF_LOG_USES_RTT=0
 CFLAGS += -DNRF_LOG_BACKEND_SERIAL_USES_RTT=0
 CFLAGS += -DNRF_LOG_BACKEND_RTT_ENABLED=0
-CFLAGS += -DENABLE_TOF=0		# To disable ifs_tof disable this and gatt
 CFLAGS += -DENABLE_GATT=0			# To disable ifs_tof disable also this
 CFLAGS += -DSDK_VERSION=14
-CFLAGS += -DBLE_DISTS_ENABLED=1
-CFLAGS += -DTIMER2_ENABLED=1
 #CFLAGS += -DREDIRECT_TO_USB
 
 # C++ flags common to all targets

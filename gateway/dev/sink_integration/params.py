@@ -42,7 +42,11 @@ MQTT_BROKER="iot.smartcommunitylab.it"
 # MQTT_BROKER="localhost"
 MQTT_PORT=1883
 #DEVICE_TOKEN="iOn25YbEvRBN9sp6xdCd"     #vela-gateway
+<<<<<<< HEAD
 DEVICE_TOKEN="15bYaSb44W6Im50EjV8z"     #vela-gateway-test
+=======
+DEVICE_TOKEN="9ovXYK9SOMgcbaIrWvZ2"     #vela-gateway-test
+>>>>>>> ota_dev
 # DEVICE_TOKEN="Xk5yuRNrGlcFHoWhC3AW"     #gm-gateway-test
 
 TELEMETRY_TOPIC="v1/gateway/telemetry"
