@@ -57,7 +57,7 @@
 #include "bsp_btn_ble.h"
 #include "ble_advdata.h"
 #include "ble_srv_common.h"
-#include "nrf_sdh.h"	bsp_board_led_on(0);
+#include "nrf_sdh.h"
 
 #include "nrf_sdh_ble.h"
 #include "nrf_ble_gatt.h"
@@ -1694,6 +1694,7 @@ int main(void) {
   PRINTF("Running!\n");
 
   nrf_delay_ms(1000); //delay a bit to allow all the hardware to be ready (not strictly necessary)
+
 	start_procedure(&ready);
 
 	while (1) {
