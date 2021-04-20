@@ -9,6 +9,18 @@
 			"path": "../../bt_board/ble_app_vela_lab"
 		},
 		{
+			"path": "../../bt_board/spi_util"
+		},
+		{
+			"path": "../../bt_board/ble_util"
+		},
+		{
+			"path": "../../bt_board/timer_util"
+		},
+               	{
+			"path": "../../bt_board/nb_report_util"
+		},
+		{
 			"path": "../../network_board/contiki-ng"
 		},
 		{
@@ -24,7 +36,9 @@
 	],
 	"settings": {
 		"files.associations": {
-			"vela_sender.h": "c"
+			"vela_sender.h": "c",
+			"spi_util.h": "c",
+			"timer_util.h": "c"
 		}
 	}
 }

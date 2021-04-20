@@ -15,6 +15,9 @@ LINKER_SCRIPT  := ble_app_vela_lab_gcc_nrf52.ld
 
 # Source files common to all targets
 SRC_FILES += \
+  $(PROJ_DIR)/../spi_util/spi_util.c \
+  $(PROJ_DIR)/../ble_util/ble_util.c \
+  $(PROJ_DIR)/../timer_util/timer_util.c \
   $(SDK_ROOT)/components/libraries/experimental_log/src/nrf_log_backend_rtt.c \
   $(SDK_ROOT)/components/libraries/experimental_log/src/nrf_log_backend_serial.c \
   $(SDK_ROOT)/components/libraries/experimental_log/src/nrf_log_backend_uart.c \
@@ -69,15 +72,19 @@ SRC_FILES += \
   $(SDK_ROOT)/components/libraries/serial/nrf_serial.c \
   ${COMMON_DIR}/lib/uart_util/uart_util.c \
   ${COMMON_DIR}/lib/sequential_procedures/sequential_procedures.c \
-  $(SDK_ROOT)/external/ifs_tof/ifs_tof.c \
   $(SDK_ROOT)/components/drivers_nrf/ppi/nrf_drv_ppi.c \
   $(SDK_ROOT)/components/drivers_nrf/timer/nrf_drv_timer.c \
   $(SDK_ROOT)/external/AHRS_lib/AHRS_lib.c \
   $(SDK_ROOT)/external/AHRS_lib/Math_Utils.c \
-  $(SDK_ROOT)/components/ble/ble_services/ble_dists/ble_dists.c
+  $(SDK_ROOT)/components/ble/ble_services/ble_dists/ble_dists.c \
+  $(SDK_ROOT)/components/drivers_nrf/spi_slave/nrf_drv_spis.c 
+  
   
 # Include folders common to all targets
 INC_FOLDERS += \
+  $(PROJ_DIR)/../spi_util \
+  $(PROJ_DIR)/../ble_util \
+  $(PROJ_DIR)/../timer_util \
   $(SDK_ROOT)/components/drivers_nrf/usbd \
   $(SDK_ROOT)/components/libraries/usbd/class/hid \
   $(SDK_ROOT)/components/libraries/gpiote \
@@ -202,9 +209,8 @@ INC_FOLDERS += \
   ${COMMON_DIR}/inc \
   ${COMMON_DIR}/lib/sequential_procedures \
   $(SDK_ROOT)/components/ble/ble_radio_notification \
-  $(SDK_ROOT)/external/ifs_tof \
   $(SDK_ROOT)/external/AHRS_lib \
-  $(SDK_ROOT)/components/ble/ble_services/ble_dists
+  $(SDK_ROOT)/components/ble/ble_services/ble_dists 
 
 # Libraries common to all targets
 LIB_FILES += \
@@ -232,8 +238,8 @@ CFLAGS += -mfloat-abi=hard -mfpu=fpv4-sp-d16
 # keep every function in a separate section, this allows linker to discard unused ones
 CFLAGS += -ffunction-sections -fdata-sections -fno-strict-aliasing
 CFLAGS += -fno-builtin -fshort-enums 
-CFLAGS += -DPPI_ENABLED=1
-CFLAGS += -DTIMER_ENABLED=1
+CFLAGS += -DPPI_ENABLED=0
+CFLAGS += -DTIMER_ENABLED=0
 #CFLAGS += -DTIMER1_ENABLED=1 #seems to be not used. Ifs_tof uses timer2
 #CFLAGS += -DDEBUG=1
 CFLAGS += -DDISABLE_NEW_LINE_DAV
@@ -251,8 +257,8 @@ CFLAGS += -DNRF_LOG_BACKEND_RTT_ENABLED=0
 CFLAGS += -DENABLE_TOF=0		# To disable ifs_tof disable this and gatt
 CFLAGS += -DENABLE_GATT=0			# To disable ifs_tof disable also this
 CFLAGS += -DSDK_VERSION=14
-CFLAGS += -DBLE_DISTS_ENABLED=1
-CFLAGS += -DTIMER2_ENABLED=1
+CFLAGS += -DBLE_DISTS_ENABLED=0
+CFLAGS += -DTIMER2_ENABLED=0
 #CFLAGS += -DREDIRECT_TO_USB
 
 # C++ flags common to all targets

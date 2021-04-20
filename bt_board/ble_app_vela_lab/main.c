@@ -67,6 +67,9 @@
 //#include "nrf_cli.h"
 //#include "nrf_cli_rtt.h"
 //#include "nrf_cli_uart.h"
+#include "spi_util.h"
+#include "ble_util.h"
+#include "timer_util.h"
 
 #include "uart_util.h"
 #include "constraints.h"
@@ -127,23 +130,23 @@ NRF_LOG_MODULE_REGISTER();
 
 #define ENABLE_AMTv
 
-#define DEFAULT_ACTIVE_SCAN             1     //boolean
-#define DEFAULT_SCAN_INTERVAL           3520       /**< Scan interval between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
-#define DEFAULT_SCAN_WINDOW             1920     /**< Scan window between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
-#define DEFAULT_TIMEOUT                 0
-#define PERIODIC_TIMER_INTERVAL         APP_TIMER_TICKS(1000)
-#define NODE_TIMEOUT_DEFAULT_MS			(uint32_t)60000
+// #define DEFAULT_ACTIVE_SCAN             1     //boolean
+// #define DEFAULT_SCAN_INTERVAL           3520       /**< Scan interval between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
+// #define DEFAULT_SCAN_WINDOW             1920     /**< Scan window between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
+// #define DEFAULT_TIMEOUT                 0
+// #define PERIODIC_TIMER_INTERVAL         APP_TIMER_TICKS(1000)
+// #define NODE_TIMEOUT_DEFAULT_MS			(uint32_t)60000
 
-#define MIN_REPORT_TIMEOUT_MS					1000
+// #define MIN_REPORT_TIMEOUT_MS					1000
 
-#define APP_TIMER_MS(TICKS)  (uint32_t)(ROUNDED_DIV (((uint64_t)TICKS * ( ( (uint64_t)APP_TIMER_CONFIG_RTC_FREQUENCY + 1 ) * 1000 )) , (uint64_t)APP_TIMER_CLOCK_FREQ ))
+// #define APP_TIMER_MS(TICKS)  (uint32_t)(ROUNDED_DIV (((uint64_t)TICKS * ( ( (uint64_t)APP_TIMER_CONFIG_RTC_FREQUENCY + 1 ) * 1000 )) , (uint64_t)APP_TIMER_CLOCK_FREQ ))
 
-#define UART_ACK_DELAY_US               2000
+// #define UART_ACK_DELAY_US               2000
 
-APP_TIMER_DEF(m_periodic_timer_id);
-APP_TIMER_DEF(m_report_timer_id);
-APP_TIMER_DEF(m_led_blink_timer_id);
-APP_TIMER_DEF(m_lp_led_timer_id);
+// APP_TIMER_DEF(m_periodic_timer_id);
+// APP_TIMER_DEF(m_report_timer_id);
+// APP_TIMER_DEF(m_led_blink_timer_id);
+// APP_TIMER_DEF(m_lp_led_timer_id);
 
 //NRF_CLI_DEF(m_cli_rtt,  "throughput example:~$ ", &cli_rtt.transport,  '\n', 4);
 typedef enum
@@ -181,8 +184,7 @@ typedef struct
     uint16_t   len;    /**< Length of data. */
 } s_data_t;
 
-typedef struct
-{
+typedef struct{
     uint16_t  			conn_handle;
     uint8_t             local_role;
 	ble_gap_addr_t 		bd_address;
@@ -252,7 +254,8 @@ bool m_ifs_tof_active=false;
 
 //NRF_SDH_BLE_OBSERVER(m_ifs_tof_bel_obs, BLE_IFS_TOF_BLE_OBSERVER_PRIO, ifs_tof_on_ble_evt, NULL);
 #endif
-bool m_scan_active = false, m_advertising_active = false;
+// bool m_scan_active = false;
+//, m_advertising_active = false;
 
 static node_t m_network[MAXIMUM_NETWORK_SIZE];
 
@@ -279,16 +282,16 @@ static test_params_t m_test_params =
 #endif
 };
 
-// Scan parameters requested for scanning and connection.
-static ble_gap_scan_params_t m_scan_param =
-{
-    .active         = 0x01,
-    .interval       = SCAN_INTERVAL,
-    .window         = SCAN_WINDOW,
-    .use_whitelist  = 0x00,
-    .adv_dir_report = 0x00,
-    .timeout        = 0x0000, // No timeout.
-};
+// // Scan parameters requested for scanning and connection.
+// static ble_gap_scan_params_t m_scan_param =
+// {
+//     .active         = 0x01,
+//     .interval       = SCAN_INTERVAL,
+//     .window         = SCAN_WINDOW,
+//     .use_whitelist  = 0x00,
+//     .adv_dir_report = 0x00,
+//     .timeout        = 0x0000, // No timeout.
+// };
 
 // Connection parameters requested for connection.
 static ble_gap_conn_params_t m_conn_param =
@@ -338,12 +341,12 @@ static void reset_network(void);
 static void disconnect_all_ifs_tof_devices(void);
 
 //application timers helpers/callbacks
-void application_timers_start(void);
+// void application_timers_start(void);
 void start_periodic_report(uint32_t timeout_ms);
-static void report_timeout_handler(void * p_context);
-static void periodic_timer_timeout_handler(void * p_context);
-static void led_timeout_handler(void * p_context);
-static void lp_led_timeout_handler(void * p_context);
+// static void report_timeout_handler(void * p_context);
+// static void periodic_timer_timeout_handler(void * p_context);
+// static void led_timeout_handler(void * p_context);
+// static void lp_led_timeout_handler(void * p_context);
 void blink_led(uint32_t led_idx, uint32_t blink_timeout);
 
 //bt callbacks/helpers
@@ -359,15 +362,15 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context);
 static void on_ble_gap_evt_disconnected(ble_gap_evt_t const * p_gap_evt);
 static void on_ble_gap_evt_connected(ble_gap_evt_t const * p_gap_evt);
 static void on_ble_gap_evt_adv_report(ble_gap_evt_t const * p_gap_evt);
-static void scan_stop(void);
-static void scan_start(void);
-static void advertising_stop(void);
-static void advertising_start(void);
+// static void scan_stop(void);
+// static void scan_start(void);
+//static void advertising_stop(void);
+//static void advertising_start(void);
 #if defined(ENABLE_TOF) && ENABLE_TOF==1
 static void ble_tof_start(void);
 static void ble_tof_stop(void);
 #endif
-static void set_scan_params(uint8_t scan_active, uint16_t scan_interval, uint16_t scan_window, uint16_t scan_timeout);
+// static void set_scan_params(uint8_t scan_active, uint16_t scan_interval, uint16_t scan_window, uint16_t scan_timeout);
 char const * phy_str(ble_gap_phys_t phys);
 static uint32_t adv_report_parse(uint8_t type, data_t * p_advdata, data_t * p_typedata);
 static uint32_t get_adv_name(ble_gap_evt_adv_report_t const * p_adv_report, data_t * dev_name);
@@ -382,10 +385,7 @@ static bool is_known_eddystone(ble_gap_evt_adv_report_t const * p_adv_report, ui
 //hardware init/callbacks/helpers
 static void initialize_leds(void);
 static void initialize_uart(void);
-static void timer_init(void);
-static void buttons_init(void);
-static void buttons_enable(void);
-static void button_evt_handler(uint8_t pin_no, uint8_t button_action);
+// static void timer_init(void);
 
 //system
 static void wait_for_event(void);
@@ -667,15 +667,15 @@ void uart_util_rx_handler(uart_pkt_t* p_packet) {
 		}
 		break;
 	case uart_set_bt_adv_state:
-		if (p_packet->payload.data_len == 1) {
-			if (p_packet->payload.p_data[0]) { //enable advertiser
-				advertising_start();
-			} else {	//disable advertiser
-				advertising_stop();
-			}
-			//TODO: does it need to check something before sending ack?
-			ack_value = APP_ACK_SUCCESS;
-		}
+		// if (p_packet->payload.data_len == 1) {
+		// 	if (p_packet->payload.p_data[0]) { //enable advertiser
+		// 		advertising_start();
+		// 	} else {	//disable advertiser
+		// 		advertising_stop();
+		// 	}
+		// 	//TODO: does it need to check something before sending ack?
+		// 	ack_value = APP_ACK_SUCCESS;
+		// }
 		break;
 	case uart_set_bt_scan_params:
 		if (p_packet->payload.data_len == 7) {
@@ -683,7 +683,7 @@ void uart_util_rx_handler(uart_pkt_t* p_packet) {
 			uint16_t scan_interval = (p_payload_data[1] << 8) + p_payload_data[2];
 			uint16_t scan_window = (p_payload_data[3] << 8) + p_payload_data[4];
 			uint16_t timeout = (p_payload_data[5] << 8) + p_payload_data[6];
-			set_scan_params(active, scan_interval, scan_window, timeout);
+			//set_scan_params(active, scan_interval, scan_window, timeout);
 			//TODO: does it need to check something before sending ack?
 			ack_value = APP_ACK_SUCCESS;
 		}
@@ -1128,17 +1128,17 @@ static void disconnect_all_ifs_tof_devices(void){
 
 /**@brief Function for starting application timers.
  */
-void application_timers_start(void) {
-	ret_code_t err_code;
+// void application_timers_start(void) {
+// 	ret_code_t err_code;
 
-	// Start application timers.
-	err_code = app_timer_start(m_periodic_timer_id, PERIODIC_TIMER_INTERVAL, NULL);
-	APP_ERROR_CHECK(err_code);
+// 	// Start application timers.
+// 	err_code = app_timer_start(m_periodic_timer_id, PERIODIC_TIMER_INTERVAL, NULL);
+// 	APP_ERROR_CHECK(err_code);
 
-	// Start application timers.
-	err_code = app_timer_start(m_lp_led_timer_id, LP_LED_INTERVAL, NULL);
-	APP_ERROR_CHECK(err_code);
-}
+// 	// // Start application timers.
+// 	// err_code = app_timer_start(m_lp_led_timer_id, LP_LED_INTERVAL, NULL);
+// 	// APP_ERROR_CHECK(err_code);
+// }
 
 void start_periodic_report(uint32_t timeout_ms) {
     PRINTF("Setting BLE report with timeout %u ms!\n",timeout_ms);
@@ -1170,36 +1170,36 @@ void start_periodic_report(uint32_t timeout_ms) {
 	}
 }
 
-static void report_timeout_handler(void * p_context) {
-	UNUSED_PARAMETER(p_context);
+// static void report_timeout_handler(void * p_context) {
+// 	UNUSED_PARAMETER(p_context);
 
-    PRINTF("Sending a periodic report!\n");
-    start_procedure(&ble_report);
-}
+//     PRINTF("Sending a periodic report!\n");
+//     start_procedure(&ble_report);
+// }
 
-static void periodic_timer_timeout_handler(void * p_context) {
-	UNUSED_PARAMETER(p_context);
-}
+// static void periodic_timer_timeout_handler(void * p_context) {
+// 	UNUSED_PARAMETER(p_context);
+// }
 
-static void led_timeout_handler(void * p_context) {
-	uint32_t * p_blinking_led_bit_map = (uint32_t*)p_context;
-	for(uint8_t led_idx = 0; led_idx < LEDS_NUMBER; led_idx++){
-		if((*p_blinking_led_bit_map >> led_idx) & 0b1){
-			bsp_board_led_off(led_idx);
-		}
-	}
-	*p_blinking_led_bit_map = 0;
-}
+// static void led_timeout_handler(void * p_context) {
+// 	uint32_t * p_blinking_led_bit_map = (uint32_t*)p_context;
+// 	for(uint8_t led_idx = 0; led_idx < LEDS_NUMBER; led_idx++){
+// 		if((*p_blinking_led_bit_map >> led_idx) & 0b1){
+// 			bsp_board_led_off(led_idx);
+// 		}
+// 	}
+// 	*p_blinking_led_bit_map = 0;
+// }
 
-static void lp_led_timeout_handler(void * p_context) {
-	uint32_t led_to_blink = 0;
-	if(m_scan_active || m_advertising_active) led_to_blink |= SCAN_ADV_LED;
-	if(m_ready_received)  led_to_blink |= READY_LED;
-	if(m_tx_error)  led_to_blink |= ERROR_LED;
-	if(m_periodic_report_timeout) led_to_blink |= PROGRESS_LED;
+// static void lp_led_timeout_handler(void * p_context) {
+// 	uint32_t led_to_blink = 0;
+// 	//if(m_scan_active || m_advertising_active) led_to_blink |= SCAN_ADV_LED;
+// 	if(m_ready_received)  led_to_blink |= READY_LED;
+// 	if(m_tx_error)  led_to_blink |= ERROR_LED;
+// 	if(m_periodic_report_timeout) led_to_blink |= PROGRESS_LED;
 
-	blink_led(led_to_blink, LED_BLINK_TIMEOUT_MS);
-}
+// 	blink_led(led_to_blink, LED_BLINK_TIMEOUT_MS);
+// }
 
 void blink_led(uint32_t led, uint32_t blink_timeout_ms) {
 	static uint32_t blinking_led_bit_map = 0;
@@ -1235,7 +1235,7 @@ static void ble_stack_init(void) {
 	// Register a handler for BLE events.
 	NRF_SDH_BLE_OBSERVER(m_ble_observer, APP_BLE_OBSERVER_PRIO, ble_evt_handler, NULL);
 
-	set_scan_params(DEFAULT_ACTIVE_SCAN, DEFAULT_SCAN_INTERVAL, DEFAULT_SCAN_WINDOW, DEFAULT_TIMEOUT);
+	//set_scan_params(DEFAULT_ACTIVE_SCAN, DEFAULT_SCAN_INTERVAL, DEFAULT_SCAN_WINDOW, DEFAULT_TIMEOUT);
 }
 
 /**@brief Function for initializing GAP parameters.
@@ -1256,14 +1256,14 @@ static void gap_params_init(void) {
 	APP_ERROR_CHECK(err_code);
 }
 
-/**@brief Function for setting up advertising data. */
-static void advertising_data_set(void) {
-	ble_advdata_t const adv_data = { .name_type = BLE_ADVDATA_FULL_NAME, .flags = BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE, .include_appearance =
-	false, };
+// /**@brief Function for setting up advertising data. */
+// static void advertising_data_set(void) {
+// 	ble_advdata_t const adv_data = { .name_type = BLE_ADVDATA_FULL_NAME, .flags = BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE, .include_appearance =
+// 	false, };
 
-	ret_code_t err_code = ble_advdata_set(&adv_data, NULL);
-	APP_ERROR_CHECK(err_code);
-}
+// 	ret_code_t err_code = ble_advdata_set(&adv_data, NULL);
+// 	APP_ERROR_CHECK(err_code);
+// }
 
 void preferred_phy_set(ble_gap_phys_t * p_phy) {
 #if defined(S140)
@@ -1302,9 +1302,10 @@ static void db_disc_evt_handler(ble_db_discovery_evt_t * p_evt)
 static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context) {
 	uint32_t err_code;
 	ble_gap_evt_t const * p_gap_evt = &p_ble_evt->evt.gap_evt;
-
+	
 	switch (p_ble_evt->header.evt_id) {
 	case BLE_GAP_EVT_ADV_REPORT:
+		
 		on_ble_gap_evt_adv_report(p_gap_evt);
 		break;
 
@@ -1573,66 +1574,72 @@ static void on_ble_gap_evt_adv_report(ble_gap_evt_t const * p_gap_evt) {
 	if(sequential_procedure_is_this_running(&ble_report)){ //do not update the network during report, just for safety
 		return;
 	}
-
+	
 	if (p_gap_evt->params.adv_report.scan_rsp) {	//if it is a scan response it won't contain eddystone frame. It may contain the name. And it may be valid if the node is already in the list
+		bsp_board_led_on(BSP_BOARD_LED_2);
+		bsp_board_led_off(BSP_BOARD_LED_3);
 		return on_scan_response(&p_gap_evt->params.adv_report);
 	} else {
+		bsp_board_led_off(BSP_BOARD_LED_2);
+		bsp_board_led_on(BSP_BOARD_LED_3);
 		return on_adv(&p_gap_evt->params.adv_report);
 	}
+
+	
 }
 
-static void scan_stop(void) {
-	if (m_scan_active) {
-	    PRINTF("Stopping scan\n");
+// static void scan_stop(void) {
+// 	if (m_scan_active) {
+// 	    PRINTF("Stopping scan\n");
 
-		blink_led(SCAN_ADV_LED, LED_BLINK_TIMEOUT_MS);
-		m_scan_active = false;
-		ret_code_t err_code = sd_ble_gap_scan_stop();
-		APP_ERROR_CHECK(err_code);
-	}
-}
+// 		blink_led(SCAN_ADV_LED, LED_BLINK_TIMEOUT_MS);
+// 		m_scan_active = false;
+// 		ret_code_t err_code = sd_ble_gap_scan_stop();
+// 		APP_ERROR_CHECK(err_code);
+// 	}
+// }
 
-/**@brief Function to start scanning. */
-static void scan_start(void) {
-	if (!m_scan_active) {
-        PRINTF("Starting scan\n");
-//        NRF_LOG_INFO("Starting scan.\n\r");
-//		reset_network();
-		blink_led(SCAN_ADV_LED, LED_BLINK_TIMEOUT_MS);
-		m_scan_active = true;
-		ret_code_t err_code = sd_ble_gap_scan_start(&m_scan_param);
-		APP_ERROR_CHECK(err_code);
-	}
-}
+// /**@brief Function to start scanning. */
+// static void scan_start(void) {
+// 	if (!m_scan_active) {
+//         PRINTF("Starting scan\n");
+// //        NRF_LOG_INFO("Starting scan.\n\r");
+// //		reset_network();
+// 		blink_led(SCAN_ADV_LED, LED_BLINK_TIMEOUT_MS);
+// 		m_scan_active = true;
+// 		ret_code_t err_code = sd_ble_gap_scan_start(&m_scan_param);
+// 		APP_ERROR_CHECK(err_code);
+// 	}
+// }
 
 /**@brief Function for starting advertising. */
-static void advertising_stop(void) {
-	if (m_advertising_active) {
-        PRINTF("Stopping advertising\n");
-//		NRF_LOG_INFO("Stopping advertising.\n\r");
+// static void advertising_stop(void) {
+// 	if (m_advertising_active) {
+//         PRINTF("Stopping advertising\n");
+// //		NRF_LOG_INFO("Stopping advertising.\n\r");
 
-		blink_led(SCAN_ADV_LED, LED_BLINK_TIMEOUT_MS);
-		m_advertising_active = false;
-		ret_code_t err_code = sd_ble_gap_adv_stop();
-		APP_ERROR_CHECK(err_code);
-	}
-}
+// 		blink_led(SCAN_ADV_LED, LED_BLINK_TIMEOUT_MS);
+// 		m_advertising_active = false;
+// 		ret_code_t err_code = sd_ble_gap_adv_stop();
+// 		APP_ERROR_CHECK(err_code);
+// 	}
+// }
 
 /**@brief Function for starting advertising. */
-static void advertising_start(void) {
-	if (!m_advertising_active) {
-        PRINTF("Starting advertising\n");
-		ble_gap_adv_params_t const adv_params = { .type = BLE_GAP_ADV_TYPE_ADV_IND, .p_peer_addr = NULL, .fp = BLE_GAP_ADV_FP_ANY, .interval =
-		ADV_INTERVAL, .timeout = 0, };
+// static void advertising_start(void) {
+// 	if (!m_advertising_active) {
+//         PRINTF("Starting advertising\n");
+// 		ble_gap_adv_params_t const adv_params = { .type = BLE_GAP_ADV_TYPE_ADV_IND, .p_peer_addr = NULL, .fp = BLE_GAP_ADV_FP_ANY, .interval =
+// 		ADV_INTERVAL, .timeout = 0, };
 
-//		NRF_LOG_INFO("Starting advertising.\n\r");
+// //		NRF_LOG_INFO("Starting advertising.\n\r");
 
-		blink_led(SCAN_ADV_LED, LED_BLINK_TIMEOUT_MS);
-		m_advertising_active = true;
-		ret_code_t err_code = sd_ble_gap_adv_start(&adv_params, APP_BLE_CONN_CFG_TAG);
-		APP_ERROR_CHECK(err_code);
-	}
-}
+// 		blink_led(SCAN_ADV_LED, LED_BLINK_TIMEOUT_MS);
+// 		m_advertising_active = true;
+// 		ret_code_t err_code = sd_ble_gap_adv_start(&adv_params, APP_BLE_CONN_CFG_TAG);
+// 		APP_ERROR_CHECK(err_code);
+// 	}
+// }
 #if defined(ENABLE_TOF) && ENABLE_TOF==1
 static void ble_tof_start(void) {
     if (!m_ifs_tof_active) {
@@ -1655,23 +1662,23 @@ static void ble_tof_stop(void) {
 }
 #endif
 
-static void set_scan_params(uint8_t scan_active, uint16_t scan_interval, uint16_t scan_window, uint16_t scan_timeout) {
-	if (m_scan_active) {
-		ret_code_t err_code = sd_ble_gap_scan_stop();
-		APP_ERROR_CHECK(err_code);
-	}
+// static void set_scan_params(uint8_t scan_active, uint16_t scan_interval, uint16_t scan_window, uint16_t scan_timeout) {
+// 	if (m_scan_active) {
+// 		ret_code_t err_code = sd_ble_gap_scan_stop();
+// 		APP_ERROR_CHECK(err_code);
+// 	}
 
-    PRINTF("Setting scan params: scan_active=%u, scan_interval=%u, scan_window=%u, scan_timeout=%u\n",scan_active,scan_interval,scan_window,scan_timeout);
-	m_scan_param.active = scan_active;
-	m_scan_param.interval = scan_interval;
-	m_scan_param.window = scan_window;
-	m_scan_param.timeout = scan_timeout;
+//     PRINTF("Setting scan params: scan_active=%u, scan_interval=%u, scan_window=%u, scan_timeout=%u\n",scan_active,scan_interval,scan_window,scan_timeout);
+// 	m_scan_param.active = scan_active;
+// 	m_scan_param.interval = scan_interval;
+// 	m_scan_param.window = scan_window;
+// 	m_scan_param.timeout = scan_timeout;
 
-	if (m_scan_active) {
-		ret_code_t err_code = sd_ble_gap_scan_start(&m_scan_param);
-		APP_ERROR_CHECK(err_code);
-	}
-}
+// 	if (m_scan_active) {
+// 		ret_code_t err_code = sd_ble_gap_scan_start(&m_scan_param);
+// 		APP_ERROR_CHECK(err_code);
+// 	}
+// }
 
 char const * phy_str(ble_gap_phys_t phys) {
 	static char const * str[] = { "1 Mbps", "2 Mbps", "Coded", "Unknown" };
@@ -1931,6 +1938,9 @@ static bool is_known_eddystone(ble_gap_evt_adv_report_t const * p_adv_report, ui
 }
 
 void initialize_leds(void) {
+
+	// ret_code_t err_code = bsp_init(BSP_INIT_LED, NULL);
+    // APP_ERROR_CHECK(err_code);
 	bsp_board_leds_init();
 	bsp_board_leds_off();
 }
@@ -1943,61 +1953,29 @@ void initialize_uart(void) {
  *
  * @details Initializes the timer module. This creates and starts application timers.
  */
-static void timer_init(void) {
-	ret_code_t err_code = app_timer_init();
-	APP_ERROR_CHECK(err_code);
+// static void timer_init(void) {
+// 	ret_code_t err_code = app_timer_init();
+// 	APP_ERROR_CHECK(err_code);
 
-	// Create timers.
-	err_code = app_timer_create(&m_periodic_timer_id, APP_TIMER_MODE_REPEATED, periodic_timer_timeout_handler);
-	APP_ERROR_CHECK(err_code);
+// 	// Create timers.
+// 	err_code = app_timer_create(&m_periodic_timer_id, APP_TIMER_MODE_REPEATED, periodic_timer_timeout_handler);
+// 	APP_ERROR_CHECK(err_code);
 
-	err_code = app_timer_create(&m_report_timer_id, APP_TIMER_MODE_REPEATED, report_timeout_handler);
-	APP_ERROR_CHECK(err_code);
+// 	err_code = app_timer_create(&m_report_timer_id, APP_TIMER_MODE_REPEATED, report_timeout_handler);
+// 	APP_ERROR_CHECK(err_code);
 
-	err_code = app_timer_create(&m_led_blink_timer_id, APP_TIMER_MODE_SINGLE_SHOT, led_timeout_handler);
-	APP_ERROR_CHECK(err_code);
+// 	err_code = app_timer_create(&m_led_blink_timer_id, APP_TIMER_MODE_SINGLE_SHOT, led_timeout_handler);
+// 	APP_ERROR_CHECK(err_code);
 
-	err_code = app_timer_create(&m_lp_led_timer_id, APP_TIMER_MODE_REPEATED, lp_led_timeout_handler);
-	APP_ERROR_CHECK(err_code);
+// 	err_code = app_timer_create(&m_lp_led_timer_id, APP_TIMER_MODE_REPEATED, lp_led_timeout_handler);
+// 	APP_ERROR_CHECK(err_code);
 
 
-}
+// }
 
-/**@brief Function for initializing the button library.
- */
-static void buttons_init(void) {
-	// The array must be static because a pointer to it will be saved in the button library.
-	static app_button_cfg_t buttons[] = {
-											{
-											TOGGLE_SCAN_BUTTON,
-											false,
-											BUTTON_PULL,
-											button_evt_handler
-											},
-                                            {
-                                            TOGGLE_ADV_BUTTON,
-                                            false,
-                                            BUTTON_PULL,
-                                            button_evt_handler
-                                            },
-                                            {
-                                            TOGGLE_TOF_BUTTON,
-                                            false,
-                                            BUTTON_PULL,
-                                            button_evt_handler
-                                            }
-			};
-
-	ret_code_t err_code = app_button_init(buttons, ARRAY_SIZE(buttons), BUTTON_DETECTION_DELAY);
-	APP_ERROR_CHECK(err_code);
-}
 
 /**@brief Function for enabling button input.
  */
-static void buttons_enable(void) {
-	ret_code_t err_code = app_button_enable();
-	APP_ERROR_CHECK(err_code);
-}
 
 static void client_init(void)
 {
@@ -2046,72 +2024,6 @@ static void conn_evt_len_ext_set(bool status)
     APP_ERROR_CHECK(err_code);
 #endif
 }
-
-/**@brief Function for disabling button input. */
-//static void buttons_disable(void)
-//{
-//    ret_code_t err_code = app_button_disable();
-//    APP_ERROR_CHECK(err_code);
-//}
-/**@brief Function for handling events from the button handler module.
- *
- * @param[in] pin_no        The pin that the event applies to.
- * @param[in] button_action The button action (press/release).
- */
-static void button_evt_handler(uint8_t pin_no, uint8_t button_action) {
-
-    if (button_action == 0)
-    {
-        return;
-    }
-    switch (pin_no)
-    {
-    case TOGGLE_SCAN_BUTTON:
-    {
-
-        PRINTF("Scan button\n");
-        if (m_scan_active)
-        {
-            scan_stop();
-        }
-        else
-        {
-            scan_start();
-        }
-    }
-        break;
-
-    case TOGGLE_ADV_BUTTON:
-    {
-        if (m_advertising_active)
-        {
-            advertising_stop();
-        }
-        else
-        {
-            advertising_start();
-        }
-    }
-        break;
-#if defined(ENABLE_TOF) && ENABLE_TOF==1
-    case TOGGLE_TOF_BUTTON:
-    {
-        if (m_ifs_tof_active)
-        {
-            ble_tof_stop();
-            disconnect_all_ifs_tof_devices();
-        }
-        else
-        {
-            ble_tof_start();
-        }
-    }
-        break;
-#endif
-        default:
-        break;
-    }
-    }
 
 static void wait_for_event(void) {
 	(void) sd_app_evt_wait();
@@ -2191,19 +2103,22 @@ int main(void) {
     log_init();
 	initialize_leds();
 	timer_init();
-	initialize_uart();
-	buttons_init();
+	spi_init();
+	//initialize_uart();
+	//buttons_init();
 	ble_stack_init();
 	gap_params_init();
-
-	reset_network();
-	client_init();
-	services_init();
+	advertising_init();
+	scan_init();
+	
+	//reset_network();
+	// client_init();
+	// services_init();
     //gatt_mtu_set(m_test_params.att_mtu);
     //data_len_ext_set(m_test_params.data_len_ext_enabled);
     //conn_evt_len_ext_set(m_test_params.conn_evt_len_ext_enabled);
     //preferred_phy_set(&m_test_params.phys);
-	advertising_data_set();
+	//advertising_data_set();
 
 //#ifdef DNRF52840_XXAA
 //    (void) sd_ble_gap_tx_power_set(9);
@@ -2211,24 +2126,17 @@ int main(void) {
 //    (void) sd_ble_gap_tx_power_set(4);
 //#endif
 
-	preferred_phy_set(&m_test_params.phys);
+	//preferred_phy_set(&m_test_params.phys);
 
-	buttons_enable();
+	//buttons_enable();
 
 	application_timers_start();
 
     PRINTF("Running!\n");
+	nrf_delay_ms(1000); //delay a bit to allow all the hardware to be ready (not strictly necessary)
 
-#if defined(ENABLE_TOF) && ENABLE_TOF==1
-    tof_init();
-    ifs_offset_ticks = calculate_ifs_offset(m_test_params.phys);
-    if(m_ifs_tof_active){
-        ble_tof_start();
-    }
-#endif
 
-    nrf_delay_ms(1000); //delay a bit to allow all the hardware to be ready (not strictly necessary)
-	start_procedure(&ready);
+	//start_procedure(&ready);
 
 	while (1) {
         if (NRF_LOG_PROCESS() == false) // Process logs
