@@ -2,26 +2,23 @@
 #define NB_REPORT_UTIL_H__
 
 #include "app_error.h"
-#include "sequential_procedures.h"
 #include "timer_util.h"
+#include "constraints.h"
 #include "ble.h"
+#include "ble_types.h"
+#include <string.h>
 
 /*------------MACRO-------------*/
 #define MAXIMUM_NETWORK_SIZE  100
-#define SPI_PKT_PAYLOAD_MAX_LEN_SYMB 2
-PROCEDURE_VAR_LEN(ble_report, &send_neighbors_report);
-
-/*------------Variables-------------*/
-uint32_t m_periodic_report_timeout = 0;
-node_t m_network[MAXIMUM_NETWORK_SIZE];
-
-
+#define SINGLE_NODE_REPORT_SIZE 9
+#define SINGLE_NODE_REPORT_SIZE_SYMB SINGLE_NODE_REPORT_SIZE*2
+#define SPI_PKT_PAYLOAD_MAX_LEN_SYMB MAXIMUM_NETWORK_SIZE*SINGLE_NODE_REPORT_SIZE_SYMB // 900
 
 
 /*------------Structures-------------*/
 typedef struct{
     uint8_t    p_data[31];      /**< Pointer to data. */
-    uint16_t   len;    /**< Length of data. */
+    uint16_t   len;             /**< Length of data. */
 } s_data_t;
 
 typedef enum{
@@ -49,12 +46,21 @@ typedef struct{
 	node_type_t			node_type;
 } node_t;
 
+
+/*------------Variables-------------*/
+node_t m_network[MAXIMUM_NETWORK_SIZE];
+uint8_t report_payload[SPI_PKT_PAYLOAD_MAX_LEN_SYMB];
+uint8_t payload_data_len;
+extern bool preparing_payload; 
+
+
+
 /*------------Functions-------------*/
 uint32_t add_node_to_report_payload(node_t *m_network, uint8_t* report_payload, uint16_t max_size);
-uint8_t send_neighbors_report(void);
-void cancel_ongoing_report(void);
-void start_periodic_report(uint32_t timeout_ms);
-uint8_t send_neighbors_report(void);
+uint8_t is_position_free(node_t *p_node);
+void prepare_neighbors_report(void);
+void reset_node(node_t* p_node);
+void reset_network(void);
 
 
 /** @brief 

@@ -70,6 +70,7 @@
 #include "spi_util.h"
 #include "ble_util.h"
 #include "timer_util.h"
+#include "nb_report_util.h"
 
 #include "uart_util.h"
 #include "constraints.h"
@@ -124,7 +125,7 @@ NRF_LOG_MODULE_REGISTER();
 #define USE_NANOSECOND
 #define nENABLE_PHY_UPDATE
 
-#define MAXIMUM_NETWORK_SIZE			MAX_NUMBER_OF_BT_BEACONS//NRF_SDH_BLE_TOTAL_LINK_COUNT
+//#define MAXIMUM_NETWORK_SIZE			MAX_NUMBER_OF_BT_BEACONS//NRF_SDH_BLE_TOTAL_LINK_COUNT
 #define MAXIMUM_NUMBER_OF_PERIPH_CONN	NRF_SDH_BLE_PERIPHERAL_LINK_COUNT
 #define MAXIMUM_NUMBER_OF_CENTRAL_CONN	6//IFT_TOF_MAX_NUM_OF_CENTRAL_LINKS
 
@@ -148,15 +149,15 @@ NRF_LOG_MODULE_REGISTER();
 // APP_TIMER_DEF(m_led_blink_timer_id);
 // APP_TIMER_DEF(m_lp_led_timer_id);
 
-//NRF_CLI_DEF(m_cli_rtt,  "throughput example:~$ ", &cli_rtt.transport,  '\n', 4);
-typedef enum
-{
-    CLIMB_BEACON,
-    EDDYSTONE_BEACON,
-    NORDIC_BEACON,  //not used for now
-    IFS_TOF_DEVICE,  //not used for now
-	UNKNOWN_TYPE,
-} node_type_t;
+// //NRF_CLI_DEF(m_cli_rtt,  "throughput example:~$ ", &cli_rtt.transport,  '\n', 4);
+// typedef enum
+// {
+//     CLIMB_BEACON,
+//     EDDYSTONE_BEACON,
+//     NORDIC_BEACON,  //not used for now
+//     IFS_TOF_DEVICE,  //not used for now
+// 	UNKNOWN_TYPE,
+// } node_type_t;
 
 typedef enum
 {
@@ -178,27 +179,27 @@ typedef struct
     bool 			continuous_test;			/**< if set to true the test keeps going on (works without data stream) */
 } test_params_t;
 
-typedef struct
-{
-    uint8_t    p_data[31];      /**< Pointer to data. */
-    uint16_t   len;    /**< Length of data. */
-} s_data_t;
+// typedef struct
+// {
+//     uint8_t    p_data[31];      /**< Pointer to data. */
+//     uint16_t   len;    /**< Length of data. */
+// } s_data_t;
 
-typedef struct{
-    uint16_t  			conn_handle;
-    uint8_t             local_role;
-	ble_gap_addr_t 		bd_address;
-	s_data_t			adv_data;
-	s_data_t			scan_data;
-	uint32_t			first_contact_ticks;
-	uint32_t 			last_contact_ticks;
-	int8_t				last_rssi;
-	int8_t				max_rssi;
-	uint8_t				beacon_msg_count;
-	uint8_t				namespace_id[EDDYSTONE_NAMESPACE_ID_LENGTH];
-	uint8_t				instance_id[EDDYSTONE_INSTANCE_ID_LENGTH];
-	node_type_t			node_type;
-} node_t;
+// typedef struct{
+//     uint16_t  			conn_handle;
+//     uint8_t             local_role;
+// 	ble_gap_addr_t 		bd_address;
+// 	s_data_t			adv_data;
+// 	s_data_t			scan_data;
+// 	uint32_t			first_contact_ticks;
+// 	uint32_t 			last_contact_ticks;
+// 	int8_t				last_rssi;
+// 	int8_t				max_rssi;
+// 	uint8_t				beacon_msg_count;
+// 	uint8_t				namespace_id[EDDYSTONE_NAMESPACE_ID_LENGTH];
+// 	uint8_t				instance_id[EDDYSTONE_INSTANCE_ID_LENGTH];
+// 	node_type_t			node_type;
+// } node_t;
 
 
 #ifdef ENABLE_AMT
@@ -236,9 +237,9 @@ static char const m_target_periph_name_alt2[] = {'C',
 
 
 bool m_ready_received = false, m_tx_error = false;
-static uint32_t m_periodic_report_timeout = 0;
+//static uint32_t m_periodic_report_timeout = 0;
 uint8_t stop = 0;
-uint32_t beacon_timeout_ms = NODE_TIMEOUT_DEFAULT_MS;
+//uint32_t beacon_timeout_ms = NODE_TIMEOUT_DEFAULT_MS;
 //uint32_t blinking_led_bit_map;
 
 #if defined(ENABLE_TOF) && ENABLE_TOF==1
@@ -257,7 +258,7 @@ bool m_ifs_tof_active=false;
 // bool m_scan_active = false;
 //, m_advertising_active = false;
 
-static node_t m_network[MAXIMUM_NETWORK_SIZE];
+//static node_t m_network[MAXIMUM_NETWORK_SIZE];
 
 // Test parameters.
 // Settings like ATT MTU size are set only once on the dummy board.
@@ -306,8 +307,8 @@ uint32_t adv_data_to_string(s_data_t *p_adv_data, char* p_str, uint8_t max_len);
 uint32_t bd_addr_to_string(const ble_gap_addr_t *p_addr, char* p_str, uint8_t max_len);
 
 //application helpers
-uint32_t add_node_to_report_payload(node_t *m_network, uint8_t* report_payload, uint16_t max_size);
-uint8_t send_neighbors_report(void);
+//uint32_t add_node_to_report_payload(node_t *m_network, uint8_t* report_payload, uint16_t max_size);
+//uint8_t send_neighbors_report(void);
 void cancel_ongoing_report(void);
 void send_pong(uart_pkt_t* p_packet);
 uint8_t send_ping(void);
@@ -327,17 +328,17 @@ static void tof_results_print(ifs_tof_t * p_ctx);
 //BT neighbors list management
 void on_scan_response(ble_gap_evt_adv_report_t const * p_adv_report);
 void on_adv(ble_gap_evt_adv_report_t const * p_adv_report);
-void network_maintainance_check(void);
+//void network_maintainance_check(void);
 uint32_t get_time_since_last_contact(node_t *p_node);
 node_t* get_network_pos_by_bdaddr(const ble_gap_addr_t *target_addr);
 node_t* get_network_pos_by_conn_handle(uint16_t target_conn_h);
-uint8_t is_position_free(node_t *p_node);
+//uint8_t is_position_free(node_t *p_node);
 node_t* get_first_free_network_pos(void);
 static void remove_node_from_network(node_t* p_node);
 static node_t* add_node_to_network(const ble_gap_evt_t *p_conn_evt, const ble_gap_evt_adv_report_t *p_adv_evt, node_type_t node_type);
 static node_t* update_node(const ble_gap_evt_t *p_conn_evt, const ble_gap_evt_adv_report_t *p_adv_evt, node_t * p_node);
-static void reset_node(node_t* p_node);
-static void reset_network(void);
+//static void reset_node(node_t* p_node);
+//static void reset_network(void);
 static void disconnect_all_ifs_tof_devices(void);
 
 //application timers helpers/callbacks
@@ -382,6 +383,7 @@ static bool is_known_name(ble_gap_evt_adv_report_t const * p_adv_report, char co
 bool is_16bit_uuid_included(ble_gap_evt_adv_report_t const * p_adv_report, uint16_t target_uuid);
 static bool is_known_eddystone(ble_gap_evt_adv_report_t const * p_adv_report, uint8_t const * namespace_to_find);
 
+
 //hardware init/callbacks/helpers
 static void initialize_leds(void);
 static void initialize_uart(void);
@@ -395,9 +397,9 @@ void ifs_tof_evt_handler(ifs_tof_evt_t * p_evt);
 static bool is_link_present(ble_gap_evt_adv_report_t const * p_adv_report);
 #endif
 
-PROCEDURE(ping, &send_ping);
-PROCEDURE(ready, &send_ready);
-PROCEDURE_VAR_LEN(ble_report, &send_neighbors_report);
+// PROCEDURE(ping, &send_ping);
+// PROCEDURE(ready, &send_ready);
+//PROCEDURE_VAR_LEN(ble_report, &send_neighbors_report);
 
 static uint8_t start_procedure(procedure_t *m_procedure){
     return sequential_procedure_start(m_procedure, uart_util_is_waiting_ack()); //if we are waiting an ack start use the delayed start
@@ -429,83 +431,83 @@ uint32_t adv_data_to_string(s_data_t *p_adv_data, char* p_str, uint8_t max_len) 
 	return str_i;
 }
 
-uint32_t add_node_to_report_payload(node_t *p_node, uint8_t* report_payload, uint16_t max_size) {
-	if (p_node == NULL || report_payload == NULL || max_size < SINGLE_NODE_REPORT_SIZE) {
-		return 0;
-	}
+// uint32_t add_node_to_report_payload(node_t *p_node, uint8_t* report_payload, uint16_t max_size) {
+// 	if (p_node == NULL || report_payload == NULL || max_size < SINGLE_NODE_REPORT_SIZE) {
+// 		return 0;
+// 	}
 
-	uint16_t idx = 0;
+// 	uint16_t idx = 0;
 
-	//add ID
-	memcpy(&report_payload[idx], p_node->instance_id, EDDYSTONE_INSTANCE_ID_LENGTH);
-	idx += EDDYSTONE_INSTANCE_ID_LENGTH;
+// 	//add ID
+// 	memcpy(&report_payload[idx], p_node->instance_id, EDDYSTONE_INSTANCE_ID_LENGTH);
+// 	idx += EDDYSTONE_INSTANCE_ID_LENGTH;
 
-	//add last rssi
-	report_payload[idx++] = (uint8_t) p_node->last_rssi;
+// 	//add last rssi
+// 	report_payload[idx++] = (uint8_t) p_node->last_rssi;
 
-	//add max rssi
-	report_payload[idx++] = (uint8_t) p_node->max_rssi;
+// 	//add max rssi
+// 	report_payload[idx++] = (uint8_t) p_node->max_rssi;
 
-	//add packet counter
-	report_payload[idx++] = p_node->beacon_msg_count;
-	return idx;
-}
+// 	//add packet counter
+// 	report_payload[idx++] = p_node->beacon_msg_count;
+// 	return idx;
+// }
 
-uint8_t send_neighbors_report(void) {
+// uint8_t send_neighbors_report(void) {
 
-	static uint16_t n = 0;
-	bool pkt_full = false;
-	uint8_t report_payload[UART_PKT_PAYLOAD_MAX_LEN_SYMB];
-	uint16_t payload_free_from = 0;
+// 	static uint16_t n = 0;
+// 	bool pkt_full = false;
+// 	uint8_t report_payload[UART_PKT_PAYLOAD_MAX_LEN_SYMB];
+// 	uint16_t payload_free_from = 0;
 
-	uart_pkt_t packet;
+// 	uart_pkt_t packet;
 
-	if(!sequential_procedure_is_this_running(&ble_report)){ //sanity check, if the report procedure was not active (maybe it was cancelled) reset n to zero
-	    n=0;
-	}
+// 	if(!sequential_procedure_is_this_running(&ble_report)){ //sanity check, if the report procedure was not active (maybe it was cancelled) reset n to zero
+// 	    n=0;
+// 	}
 
-	packet.payload.p_data = report_payload;
-	if (n == 0) {	//if this is the first packet of the report the type will end with the '_start'
-		packet.type = uart_resp_bt_neigh_rep_start;
-	} else {		//otherwise it will be '_more'
-		packet.type = uart_resp_bt_neigh_rep_more;
-	}
+// 	packet.payload.p_data = report_payload;
+// 	if (n == 0) {	//if this is the first packet of the report the type will end with the '_start'
+// 		packet.type = uart_resp_bt_neigh_rep_start;
+// 	} else {		//otherwise it will be '_more'
+// 		packet.type = uart_resp_bt_neigh_rep_more;
+// 	}
 
-	while (n < MAXIMUM_NETWORK_SIZE && pkt_full == false) {
-		if (UART_PKT_PAYLOAD_MAX_LEN_SYMB - payload_free_from > SINGLE_NODE_REPORT_SIZE) {
-			if (!is_position_free(&m_network[n])) {
-			    if(m_network[n].node_type!=IFS_TOF_DEVICE){
-			        uint32_t occupied_size = add_node_to_report_payload(&m_network[n], &report_payload[payload_free_from], UART_PKT_PAYLOAD_MAX_LEN_SYMB - payload_free_from);
-			        payload_free_from += occupied_size;
-			    }
-			}
-			n++;
-		} else {
-			pkt_full = true;
-			PRINTF("Report packet full!!\n");
-		}
-	}
+// 	while (n < MAXIMUM_NETWORK_SIZE && pkt_full == false) {
+// 		if (UART_PKT_PAYLOAD_MAX_LEN_SYMB - payload_free_from > SINGLE_NODE_REPORT_SIZE) {
+// 			if (!is_position_free(&m_network[n])) {
+// 			    if(m_network[n].node_type!=IFS_TOF_DEVICE){
+// 			        uint32_t occupied_size = add_node_to_report_payload(&m_network[n], &report_payload[payload_free_from], UART_PKT_PAYLOAD_MAX_LEN_SYMB - payload_free_from);
+// 			        payload_free_from += occupied_size;
+// 			    }
+// 			}
+// 			n++;
+// 		} else {
+// 			pkt_full = true;
+// 			PRINTF("Report packet full!!\n");
+// 		}
+// 	}
 
-	packet.payload.data_len = payload_free_from;
-	if (n >= MAXIMUM_NETWORK_SIZE) { //if it is the last packet for this report change the message type to uart_resp_bt_neigh_rep_end
-		packet.type = uart_resp_bt_neigh_rep_end;
-		n = 0;
-		payload_free_from = 0;
-	}
+// 	packet.payload.data_len = payload_free_from;
+// 	if (n >= MAXIMUM_NETWORK_SIZE) { //if it is the last packet for this report change the message type to uart_resp_bt_neigh_rep_end
+// 		packet.type = uart_resp_bt_neigh_rep_end;
+// 		n = 0;
+// 		payload_free_from = 0;
+// 	}
 
-	if (n == 0) {	//this is executed after the transmission of uart_resp_bt_neigh_rep_end
-		reset_network(); //TODO: a specific function for resetting ONLY reported nodes should be used
-	}
+// 	if (n == 0) {	//this is executed after the transmission of uart_resp_bt_neigh_rep_end
+// 		reset_network(); //TODO: a specific function for resetting ONLY reported nodes should be used
+// 	}
 
-    PRINTF("Returning n=%u\n",n);
+//     PRINTF("Returning n=%u\n",n);
 
-    uart_util_send_pkt(&packet);
-	return (uint8_t)n;
-}
+//     uart_util_send_pkt(&packet);
+// 	return (uint8_t)n;
+// }
 
-void cancel_ongoing_report(void) {
-    sequential_procedure_stop_this(&ble_report);
-}
+// void cancel_ongoing_report(void) {
+//     sequential_procedure_stop_this(&ble_report);
+// }
 
 void send_pong(uart_pkt_t* p_packet) {
     PRINTF("Sending pong packet\n");
@@ -570,164 +572,164 @@ uint8_t send_ready(void) {
 	return 0;
 }
 
-void uart_util_rx_handler(uart_pkt_t* p_packet) {
+// void uart_util_rx_handler(uart_pkt_t* p_packet) {
 
-	uart_pkt_type_t type = p_packet->type;
-	uint8_t *p_payload_data = p_packet->payload.p_data;
-	uint32_t ack_value = APP_ERROR_NOT_FOUND;
+// 	uart_pkt_type_t type = p_packet->type;
+// 	uint8_t *p_payload_data = p_packet->payload.p_data;
+// 	uint32_t ack_value = APP_ERROR_NOT_FOUND;
 
-	PRINTF("Received UART packet. Type: 0x%04X\n",type);
+// 	PRINTF("Received UART packet. Type: 0x%04X\n",type);
 
-	if (sequential_procedure_is_this_running(&ble_report) && type != uart_app_level_ack) { //during report procedures accept only ack packet
-	    PRINTF("Invalid state for handling that packet!\n");
-		ack_value = APP_ERROR_INVALID_STATE;
-		uart_util_send_ack(p_packet, ack_value,UART_ACK_DELAY_US);
-		return;
-	}
+// 	if (sequential_procedure_is_this_running(&ble_report) && type != uart_app_level_ack) { //during report procedures accept only ack packet
+// 	    PRINTF("Invalid state for handling that packet!\n");
+// 		ack_value = APP_ERROR_INVALID_STATE;
+// 		uart_util_send_ack(p_packet, ack_value,UART_ACK_DELAY_US);
+// 		return;
+// 	}
 
-	switch (type) {
-	case uart_app_level_ack:
-		if (p_packet->payload.data_len == 5) {
-	        if (p_packet->payload.data_len == 5) {
-	            if (p_payload_data[0] == APP_ACK_SUCCESS) {
-	                m_tx_error = false;
-	                sequential_procedure_execute_action();
-	            } else {
-	                uart_util_ack_error(NULL); //attention, this function can be called also from uart_util when the timeout for ack expires
-	            }
-	        }
-		}
-		return; //this avoids sending ack for ack messages
-		break;
-	case uart_evt_ready:
-		m_ready_received = true;
-		blink_led(READY_LED, LED_BLINK_TIMEOUT_MS);
-		ack_value = APP_ACK_SUCCESS;
-		//still not implemented
-		break;
-	case uart_req_reset:
-		sd_nvic_SystemReset();
-		return;
-		break;
-	case uart_req_bt_state:
-		ack_value = APP_ERROR_NOT_IMPLEMENTED;
-		//still not implemented
-		break;
-	case uart_req_bt_scan_state:
-		ack_value = APP_ERROR_NOT_IMPLEMENTED;
-		//still not implemented
-		break;
-	case uart_req_bt_adv_state:
-		ack_value = APP_ERROR_NOT_IMPLEMENTED;
-		//still not implemented
-		break;
-	case uart_req_bt_scan_params:
-		ack_value = APP_ERROR_NOT_IMPLEMENTED;
-		//still not implemented
-		break;
-	case uart_req_bt_adv_params:
-		ack_value = APP_ERROR_NOT_IMPLEMENTED;
-		//still not implemented
-		break;
-	case uart_req_bt_neigh_rep:
-		if (p_packet->payload.data_len == 4) {
-            ack_value = APP_ACK_SUCCESS;
-		    uart_util_send_ack(p_packet, ack_value,UART_ACK_DELAY_US);
+// 	switch (type) {
+// 	case uart_app_level_ack:
+// 		if (p_packet->payload.data_len == 5) {
+// 	        if (p_packet->payload.data_len == 5) {
+// 	            if (p_payload_data[0] == APP_ACK_SUCCESS) {
+// 	                m_tx_error = false;
+// 	                sequential_procedure_execute_action();
+// 	            } else {
+// 	                uart_util_ack_error(NULL); //attention, this function can be called also from uart_util when the timeout for ack expires
+// 	            }
+// 	        }
+// 		}
+// 		return; //this avoids sending ack for ack messages
+// 		break;
+// 	case uart_evt_ready:
+// 		m_ready_received = true;
+// 		blink_led(READY_LED, LED_BLINK_TIMEOUT_MS);
+// 		ack_value = APP_ACK_SUCCESS;
+// 		//still not implemented
+// 		break;
+// 	case uart_req_reset:
+// 		sd_nvic_SystemReset();
+// 		return;
+// 		break;
+// 	case uart_req_bt_state:
+// 		ack_value = APP_ERROR_NOT_IMPLEMENTED;
+// 		//still not implemented
+// 		break;
+// 	case uart_req_bt_scan_state:
+// 		ack_value = APP_ERROR_NOT_IMPLEMENTED;
+// 		//still not implemented
+// 		break;
+// 	case uart_req_bt_adv_state:
+// 		ack_value = APP_ERROR_NOT_IMPLEMENTED;
+// 		//still not implemented
+// 		break;
+// 	case uart_req_bt_scan_params:
+// 		ack_value = APP_ERROR_NOT_IMPLEMENTED;
+// 		//still not implemented
+// 		break;
+// 	case uart_req_bt_adv_params:
+// 		ack_value = APP_ERROR_NOT_IMPLEMENTED;
+// 		//still not implemented
+// 		break;
+// 	case uart_req_bt_neigh_rep:
+// 		if (p_packet->payload.data_len == 4) {
+//             ack_value = APP_ACK_SUCCESS;
+// 		    uart_util_send_ack(p_packet, ack_value,UART_ACK_DELAY_US);
 
-			uint32_t timeout_ms = (p_payload_data[0] << 24) + (p_payload_data[1] << 16) + (p_payload_data[2] << 8) + (p_payload_data[3]);
-			start_periodic_report(timeout_ms);
-			blink_led(PROGRESS_LED, LED_BLINK_TIMEOUT_MS);
-			return;
-		}
-		break;
-	case uart_resp_bt_state:
-	case uart_resp_bt_scan_state:
-	case uart_resp_bt_adv_state:
-	case uart_resp_bt_scan_params:
-	case uart_resp_bt_adv_params:
-	case uart_resp_bt_neigh_rep_start:
-	case uart_resp_bt_neigh_rep_more:
-	case uart_resp_bt_neigh_rep_end:
-		ack_value = APP_ERROR_COMMAND_NOT_VALID;
-		//never called on the BLE side of the uart
-		break;
-	case uart_set_bt_state:
-		ack_value = APP_ERROR_COMMAND_NOT_VALID;
-		//still not implemented
-		break;
-	case uart_set_bt_scan_state:
-		if (p_packet->payload.data_len == 1) {
-			if (p_packet->payload.p_data[0]) { //enable scanner
-				scan_start();
-			} else {	//disable scanner
-				scan_stop();
-			}
-			//TODO: does it need to check something before sending ack?
-			ack_value = APP_ACK_SUCCESS;
-		}
-		break;
-	case uart_set_bt_adv_state:
-		// if (p_packet->payload.data_len == 1) {
-		// 	if (p_packet->payload.p_data[0]) { //enable advertiser
-		// 		advertising_start();
-		// 	} else {	//disable advertiser
-		// 		advertising_stop();
-		// 	}
-		// 	//TODO: does it need to check something before sending ack?
-		// 	ack_value = APP_ACK_SUCCESS;
-		// }
-		break;
-	case uart_set_bt_scan_params:
-		if (p_packet->payload.data_len == 7) {
-			uint8_t active = p_payload_data[0];
-			uint16_t scan_interval = (p_payload_data[1] << 8) + p_payload_data[2];
-			uint16_t scan_window = (p_payload_data[3] << 8) + p_payload_data[4];
-			uint16_t timeout = (p_payload_data[5] << 8) + p_payload_data[6];
-			//set_scan_params(active, scan_interval, scan_window, timeout);
-			//TODO: does it need to check something before sending ack?
-			ack_value = APP_ACK_SUCCESS;
-		}
-		break;
-	case uart_set_bt_adv_params:
-		ack_value = APP_ERROR_NOT_IMPLEMENTED;
-		//still not implemented
-		break;
-    case uart_set_bt_tof_state:
-#if defined(ENABLE_TOF) && ENABLE_TOF==1
-        if(p_packet->payload.data_len == 1){
-            if(p_packet->payload.p_data[0]){
-                ble_tof_start();
-            }else{
-                ble_tof_stop();
-                disconnect_all_ifs_tof_devices();
-                //TODO: after the module is disabled disconnect all devices of type: IFS_TOF_DEVICE
-            }
-            ack_value = APP_ACK_SUCCESS;
-        }else{
-            ack_value = APP_ERROR_INVALID_LENGTH;
-        }
-#else
-        ack_value = APP_ERROR_NOT_IMPLEMENTED;
-#endif
-        break;
-	case uart_ping:
-		ack_value = APP_ACK_SUCCESS;
-		uart_util_send_ack(p_packet, ack_value,UART_ACK_DELAY_US); //send the ack before pong message
-//		//here we shall wait the previous message to be sent, but if the buffers are enough long the two messages will fit
-		send_pong(p_packet);
-		return;	//do not send the ack twice
-		break;
-	case uart_pong:
-		ack_value = APP_ACK_SUCCESS;
-		break;
-	default:
-		ack_value = APP_ERROR_NOT_FOUND;
-		break;
-	}
+// 			uint32_t timeout_ms = (p_payload_data[0] << 24) + (p_payload_data[1] << 16) + (p_payload_data[2] << 8) + (p_payload_data[3]);
+// 			start_periodic_report(timeout_ms);
+// 			blink_led(PROGRESS_LED, LED_BLINK_TIMEOUT_MS);
+// 			return;
+// 		}
+// 		break;
+// 	case uart_resp_bt_state:
+// 	case uart_resp_bt_scan_state:
+// 	case uart_resp_bt_adv_state:
+// 	case uart_resp_bt_scan_params:
+// 	case uart_resp_bt_adv_params:
+// 	case uart_resp_bt_neigh_rep_start:
+// 	case uart_resp_bt_neigh_rep_more:
+// 	case uart_resp_bt_neigh_rep_end:
+// 		ack_value = APP_ERROR_COMMAND_NOT_VALID;
+// 		//never called on the BLE side of the uart
+// 		break;
+// 	case uart_set_bt_state:
+// 		ack_value = APP_ERROR_COMMAND_NOT_VALID;
+// 		//still not implemented
+// 		break;
+// 	case uart_set_bt_scan_state:
+// 		if (p_packet->payload.data_len == 1) {
+// 			if (p_packet->payload.p_data[0]) { //enable scanner
+// 				scan_start();
+// 			} else {	//disable scanner
+// 				scan_stop();
+// 			}
+// 			//TODO: does it need to check something before sending ack?
+// 			ack_value = APP_ACK_SUCCESS;
+// 		}
+// 		break;
+// 	case uart_set_bt_adv_state:
+// 		// if (p_packet->payload.data_len == 1) {
+// 		// 	if (p_packet->payload.p_data[0]) { //enable advertiser
+// 		// 		advertising_start();
+// 		// 	} else {	//disable advertiser
+// 		// 		advertising_stop();
+// 		// 	}
+// 		// 	//TODO: does it need to check something before sending ack?
+// 		// 	ack_value = APP_ACK_SUCCESS;
+// 		// }
+// 		break;
+// 	case uart_set_bt_scan_params:
+// 		if (p_packet->payload.data_len == 7) {
+// 			uint8_t active = p_payload_data[0];
+// 			uint16_t scan_interval = (p_payload_data[1] << 8) + p_payload_data[2];
+// 			uint16_t scan_window = (p_payload_data[3] << 8) + p_payload_data[4];
+// 			uint16_t timeout = (p_payload_data[5] << 8) + p_payload_data[6];
+// 			//set_scan_params(active, scan_interval, scan_window, timeout);
+// 			//TODO: does it need to check something before sending ack?
+// 			ack_value = APP_ACK_SUCCESS;
+// 		}
+// 		break;
+// 	case uart_set_bt_adv_params:
+// 		ack_value = APP_ERROR_NOT_IMPLEMENTED;
+// 		//still not implemented
+// 		break;
+//     case uart_set_bt_tof_state:
+// #if defined(ENABLE_TOF) && ENABLE_TOF==1
+//         if(p_packet->payload.data_len == 1){
+//             if(p_packet->payload.p_data[0]){
+//                 ble_tof_start();
+//             }else{
+//                 ble_tof_stop();
+//                 disconnect_all_ifs_tof_devices();
+//                 //TODO: after the module is disabled disconnect all devices of type: IFS_TOF_DEVICE
+//             }
+//             ack_value = APP_ACK_SUCCESS;
+//         }else{
+//             ack_value = APP_ERROR_INVALID_LENGTH;
+//         }
+// #else
+//         ack_value = APP_ERROR_NOT_IMPLEMENTED;
+// #endif
+//         break;
+// 	case uart_ping:
+// 		ack_value = APP_ACK_SUCCESS;
+// 		uart_util_send_ack(p_packet, ack_value,UART_ACK_DELAY_US); //send the ack before pong message
+// //		//here we shall wait the previous message to be sent, but if the buffers are enough long the two messages will fit
+// 		send_pong(p_packet);
+// 		return;	//do not send the ack twice
+// 		break;
+// 	case uart_pong:
+// 		ack_value = APP_ACK_SUCCESS;
+// 		break;
+// 	default:
+// 		ack_value = APP_ERROR_NOT_FOUND;
+// 		break;
+// 	}
 
-	uart_util_send_ack(p_packet, ack_value,UART_ACK_DELAY_US);
-	return;
-}
+// 	uart_util_send_ack(p_packet, ack_value,UART_ACK_DELAY_US);
+// 	return;
+// }
 
 void uart_util_ack_tx_done(void) {
 	m_tx_error = false;
@@ -949,15 +951,15 @@ void on_adv(ble_gap_evt_adv_report_t const * p_adv_report) {
 #endif
 }
 
-void network_maintainance_check(void) {
-	for (uint32_t n = 0; n < MAXIMUM_NETWORK_SIZE; n++) {
-		if (m_network[n].first_contact_ticks != 0) { //exclude non valid nodes
-			if (get_time_since_last_contact(&m_network[n]) > APP_TIMER_TICKS(beacon_timeout_ms)) {
-				remove_node_from_network(&m_network[n]);
-			}
-		}
-	}
-}
+// void network_maintainance_check(void) {
+// 	for (uint32_t n = 0; n < MAXIMUM_NETWORK_SIZE; n++) {
+// 		if (m_network[n].first_contact_ticks != 0) { //exclude non valid nodes
+// 			if (get_time_since_last_contact(&m_network[n]) > APP_TIMER_TICKS(beacon_timeout_ms)) {
+// 				remove_node_from_network(&m_network[n]);
+// 			}
+// 		}
+// 	}
+// }
 
 uint32_t get_time_since_last_contact(node_t *p_node) {
 	return app_timer_cnt_diff_compute(app_timer_cnt_get(), p_node->last_contact_ticks);
@@ -981,9 +983,9 @@ node_t* get_network_pos_by_conn_handle(uint16_t target_conn_h) {
 	return NULL;
 }
 
-uint8_t is_position_free(node_t *p_node) {
-	return p_node->conn_handle == BLE_CONN_HANDLE_INVALID && p_node->first_contact_ticks == 0;
-}
+// uint8_t is_position_free(node_t *p_node) {
+// 	return p_node->conn_handle == BLE_CONN_HANDLE_INVALID && p_node->first_contact_ticks == 0;
+// }
 
 node_t* get_first_free_network_pos(void) {
 	for (uint8_t n = 0; n < MAXIMUM_NETWORK_SIZE; n++) {
@@ -1093,23 +1095,23 @@ static node_t* update_node(const ble_gap_evt_t *p_conn_evt, const ble_gap_evt_ad
 	return p_node;
 }
 
-static void reset_node(node_t* p_node) { //TODO: check this, many of the fields of node_t are not reset...It may be better to use memset? In this case the code should be carefully checked to avoid problems such as it could happen in is_position_free(..) if the node reset is performed with memset(p_node, 0x00, sizeof(node_t)); (is_position_free would be zero everytime)
-	memset(&p_node->bd_address, 0x00, sizeof(ble_gap_addr_t));
-	p_node->conn_handle = BLE_CONN_HANDLE_INVALID;
-	p_node->local_role = BLE_GAP_ROLE_INVALID;
-	p_node->max_rssi = INT8_MIN;
-	p_node->first_contact_ticks = 0;
-	p_node->beacon_msg_count = 0;
-}
+// static void reset_node(node_t* p_node) { //TODO: check this, many of the fields of node_t are not reset...It may be better to use memset? In this case the code should be carefully checked to avoid problems such as it could happen in is_position_free(..) if the node reset is performed with memset(p_node, 0x00, sizeof(node_t)); (is_position_free would be zero everytime)
+// 	memset(&p_node->bd_address, 0x00, sizeof(ble_gap_addr_t));
+// 	p_node->conn_handle = BLE_CONN_HANDLE_INVALID;
+// 	p_node->local_role = BLE_GAP_ROLE_INVALID;
+// 	p_node->max_rssi = INT8_MIN;
+// 	p_node->first_contact_ticks = 0;
+// 	p_node->beacon_msg_count = 0;
+// }
 
-static void reset_network(void) {
-	//memset(m_network, 0x00, MAXIMUM_NETWORK_SIZE * sizeof(node_t));
-	for (uint8_t n = 0; n < MAXIMUM_NETWORK_SIZE; n++) {
-	    if(m_network[n].node_type!=IFS_TOF_DEVICE){
-	        reset_node(&m_network[n]);
-	    }
-	}
-}
+// static void reset_network(void) {
+// 	//memset(m_network, 0x00, MAXIMUM_NETWORK_SIZE * sizeof(node_t));
+// 	for (uint8_t n = 0; n < MAXIMUM_NETWORK_SIZE; n++) {
+// 	    if(m_network[n].node_type!=IFS_TOF_DEVICE){
+// 	        reset_node(&m_network[n]);
+// 	    }
+// 	}
+// }
 
 static void disconnect_all_ifs_tof_devices(void){
     for (uint8_t n = 0; n < MAXIMUM_NETWORK_SIZE; n++) {
@@ -1140,35 +1142,35 @@ static void disconnect_all_ifs_tof_devices(void){
 // 	// APP_ERROR_CHECK(err_code);
 // }
 
-void start_periodic_report(uint32_t timeout_ms) {
-    PRINTF("Setting BLE report with timeout %u ms!\n",timeout_ms);
-	if (timeout_ms != 0 && timeout_ms < MIN_REPORT_TIMEOUT_MS) {
-	    PRINTF("Non valid value for BLE report timeout!\n");
-		return;
-	}
+// void start_periodic_report(uint32_t timeout_ms) {
+//     PRINTF("Setting BLE report with timeout %u ms!\n",timeout_ms);
+// 	if (timeout_ms != 0 && timeout_ms < MIN_REPORT_TIMEOUT_MS) {
+// 	    PRINTF("Non valid value for BLE report timeout!\n");
+// 		return;
+// 	}
 
-	if (timeout_ms != 0) {
-		ret_code_t err_code;
-		if (m_periodic_report_timeout) { //if the report was already active, stop the timer to permit the timeout update
-			err_code = app_timer_stop(m_report_timer_id);
-			APP_ERROR_CHECK(err_code);
-		}
-		err_code = app_timer_start(m_report_timer_id, APP_TIMER_TICKS(timeout_ms), NULL);  //in any case if timeout_ms != 0 enable the report
-		APP_ERROR_CHECK(err_code);
-		m_periodic_report_timeout = timeout_ms;
-		beacon_timeout_ms = timeout_ms;
-	} else {
-		if (m_periodic_report_timeout) { //if this command is sent with timeout_ms == 0 disable the report. If the report wasn't enabled, send a single report, if it was enabled stop everithing
-			ret_code_t err_code;
-			err_code = app_timer_stop(m_report_timer_id);
-			APP_ERROR_CHECK(err_code);
-			m_periodic_report_timeout = 0;
-		} else {
-	        PRINTF("Sending a single report!\n");
-		    start_procedure(&ble_report);
-		}
-	}
-}
+// 	if (timeout_ms != 0) {
+// 		ret_code_t err_code;
+// 		if (m_periodic_report_timeout) { //if the report was already active, stop the timer to permit the timeout update
+// 			err_code = app_timer_stop(m_report_timer_id);
+// 			APP_ERROR_CHECK(err_code);
+// 		}
+// 		err_code = app_timer_start(m_report_timer_id, APP_TIMER_TICKS(timeout_ms), NULL);  //in any case if timeout_ms != 0 enable the report
+// 		APP_ERROR_CHECK(err_code);
+// 		m_periodic_report_timeout = timeout_ms;
+// 		beacon_timeout_ms = timeout_ms;
+// 	} else {
+// 		if (m_periodic_report_timeout) { //if this command is sent with timeout_ms == 0 disable the report. If the report wasn't enabled, send a single report, if it was enabled stop everithing
+// 			ret_code_t err_code;
+// 			err_code = app_timer_stop(m_report_timer_id);
+// 			APP_ERROR_CHECK(err_code);
+// 			m_periodic_report_timeout = 0;
+// 		} else {
+// 	        PRINTF("Sending a single report!\n");
+// 		    start_procedure(&ble_report);
+// 		}
+// 	}
+// }
 
 // static void report_timeout_handler(void * p_context) {
 // 	UNUSED_PARAMETER(p_context);
@@ -1571,7 +1573,7 @@ static void on_ble_gap_evt_connected(ble_gap_evt_t const * p_gap_evt) {
  */
 static void on_ble_gap_evt_adv_report(ble_gap_evt_t const * p_gap_evt) {
 
-	if(sequential_procedure_is_this_running(&ble_report)){ //do not update the network during report, just for safety
+	if(preparing_payload){ //do not update the network during report, just for safety
 		return;
 	}
 	

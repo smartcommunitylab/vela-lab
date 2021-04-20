@@ -18,6 +18,7 @@ SRC_FILES += \
   $(PROJ_DIR)/../spi_util/spi_util.c \
   $(PROJ_DIR)/../ble_util/ble_util.c \
   $(PROJ_DIR)/../timer_util/timer_util.c \
+  $(PROJ_DIR)/../nb_report_util/nb_report_util.c \
   $(SDK_ROOT)/components/libraries/experimental_log/src/nrf_log_backend_rtt.c \
   $(SDK_ROOT)/components/libraries/experimental_log/src/nrf_log_backend_serial.c \
   $(SDK_ROOT)/components/libraries/experimental_log/src/nrf_log_backend_uart.c \
@@ -85,6 +86,7 @@ INC_FOLDERS += \
   $(PROJ_DIR)/../spi_util \
   $(PROJ_DIR)/../ble_util \
   $(PROJ_DIR)/../timer_util \
+  $(PROJ_DIR)/../nb_report_util \
   $(SDK_ROOT)/components/drivers_nrf/usbd \
   $(SDK_ROOT)/components/libraries/usbd/class/hid \
   $(SDK_ROOT)/components/libraries/gpiote \
