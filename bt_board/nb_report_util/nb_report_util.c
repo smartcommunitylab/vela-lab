@@ -5,6 +5,7 @@
 
 
 bool preparing_payload = 0;
+
 /*TO BE CALLED BY THE SPI LIBRARY*/
 
 void prepare_neighbors_report(void) {
@@ -19,7 +20,7 @@ void prepare_neighbors_report(void) {
     
         if (!is_position_free(&m_network[n])) {
             
-            uint32_t occupied_size = add_node_to_report_payload(&m_network[n], &report_payload[payload_free_from], SPI_PKT_PAYLOAD_MAX_LEN_SYMB - payload_free_from);
+            uint32_t occupied_size = add_node_to_report_payload(&m_network[n], &report_payload[payload_free_from], SPI_PKT_PAYLOAD_MAX_LEN - payload_free_from);
             payload_free_from += occupied_size;
 
         }

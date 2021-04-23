@@ -6,6 +6,7 @@
 #include "nrf_gpio.h"
 #include "boards.h"
 #include "app_error.h"
+#include  "nb_report_util.h"
 #include <string.h>
 
 
@@ -47,7 +48,9 @@ typedef enum{
   START_CMD,
   ADV_WRITE,
   SCAN_WRITE,
-  error,
+  WAITING_CMD,
+  BEACONS_DATA,
+  ERROR,
 } spi_rx_status_t;
 
 /*------------Functions-------------*/

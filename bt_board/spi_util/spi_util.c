@@ -54,7 +54,7 @@ void spis_event_handler(nrf_drv_spis_event_t event){
                         break;
 
                     case BT_SCAN:
-                        bsp_board_led_invert(BSP_BOARD_LED_1);
+                        
                         m_tx_buf[0] = m_rx_buf[0];
 
                         if(cmd_type == CMD_WRITE){
@@ -63,9 +63,25 @@ void spis_event_handler(nrf_drv_spis_event_t event){
                             new_state = SCAN_WRITE;
                         }
                         
-                
                         break;
 
+
+                    case REQ_BEACONS:
+                        
+                        m_tx_buf[0] = m_rx_buf[0];
+
+                        if(cmd_type == CMD_READ){
+                            
+                            bsp_board_led_invert(BSP_BOARD_LED_1);
+                            prepare_neighbors_report();
+
+                            APP_ERROR_CHECK(nrf_drv_spis_buffers_set(&spis, (uint8_t *) &payload_data_len, sizeof(uint16_t), m_rx_buf, m_length));
+                            
+
+                            new_state = BEACONS_DATA;
+                        }
+
+                        break;
 
                     default:
 
@@ -99,7 +115,7 @@ void spis_event_handler(nrf_drv_spis_event_t event){
             case SCAN_WRITE:
 
                 if(m_rx_buf[0] == SCAN_ON){
-
+                    bsp_board_led_on(BSP_BOARD_LED_0);
                     // bsp_board_led_on(BSP_BOARD_LED_2);
                     // bsp_board_led_off(BSP_BOARD_LED_3);
                     scan_start();
@@ -119,6 +135,18 @@ void spis_event_handler(nrf_drv_spis_event_t event){
 
                 break;
 
+            case BEACONS_DATA:
+
+                bsp_board_led_invert(BSP_BOARD_LED_2);
+                APP_ERROR_CHECK(nrf_drv_spis_buffers_set(&spis, (uint8_t *) &report_payload, payload_data_len, m_rx_buf, m_length));
+                new_state = WAITING_CMD;
+
+                break;
+
+            case WAITING_CMD:
+
+
+
             default:
                 
                 APP_ERROR_CHECK(nrf_drv_spis_buffers_set(&spis, m_tx_buf, m_length, m_rx_buf, m_length));
@@ -128,9 +156,7 @@ void spis_event_handler(nrf_drv_spis_event_t event){
     }
     state = new_state;
 
-
     }
-
 
 }
 

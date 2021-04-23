@@ -56,7 +56,7 @@ void report_timeout_handler(void * p_context) {
 }
 
 void periodic_timer_timeout_handler(void * p_context) {
-    bsp_board_led_invert(BSP_BOARD_LED_3);
+    //bsp_board_led_invert(BSP_BOARD_LED_3);
 	UNUSED_PARAMETER(p_context);
 }
 

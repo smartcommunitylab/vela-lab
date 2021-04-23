@@ -11,8 +11,7 @@
 /*------------MACRO-------------*/
 #define MAXIMUM_NETWORK_SIZE  100
 #define SINGLE_NODE_REPORT_SIZE 9
-#define SINGLE_NODE_REPORT_SIZE_SYMB SINGLE_NODE_REPORT_SIZE*2
-#define SPI_PKT_PAYLOAD_MAX_LEN_SYMB MAXIMUM_NETWORK_SIZE*SINGLE_NODE_REPORT_SIZE_SYMB // 900
+#define SPI_PKT_PAYLOAD_MAX_LEN MAXIMUM_NETWORK_SIZE*SINGLE_NODE_REPORT_SIZE // 900
 
 
 /*------------Structures-------------*/
@@ -49,8 +48,8 @@ typedef struct{
 
 /*------------Variables-------------*/
 node_t m_network[MAXIMUM_NETWORK_SIZE];
-uint8_t report_payload[SPI_PKT_PAYLOAD_MAX_LEN_SYMB];
-uint8_t payload_data_len;
+uint8_t report_payload[SPI_PKT_PAYLOAD_MAX_LEN];
+uint16_t payload_data_len;
 extern bool preparing_payload; 
 
 
