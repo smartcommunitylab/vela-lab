@@ -1,10 +1,6 @@
 {
 	"folders": [
 		{
-			"name": "integrate_sender_uart",
-			"path": "../../network_board/integrate_sender_uart"
-		},
-		{
 			"name": "nordic_vela",
 			"path": "../../bt_board/ble_app_vela_lab"
 		},
@@ -17,7 +13,7 @@
 		{
 			"path": "../../bt_board/timer_util"
 		},
-               	{
+		{
 			"path": "../../bt_board/nb_report_util"
 		},
 		{
@@ -38,7 +34,8 @@
 		"files.associations": {
 			"vela_sender.h": "c",
 			"spi_util.h": "c",
-			"timer_util.h": "c"
+			"timer_util.h": "c",
+			"vela_uart.h": "c"
 		}
 	}
 }

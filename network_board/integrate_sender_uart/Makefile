@@ -4,6 +4,7 @@ CONTIKI_PROJECT = {CONTIKI_PROJECT}
 CONTIKI =${CONTIKI_ROOT}
 COMMON_DIR=../../common
 
+
 CFLAGS += -DROM_BOOTLOADER_ENABLE=1
 CFLAGS += -DSERIAL_LINE_CONF_BUFSIZE=$(SERIAL_LINE_CONF_BUFSIZE)
 CFLAGS += -DVERSION_STRING=$(VERSION_STRING)
@@ -18,6 +19,7 @@ CFLAGS += -g3
 #PROJ_DIR_REL_PATH=$(shell python -c "import os.path; print os.path.relpath('./../external_modules', '${CONTIKI}')")
 COMMON_DIR_REL_PATH=../../common
 PROJ_DIR_REL_PATH=../external_modules
+PROJECT_PATH=../integrate_sender_uart
 $(info $$COMMON_DIR_REL_PATH is: ${COMMON_DIR_REL_PATH})
 $(info $$PROJ_DIR_REL_PATH is: ${PROJ_DIR_REL_PATH})
 
@@ -27,14 +29,14 @@ MODULES+=${COMMON_DIR_REL_PATH}/inc
 MODULES += os/services/orchestra
 
 ifeq ($(SINK),1)
-MODULES+=../basic_sender_test/sink_receiver
+MODULES+=${PROJECT_PATH}/sink_receiver
 endif
 
 ifeq ($(NODE),1)
 MODULES+=${COMMON_DIR_REL_PATH}/lib/uart_util
 MODULES+=${COMMON_DIR_REL_PATH}/lib/sequential_procedures
-MODULES+=../basic_uart_init/vela_uart       #this is the only difference between basic_sender_test and integrate_sender_uart
-MODULES+=../basic_sender_test/vela_sender
+MODULES+=${PROJECT_PATH}/vela_uart       #this is the only difference between basic_sender_test and integrate_sender_uart
+MODULES+=${PROJECT_PATH}/vela_sender
 endif
 
 ifeq ($(OTA),1)
