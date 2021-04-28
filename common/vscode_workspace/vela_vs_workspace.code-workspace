@@ -1,39 +1,34 @@
 {
 	"folders": [
-		{
-			"name": "integrate_sender_uart",
-			"path": "../../network_board/integrate_sender_uart"
-		},
-		{
-			"name": "nordic_vela",
-			"path": "../../bt_board/ble_app_vela_lab"
-		},
-		{
-			"path": "../../bt_board/spi_util"
-		},
-		{
-			"path": "../../bt_board/ble_util"
-		},
-		{
-			"path": "../../bt_board/timer_util"
-		},
-               	{
-			"path": "../../bt_board/nb_report_util"
-		},
-		{
-			"path": "../../network_board/contiki-ng"
-		},
-		{
-			"path": "../../bt_board/time_of_flight_ble/nRF5_SDK_14.0.0_3bcc1f7"
-		},
-		{
-			"path": "../../common"
-		},
-		{
-			"name": "whole network board folder",
-			"path": "../../network_board"
-		}
-	],
+    {
+      "name": "nordic_vela",
+      "path": "../../bt_board/ble_app_vela_lab"
+    },
+    {
+      "path": "../../bt_board/spi_util"
+    },
+    {
+      "path": "../../bt_board/ble_util"
+    },
+    {
+      "path": "../../bt_board/timer_util"
+    },
+    {
+      "path": "../../bt_board/nb_report_util"
+    },
+    {
+      "path": "../../network_board/contiki-ng"
+    },
+    {
+      "path": "../../bt_board/time_of_flight_ble/nRF5_SDK_14.0.0_3bcc1f7"
+    },
+    {
+      "path": "../../common"
+    },
+    {
+      "path": "../../network_board"
+    }
+  ],
 	"settings": {
 		"files.associations": {
 			"vela_sender.h": "c",
