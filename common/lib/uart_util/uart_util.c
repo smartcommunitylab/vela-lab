@@ -23,7 +23,7 @@
 #include "dev/leds.h"
 #include "sys/ctimer.h"
 #include "ti-lib.h"
-#include "vela_uart.h"
+#include "vela_spi.h"
 #define UART_ACK_TIMEOUT                        CLOCK_SECOND/2
 #else
 #include "nrf_delay.h"

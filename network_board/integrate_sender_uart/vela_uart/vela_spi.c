@@ -14,90 +14,9 @@
 *limitations under the License.
 */
 
-#include "contiki.h"
-#include "dev/cc26xx-uart.h"
-#include "dev/serial-line.h"
-#include <stdio.h>
-#include <stdint.h>
-#include <string.h>
-#include "uart_util.h"
-#include "constraints.h"
-#include "vela_uart.h"
-#include "vela_sender.h"
-#include "network_messages.h"
-#include "sequential_procedures.h"
-
-#include "sys/log.h"
-#define LOG_MODULE "vela_uart"
-#define LOG_LEVEL LOG_LEVEL_WARN
-
-#define NORDIC_WATCHDOG_ENABLED						1
-
+#include "vela_spi.h"
 
 PROCESS(cc2650_uart_process, "cc2650 uart process");
-
-typedef enum{
-	start_of_data,
-	more_data,
-	end_of_data
-} report_type_t;
-
-#define MAX_MESH_PAYLOAD_SIZE	MAX_NUMBER_OF_BT_BEACONS*SINGLE_NODE_REPORT_SIZE
-
-#define PING_PACKET_SIZE		5
-#define BT_REPORT_BUFFER_SIZE 	MAX_MESH_PAYLOAD_SIZE
-
-#define DEFAULT_ACTIVE_SCAN         1     //boolean
-#define DEFAULT_SCAN_INTERVAL       3520       /**< Scan interval between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
-#define DEFAULT_SCAN_WINDOW         1920     /**< Scan window between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
-#define DEFAULT_TIMEOUT             0
-#define DEFAULT_REPORT_TIMEOUT_MS   60000
-#define UART_ACK_DELAY_US           2000
-
-/** Converts a macro argument into a character constant.
- */
-#define STRINGIFY(val)  #val
-
-static uint8_t is_nordic_ready=false;
-static uint8_t no_of_attempts = 0;
-static uint8_t bt_report_buffer[BT_REPORT_BUFFER_SIZE]; //this might be allocated dynamically once the BT is enabled and free once it is disabled (avoid to allocate the space twice!!!)
-static data_t complete_report_data = {bt_report_buffer, 0};
-#if NORDIC_WATCHDOG_ENABLED
-static struct ctimer m_nordic_watchdog_timer;
-static uint8_t nordic_watchdog_value = 0;
-static uint32_t nordic_watchdog_timeout_ms = 0;
-#endif
-static uint8_t active_scan = DEFAULT_ACTIVE_SCAN;     //boolean
-static uint16_t scan_interval = DEFAULT_SCAN_INTERVAL;       /**< Scan interval between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
-static uint16_t scan_window = DEFAULT_SCAN_WINDOW;     /**< Scan window between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
-static uint16_t timeout = DEFAULT_TIMEOUT;            /**< Scan timeout between 0x0001 and 0xFFFF in seconds, 0x0000 disables timeout. */
-static uint32_t report_timeout_ms = 0, report_timeout_ms_arg = 0;
-static uint8_t bt_scan_state = 0;
-
-static uint32_t report_ready(data_t *p_data);
-static uint32_t report_rx_handler(uart_pkt_t* p_packet, report_type_t m_report_type );
-
-static uint8_t lock_new_commands=false;
-
-#if NORDIC_WATCHDOG_ENABLED
-static void nordic_watchdog_handler(void *ptr);
-#endif
-
-void reset_nodric(void);
-
-static uint8_t send_set_bt_scan(void);
-static uint8_t send_set_ble_tof_on(void);
-static uint8_t send_set_ble_tof_off(void);
-static uint8_t send_set_bt_scan_on(void);
-static uint8_t send_set_bt_scan_off(void);
-static uint8_t send_set_bt_scan_params(void);
-static uint8_t send_ready(void);
-static uint8_t request_periodic_report_to_nordic(void);
-static uint8_t stop_periodic_report_to_nordic(void);
-
-void uart_util_rx_handler(uart_pkt_t* p_packet);
-void uart_util_ack_tx_done(void);
-void uart_util_ack_error(ack_wait_t* ack_wait_data);
 
 PROCEDURE(tof_on, &send_set_bt_scan_params, &send_set_bt_scan_on, &send_set_ble_tof_on);
 PROCEDURE(tof_off_w_ble, &send_set_ble_tof_off);
@@ -107,6 +26,24 @@ PROCEDURE(bluetooth_off, &send_set_bt_scan_off, &stop_periodic_report_to_nordic)
 PROCEDURE(ready,&send_ready);
 PROCEDURE(ready_plus_last_bt_conf,&send_ready,&send_set_bt_scan_params, &send_set_bt_scan, &request_periodic_report_to_nordic);
 
+uint8_t is_nordic_ready=false;
+uint8_t no_of_attempts = 0;
+uint8_t bt_report_buffer[BT_REPORT_BUFFER_SIZE]; //this might be allocated dynamically once the BT is enabled and free once it is disabled (avoid to allocate the space twice!!!)
+data_t complete_report_data = {bt_report_buffer, 0};
+#if NORDIC_WATCHDOG_ENABLED
+struct ctimer m_nordic_watchdog_timer;
+uint8_t nordic_watchdog_value = 0;
+uint32_t nordic_watchdog_timeout_ms = 0;
+#endif
+uint8_t active_scan = DEFAULT_ACTIVE_SCAN;     //boolean
+uint16_t scan_interval = DEFAULT_SCAN_INTERVAL;       /**< Scan interval between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
+uint16_t scan_window = DEFAULT_SCAN_WINDOW;     /**< Scan window between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
+uint16_t timeout = DEFAULT_TIMEOUT;            /**< Scan timeout between 0x0001 and 0xFFFF in seconds, 0x0000 disables timeout. */
+uint32_t report_timeout_ms = 0, report_timeout_ms_arg = 0;
+uint8_t bt_scan_state = 0;
+uint8_t lock_new_commands=false;
+
+
 //ALM -- called to start this as a contiki THREAD
 void vela_uart_init() {
   // start the uart process
@@ -114,7 +51,7 @@ void vela_uart_init() {
   return;
 }
 
-static uint32_t report_ready(data_t *p_data){
+uint32_t report_ready(data_t *p_data){
 	//PROCESS REPORT: return APP_ACK_SUCCESS as soon as possible
 	process_post(&vela_sender_process, event_data_ready, p_data);
 #if NORDIC_WATCHDOG_ENABLED
@@ -125,7 +62,7 @@ static uint32_t report_ready(data_t *p_data){
 static uint16_t buff_free_from = 0;
 static uint32_t ret = APP_ERROR_COMMAND_NOT_VALID;
 
-static uint32_t report_rx_handler(uart_pkt_t* p_packet, report_type_t m_report_type ){
+uint32_t report_rx_handler(uart_pkt_t* p_packet, report_type_t m_report_type ){
 
 	switch(m_report_type){
 	case start_of_data:
@@ -168,7 +105,7 @@ static uint32_t report_rx_handler(uart_pkt_t* p_packet, report_type_t m_report_t
 }
 
 #if NORDIC_WATCHDOG_ENABLED
-static void nordic_watchdog_handler(void *ptr){
+void nordic_watchdog_handler(void *ptr){
 	nordic_watchdog_value++;
 
 	if(nordic_watchdog_value > 3){
@@ -182,7 +119,7 @@ static void nordic_watchdog_handler(void *ptr){
 }
 #endif
 
-static uint8_t start_procedure(procedure_t *m_procedure){
+uint8_t start_procedure(procedure_t *m_procedure){
     return sequential_procedure_start(m_procedure, uart_util_is_waiting_ack()); //if we are waiting an ack start use the delayed start
 }
 
@@ -194,7 +131,7 @@ void reset_nodric(void){
 	clock_wait(CLOCK_SECOND/10);
 }
 
-static void send_ping(uint8_t ping_payload) {
+void send_ping(uint8_t ping_payload) {
     uart_pkt_t ping_packet;
     uint8_t buf[1];
     buf[0] = ping_payload;
@@ -204,7 +141,7 @@ static void send_ping(uint8_t ping_payload) {
     uart_util_send_pkt(&ping_packet);
 }
 
-static uint8_t send_pong(uart_pkt_t* p_packet) {
+uint8_t send_pong(uart_pkt_t* p_packet) {
 	if(p_packet->payload.data_len ){
 		uint8_t pong_payload[MAX_PING_PAYLOAD];
 		if(p_packet->payload.data_len > MAX_PING_PAYLOAD){
@@ -229,7 +166,7 @@ static uint8_t send_pong(uart_pkt_t* p_packet) {
     return 0;
 }
 
-static uint8_t send_set_bt_scan(void) {
+uint8_t send_set_bt_scan(void) {
     uart_pkt_t packet;
     uint8_t payload[1];
     packet.payload.p_data = payload;
@@ -244,7 +181,7 @@ static uint8_t send_set_bt_scan(void) {
 }
 
 
-static uint8_t send_set_ble_tof_on(void) {
+uint8_t send_set_ble_tof_on(void) {
     uart_pkt_t packet;
     uint8_t payload[1];
     packet.payload.p_data = payload;
@@ -257,7 +194,7 @@ static uint8_t send_set_ble_tof_on(void) {
     return 0;
 }
 
-static uint8_t send_set_ble_tof_off(void) {
+uint8_t send_set_ble_tof_off(void) {
     uart_pkt_t packet;
     uint8_t payload[1];
     packet.payload.p_data = payload;
@@ -270,20 +207,20 @@ static uint8_t send_set_ble_tof_off(void) {
     return 0;
 }
 
-static uint8_t send_set_bt_scan_on(void) {
+uint8_t send_set_bt_scan_on(void) {
     bt_scan_state=1;
 
 	return send_set_bt_scan();
 }
 
-static uint8_t send_set_bt_scan_off(void) {
+uint8_t send_set_bt_scan_off(void) {
     LOG_INFO("Turning bt off\n");
 	bt_scan_state=0;
 
     return send_set_bt_scan();
 }
 
-static uint8_t send_set_bt_scan_params(void) {
+uint8_t send_set_bt_scan_params(void) {
 	uart_pkt_t packet;
 	uint8_t payload[7];
 	packet.payload.p_data = payload;
@@ -303,7 +240,7 @@ static uint8_t send_set_bt_scan_params(void) {
     return 0;
 }
 
-static uint8_t send_ready(void) {
+uint8_t send_ready(void) {
 
 	char version_string[] = STRINGIFY(VERSION_STRING);
 
@@ -317,7 +254,7 @@ static uint8_t send_ready(void) {
     return 0;
 }
 
-static uint8_t request_periodic_report_to_nordic(void){
+uint8_t request_periodic_report_to_nordic(void){
 	uint8_t payload[4];
 	payload[0] = report_timeout_ms_arg >> 24;
 	payload[1] = report_timeout_ms_arg >> 16;
@@ -344,7 +281,7 @@ static uint8_t request_periodic_report_to_nordic(void){
     return 0;
 }
 
-static uint8_t stop_periodic_report_to_nordic(void){
+uint8_t stop_periodic_report_to_nordic(void){
     report_timeout_ms_arg=0;
     request_periodic_report_to_nordic();
 
@@ -373,7 +310,7 @@ void uart_util_ack_error(ack_wait_t* ack_wait_data) {
 void uart_util_ack_tx_done(void){
 }
 
-static uint32_t pre_ack_uart_rx_handler(uart_pkt_t* p_packet) {
+uint32_t pre_ack_uart_rx_handler(uart_pkt_t* p_packet) {
     uart_pkt_type_t type;
     type = p_packet->type;
     //uint8_t *p_payload_data;
@@ -457,7 +394,7 @@ static uint32_t pre_ack_uart_rx_handler(uart_pkt_t* p_packet) {
     return ack_value;
 }
 
-static void post_ack_uart_rx_handler(uart_pkt_t* p_packet) {
+void post_ack_uart_rx_handler(uart_pkt_t* p_packet) {
     uart_pkt_type_t type;
     type = p_packet->type;
     uint8_t *p_payload_data;
@@ -541,6 +478,13 @@ void initialize_reset_pin(void) {
 	GPIO_setDio(RESET_PIN_IOID);
 }
 
+void spi_init(){
+  if(spi_acquire(&spi_dev) != SPI_DEV_STATUS_OK) {
+    printf("Error in configuring the SPI");
+  }
+}
+
+
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(cc2650_uart_process, ev, data) {
 	PROCESS_BEGIN();
@@ -562,8 +506,8 @@ PROCESS_THREAD(cc2650_uart_process, ev, data) {
 
 		initialize_reset_pin();
 
-		uart_util_initialize();
-
+		// uart_util_initialize();
+    spi_init();
 		reset_nodric();
 		//TODO: if the ready message isn't received within a timeout the reset should be redone till the message is received.
 		//Once the ready message is received the boot is completed

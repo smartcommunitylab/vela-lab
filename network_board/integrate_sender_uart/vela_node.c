@@ -12,7 +12,7 @@
 #include "sys/etimer.h"
 #include <stdio.h>
 #include <string.h>
-#include "vela_uart.h"
+#include "vela_spi.h"
 #include "vela_sender.h"
 #include "vela_node.h"
 

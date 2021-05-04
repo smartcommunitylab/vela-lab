@@ -17,7 +17,7 @@
 #include "network_messages.h"
 //#include "servreg-hack.h"
 #include "vela_node.h"
-#include "vela_uart.h"
+#include "vela_spi.h"
 #include "vela_sender.h"
 #if OTA
 #include "ota-download.h"
