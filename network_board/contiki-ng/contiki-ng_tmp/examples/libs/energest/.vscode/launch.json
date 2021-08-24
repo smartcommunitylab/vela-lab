@@ -1,0 +1,20 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+      {
+      "type": "cortex-debug",
+      "request": "launch",
+      "name": "Debug J-Link",
+      "cwd": "/home/alberto/FBK/Vela/vela-lab/network_board/contiki-ng/examples/libs/energest",
+      "executable": "build/cc26x0-cc13x0/launchpad/cc1350/example-energest.elf",
+      "serverpath": "/opt/SEGGER/JLink_V654c/JLinkGDBServerCLExe", 
+      "servertype": "jlink",
+      "device": "CC1350F128",
+      "interface": "jtag",
+      "serialNumber": "", 
+      "jlinkscript":"",
+      "runToMain": true,
+      "svdFile": "" 
+      }
+      ]
+    }
