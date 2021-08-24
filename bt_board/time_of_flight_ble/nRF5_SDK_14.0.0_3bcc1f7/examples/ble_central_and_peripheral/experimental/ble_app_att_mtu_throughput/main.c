@@ -694,7 +694,7 @@ static void on_ble_gap_evt_connected(ble_gap_evt_t const * p_gap_evt)
 
 	NRF_LOG_INFO("Connection interval: "NRF_LOG_FLOAT_MARKER" ms, Slave latency: %d, Supervision timeout %d ms.\n\r", NRF_LOG_FLOAT(1.25 * p_gap_evt->params.connected.conn_params.max_conn_interval), p_gap_evt->params.connected.conn_params.slave_latency, p_gap_evt->params.connected.conn_params.conn_sup_timeout * 10 );
 
-	bsp_board_led_on(READY_LED);
+	//bsp_board_led_on(READY_LED);
 
     // If some gatt operation are used, next lines must be uncommented to trigger the service discovery.
     // Form the contextual point of view all modules interested to gatt will add the UUID they are interested in using sd_ble_uuid_vs_add(...), while the application (main.c) will start the discovery in the next lines.
@@ -942,7 +942,7 @@ static void advertising_start(void)
 
 		NRF_LOG_INFO("Starting advertising.\n\r");
 
-		bsp_board_led_on(SCAN_ADV_LED);
+		//bsp_board_led_on(SCAN_ADV_LED);
 		m_advertising_active = true;
 		ret_code_t err_code = sd_ble_gap_adv_start(&adv_params, APP_BLE_CONN_CFG_TAG);
 		APP_ERROR_CHECK(err_code);
@@ -956,7 +956,7 @@ static void advertising_stop(void) {
 	if (m_advertising_active) {
 		NRF_LOG_INFO("Stopping advertising.\n\r");
 
-		bsp_board_led_off(SCAN_ADV_LED);
+		//bsp_board_led_off(SCAN_ADV_LED);
 		m_advertising_active = false;
 		ret_code_t err_code = sd_ble_gap_adv_stop();
 		APP_ERROR_CHECK(err_code);
@@ -970,7 +970,7 @@ static void scan_start(void)
     if(!m_scan_active){
         NRF_LOG_INFO("Starting scan.\n\r");
 
-        bsp_board_led_on(SCAN_ADV_LED);
+        //bsp_board_led_on(SCAN_ADV_LED);
 		m_scan_active = true;
 		ret_code_t err_code = sd_ble_gap_scan_start(&m_scan_param);
 		APP_ERROR_CHECK(err_code);
@@ -982,7 +982,7 @@ static void scan_stop(void){
 	if (m_scan_active) {
 		NRF_LOG_INFO("Stopping scan.\n\r");
 
-		bsp_board_led_off(SCAN_ADV_LED);
+		//bsp_board_led_off(SCAN_ADV_LED);
 		m_scan_active = false;
 		ret_code_t err_code = sd_ble_gap_scan_stop();
 		APP_ERROR_CHECK(err_code);

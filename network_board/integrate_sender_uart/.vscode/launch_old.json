@@ -1,0 +1,285 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+
+            /*--------------------------------------------------------------------------------------------------------------------------------------------------*/
+            /*-------------------------------------------------- SINK CONFIGURATIONS ---------------------------------------------------------------------------*/
+            /*--------------------------------------------------------------------------------------------------------------------------------------------------*/
+            "name": "Debug cc2650 Sink",
+            "type": "cortex-debug",
+            "request": "launch",
+            "servertype": "openocd",
+            "executable": "${workspaceRoot}/build/cc26x0-cc13x0/launchpad_vela/cc2650/vela_sink.elf",
+            "cwd": "${workspaceRoot}",
+            "preLaunchTask": "build_sink_cc2650",
+            "runToMain": true,
+            "interface": "jtag",
+            //"debuggerArgs": [
+            //    "--directory=/home/giova/workspaces/GIT/vela-lab/network_board/contiki-ng",  //adds reference to external sources, not sure it is required
+            //],
+            //"searchDir": ["/usr/local/share/openocd/scripts"],
+            //   "device":"nRF52832_xxAA", //required if "servertype":"jlink",
+            //   "svdFile": //used for peripheral view
+            //   "swoConfig":{ //see https://marcelball.ca/projects/cortex-debug/cortex-debug-swo-decoding-and-graphing/
+            //       "enabled": false,
+            //       "swoFrequency": 0,
+            //       "cpuFrequency": 0,
+            //       "ports":{ //to populate see https://marcelball.ca/projects/cortex-debug/cortex-debug-swo-decoding-and-graphing/
+            //       }
+            //   },
+            "graphConfig": [],
+            "showDevDebugOutput": true,
+            "configFiles": [
+                "board/ti_cc26x0_launchpad.cfg"
+            ],
+            "linux": {},
+        },
+        {
+            "name": "Debug cc1350 Sink",
+            "type": "cortex-debug",
+            "request": "launch",
+            "servertype": "openocd",
+            "executable": "${workspaceRoot}/build/cc26x0-cc13x0/launchpad_vela/cc1350/vela_sink.elf",
+            "cwd": "${workspaceRoot}",
+            "preLaunchTask": "build_sink_cc1350",
+            "runToMain": true,
+            "interface": "jtag",
+            //"debuggerArgs": [
+            //    "--directory=/home/giova/workspaces/GIT/vela-lab/network_board/contiki-ng",  //adds reference to external sources, not sure it is required
+            //],
+            //"searchDir": ["/usr/local/share/openocd/scripts"],
+            //   "device":"nRF52832_xxAA", //required if "servertype":"jlink",
+            //   "svdFile": //used for peripheral view
+            //   "swoConfig":{ //see https://marcelball.ca/projects/cortex-debug/cortex-debug-swo-decoding-and-graphing/
+            //       "enabled": false,
+            //       "swoFrequency": 0,
+            //       "cpuFrequency": 0,
+            //       "ports":{ //to populate see https://marcelball.ca/projects/cortex-debug/cortex-debug-swo-decoding-and-graphing/
+            //       }
+            //   },
+            "graphConfig": [],
+            "showDevDebugOutput": true,
+            "configFiles": [
+                "board/ti_cc13x0_launchpad.cfg"
+            ],
+            "linux": {},
+        },
+        { // This configuration is not working. Probably the debugger is slightly different. NB: there is no sensortag inside board folder of openOCD
+            // In order to test on the sensorTag, the compiled binary can be flashed with uniflash
+            "name": "Debug cc2650 Sink SensorTag",
+            "type": "cortex-debug",
+            "request": "launch",
+            "servertype": "openocd",
+            "executable": "${workspaceRoot}/build/cc26x0-cc13x0/sensortag/cc2650/vela_sink.elf",
+            "cwd": "${workspaceRoot}",
+            "preLaunchTask": "build_sink_cc2650_sensortag",
+            "runToMain": true,
+            "interface": "jtag",
+            //"debuggerArgs": [
+            //    "--directory=/home/giova/workspaces/GIT/vela-lab/network_board/contiki-ng",  //adds reference to external sources, not sure it is required
+            //],
+            //"searchDir": ["/usr/local/share/openocd/scripts"],
+            //   "device":"nRF52832_xxAA", //required if "servertype":"jlink",
+            //   "svdFile": //used for peripheral view
+            //   "swoConfig":{ //see https://marcelball.ca/projects/cortex-debug/cortex-debug-swo-decoding-and-graphing/
+            //       "enabled": false,
+            //       "swoFrequency": 0,
+            //       "cpuFrequency": 0,
+            //       "ports":{ //to populate see https://marcelball.ca/projects/cortex-debug/cortex-debug-swo-decoding-and-graphing/
+            //       }
+            //   },
+
+            "graphConfig": [],
+            "showDevDebugOutput": true,
+            "configFiles": [
+                //"board/ti_cc26x0_launchpad.cfg" //openOCD doesn't support sensortag
+            ],
+            "linux": {},
+        },
+        { // This configuration is not working. Probably the debugger is slightly different. NB: there is no sensortag inside board folder of openOCD
+            // In order to test on the sensorTag, the compiled binary can be flashed with uniflash
+            "name": "Debug cc1350 Sink SensorTag",
+            "type": "cortex-debug",
+            "request": "launch",
+            "servertype": "openocd",
+            "executable": "${workspaceRoot}/build/cc26x0-cc13x0/sensortag/cc1350/vela_sink.elf",
+            "cwd": "${workspaceRoot}",
+            "preLaunchTask": "build_sink_cc1350_sensortag",
+            "runToMain": true,
+            "interface": "jtag",
+            //"debuggerArgs": [
+            //    "--directory=/home/giova/workspaces/GIT/vela-lab/network_board/contiki-ng",  //adds reference to external sources, not sure it is required
+            //],
+            //"searchDir": ["/usr/local/share/openocd/scripts"],
+            //   "device":"nRF52832_xxAA", //required if "servertype":"jlink",
+            //   "svdFile": //used for peripheral view
+            //   "swoConfig":{ //see https://marcelball.ca/projects/cortex-debug/cortex-debug-swo-decoding-and-graphing/
+            //       "enabled": false,
+            //       "swoFrequency": 0,
+            //       "cpuFrequency": 0,
+            //       "ports":{ //to populate see https://marcelball.ca/projects/cortex-debug/cortex-debug-swo-decoding-and-graphing/
+            //       }
+            //   },
+
+            "graphConfig": [],
+            "showDevDebugOutput": true,
+            "configFiles": [
+                //"board/ti_cc13x0_launchpad.cfg" //openOCD doesn't support sensortag
+            ],
+            "linux": {},
+        },
+
+            /*--------------------------------------------------------------------------------------------------------------------------------------------------*/
+            /*-------------------------------------------------- NODE CONFIGURATIONS ---------------------------------------------------------------------------*/
+            /*--------------------------------------------------------------------------------------------------------------------------------------------------*/
+
+
+            {
+                "name": "Debug cc2650 Node no OTA",
+                "type": "cortex-debug",
+                "request": "launch",
+                "servertype": "openocd",
+                "executable": "${workspaceRoot}/build/cc26x0-cc13x0/launchpad_vela/cc2650/vela_node.elf",
+                "cwd": "${workspaceRoot}",
+                "preLaunchTask": "build_node_cc2650_no_ota",
+                "runToMain": true,
+                "interface": "jtag",
+                //"debuggerArgs": [
+                //    "--directory=/home/giova/workspaces/GIT/vela-lab/network_board/contiki-ng",  //adds reference to external sources, not sure it is required
+                //],
+                //"searchDir": ["/usr/local/share/openocd/scripts"],
+                //   "device":"nRF52832_xxAA", //required if "servertype":"jlink",
+                //   "svdFile": //used for peripheral view
+                //   "swoConfig":{ //see https://marcelball.ca/projects/cortex-debug/cortex-debug-swo-decoding-and-graphing/
+                //       "enabled": false,
+                //       "swoFrequency": 0,
+                //       "cpuFrequency": 0,
+                //       "ports":{ //to populate see https://marcelball.ca/projects/cortex-debug/cortex-debug-swo-decoding-and-graphing/
+                //       }
+                //   },
+    
+                "graphConfig": [],
+                "showDevDebugOutput": true,
+                "configFiles": [
+                    "board/ti_cc26x0_launchpad.cfg"
+                ],
+                "linux": {},
+            },
+            {
+                "name": "Debug cc1350 Node no OTA",
+                "type": "cortex-debug",
+                "request": "launch",
+                "servertype": "openocd",
+                "executable": "${workspaceRoot}/build/cc26x0-cc13x0/launchpad_vela/cc1350/vela_node.elf",
+                "cwd": "${workspaceRoot}",
+                "preLaunchTask": "build_node_cc1350_no_ota",
+                "runToMain": true,
+                   "interface": "jtag",
+                //"debuggerArgs": [
+                //    "--directory=/home/giova/workspaces/GIT/vela-lab/network_board/contiki-ng",  //adds reference to external sources, not sure it is required
+                //],
+                //"searchDir": ["/usr/local/share/openocd/scripts"],
+                //   "device":"nRF52832_xxAA", //required if "servertype":"jlink",
+                //   "svdFile": //used for peripheral view
+                //   "swoConfig":{ //see https://marcelball.ca/projects/cortex-debug/cortex-debug-swo-decoding-and-graphing/
+                //       "enabled": false,
+                //       "swoFrequency": 0,
+                //       "cpuFrequency": 0,
+                //       "ports":{ //to populate see https://marcelball.ca/projects/cortex-debug/cortex-debug-swo-decoding-and-graphing/
+                //       }
+                //   },
+    
+                "graphConfig": [],
+                "showDevDebugOutput": true,
+                "configFiles": [
+                    "board/ti_cc13x0_launchpad.cfg"
+                ],
+                "linux": {},
+            },        
+            {
+                "name": "Debug cc2650 Node OTA",
+                "type": "cortex-debug",
+                "request": "launch",
+                "servertype": "openocd",
+                "executable": "${workspaceRoot}/build/cc26x0-cc13x0/launchpad_vela/cc2650/vela_node.elf", //this is overwritten in overrideLaunchCommands, but cortex-debug extension fails if I don't specify it
+                "cwd": "${workspaceRoot}",
+                "preLaunchTask": "build_node_cc2650_ota",
+                "runToMain": true,
+                "interface": "jtag",
+                "overrideLaunchCommands": [
+                    "monitor reset halt",                                                                       //don't know if this is required
+                    "file",                                                                                     //discards the previously loaded elf file
+                    "monitor flash write_image erase unlock ${workspaceRoot}/vela_node_with_bootloader.bin",    //loads the correct binary which includes: bootloader, metadata and firmware
+                    "monitor fast_load",                                                                        //write it to target
+                    "symbol-file ${workspaceRoot}/build/cc26x0-cc13x0/launchpad_vela/cc2650/vela_node.elf",     //loads the symbols for the firmware section
+                    "add-symbol-file ${workspaceRoot}/../external_modules/bootloader/bootloader.elf 0x0",       //loads the symbols for the bootloader section
+                    "enable breakpoint",                                                                        //standard commands
+                    "monitor reset halt",
+                    "enable pretty-printer"
+                ],
+                //"debuggerArgs": [
+                //    "--directory=/home/giova/workspaces/GIT/vela-lab/network_board/contiki-ng",  //adds reference to external sources, not sure it is required
+                //],
+                //"searchDir": ["/usr/local/share/openocd/scripts"],
+                //   "device":"nRF52832_xxAA", //required if "servertype":"jlink",
+                //   "svdFile": //used for peripheral view
+                //   "swoConfig":{ //see https://marcelball.ca/projects/cortex-debug/cortex-debug-swo-decoding-and-graphing/
+                //       "enabled": false,
+                //       "swoFrequency": 0,
+                //       "cpuFrequency": 0,
+                //       "ports":{ //to populate see https://marcelball.ca/projects/cortex-debug/cortex-debug-swo-decoding-and-graphing/
+                //       }
+                //   },
+    
+                "graphConfig": [],
+                "showDevDebugOutput": true,
+                "configFiles": [
+                    "board/ti_cc26x0_launchpad.cfg"
+                ],
+                "linux": {},
+            },
+            {
+                "name": "Debug cc1350 Node OTA",
+                "type": "cortex-debug",
+                "request": "launch",
+                "servertype": "openocd",
+                "executable": "${workspaceRoot}/build/cc26x0-cc13x0/launchpad_vela/cc1350/vela_node.elf", //this is overwritten in overrideLaunchCommands, but cortex-debug extension fails if I don't specify it
+                "cwd": "${workspaceRoot}",
+                "preLaunchTask": "build_node_cc1350_ota",
+                "runToMain": true,
+                "interface": "jtag",
+                "overrideLaunchCommands": [
+                    "monitor reset halt",                                                                       //don't know if this is required
+                    "file",                                                                                     //discards the previously loaded elf file
+                    "monitor flash write_image erase unlock ${workspaceRoot}/vela_node_with_bootloader.bin",    //loads the correct binary which includes: bootloader, metadata and firmware
+                    "monitor fast_load",                                                                        //write it to target
+                    "symbol-file ${workspaceRoot}/build/cc26x0-cc13x0/launchpad_vela/cc1350/vela_node.elf",     //loads the symbols for the firmware section
+                    "add-symbol-file ${workspaceRoot}/../external_modules/bootloader/bootloader.elf 0x0",       //loads the symbols for the bootloader section
+                    "enable breakpoint",                                                                        //standard commands
+                    "monitor reset halt",
+                    "enable pretty-printer"
+                ],
+                //"debuggerArgs": [
+                //    "--directory=/home/giova/workspaces/GIT/vela-lab/network_board/contiki-ng",  //adds reference to external sources, not sure it is required
+                //],
+                //"searchDir": ["/usr/local/share/openocd/scripts"],
+                //   "device":"nRF52832_xxAA", //required if "servertype":"jlink",
+                //   "svdFile": //used for peripheral view
+                //   "swoConfig":{ //see https://marcelball.ca/projects/cortex-debug/cortex-debug-swo-decoding-and-graphing/
+                //       "enabled": false,
+                //       "swoFrequency": 0,
+                //       "cpuFrequency": 0,
+                //       "ports":{ //to populate see https://marcelball.ca/projects/cortex-debug/cortex-debug-swo-decoding-and-graphing/
+                //       }
+                //   },
+    
+                "graphConfig": [],
+                "showDevDebugOutput": true,
+                "configFiles": [
+                    "board/ti_cc13x0_launchpad.cfg"
+                ],
+                "linux": {},
+            },
+    ]
+}

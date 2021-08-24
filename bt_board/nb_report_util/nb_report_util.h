@@ -6,6 +6,8 @@
 #include "constraints.h"
 #include "ble.h"
 #include "ble_types.h"
+#include "nrf_delay.h"
+#include "nrf_gpio.h"
 #include <string.h>
 
 /*------------MACRO-------------*/

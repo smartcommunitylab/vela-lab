@@ -1,0 +1,35 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug cc1350",
+            "type": "cortex-debug",
+            "request": "launch",
+            "servertype": "openocd",
+            "executable": "${workspaceRoot}/integrate_sender_uart/build/cc26x0-cc13x0/launchpad_vela/cc1350/vela_node.elf",
+            "cwd": "${workspaceRoot}/integrate_sender_uart",
+            "preLaunchTask": "build",
+            "runToMain": true,
+            "interface": "jtag",
+            "debuggerArgs": [
+                "--directory=${workspaceRoot}/contiki-ng/",  //adds reference to external sources, not sure it is required
+            ],
+            "searchDir": ["/usr/local/share/openocd/scripts"],
+            //   "device":"nRF52832_xxAA", //required if "servertype":"jlink",
+            //   "svdFile": //used for peripheral view
+            //   "swoConfig":{ //see marcelball.ca/.../
+            //       "enabled": false,
+            //       "swoFrequency": 0,
+            //       "cpuFrequency": 0,
+            //       "ports":{ //to populate see marcelball.ca/.../
+            //       }
+            //   },
+
+            "graphConfig": [],
+            "showDevDebugOutput": true,
+            "configFiles": [
+                "board/ti_cc13x0_launchpad.cfg"
+            ]
+        }
+    ]
+}

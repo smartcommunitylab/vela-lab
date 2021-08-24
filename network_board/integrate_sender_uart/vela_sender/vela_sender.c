@@ -25,8 +25,8 @@
 #endif
 
 #include "sys/log.h"
-#define LOG_MODULE "vela_sender"
-#define LOG_LEVEL  LOG_LEVEL_WARN
+//#define LOG_MODULE "vela_sender"
+// #define LOG_LEVEL  LOG_LEVEL_WARN
 
 #ifdef BOARD_LAUNCHPAD_VELA
 #if BOARD_LAUNCHPAD_VELA==1
@@ -100,13 +100,13 @@ receiver(struct simple_udp_connection *c,
         data_offset=5;
         last_received_chunk=0;
         last_received_subchunk=0;
-        LOG_INFO("First packet of the firmware received.\n");
+        //LOG_INFO("First packet of the firmware received.\n");
         ota_download_init(); //TODO: is this the propper place for this? For sure it must be reinitialized after any firmware update operation (being it correctly executed or not)
       } else if(pkttype == ota_more_of_firmware) {    
         data_offset=5;
       } else if(pkttype == ota_end_of_firmware) {
         data_offset=5;
-        LOG_INFO("Last packet of the firmware received.\n");
+        //LOG_INFO("Last packet of the firmware received.\n");
       }
         
       if(ota_chunk_no!=((last_received_chunk+1)&0xFF)){
@@ -123,13 +123,13 @@ receiver(struct simple_udp_connection *c,
 
       datasize=datalen-data_offset;
       last_received_subchunk=ota_packet_sub_chunk_no;
-      LOG_INFO("Firmware packet received. datasize: %u, message_number: %u, ota_chunk_no: %u, ota_packet_sub_chunk_no: %u\n",datasize,message_number,ota_chunk_no,ota_packet_sub_chunk_no);
+      //LOG_INFO("Firmware packet received. datasize: %u, message_number: %u, ota_chunk_no: %u, ota_packet_sub_chunk_no: %u\n",datasize,message_number,ota_chunk_no,ota_packet_sub_chunk_no);
       /*
-      LOG_INFO("packet: 0x ");
+      //LOG_INFO("packet: 0x ");
       for(uint16_t mmm=0;mmm<datasize;mmm++){
-        LOG_INFO_("%02x",data[data_offset+mmm]);
+        //LOG_INFO_("%02x",data[data_offset+mmm]);
       }
-      LOG_INFO_("\n");
+      //LOG_INFO_("\n");
       */
       if(ota_download_firmware_subchunk_handler(&data[data_offset],datasize)){ //TODO: add a check on the metadata. If crc_shadow is not 0 refuse the update (only non preverified ota are accepted)
         uint8_t ota_data[]={ota_chunk_no, 0};
@@ -144,7 +144,7 @@ receiver(struct simple_udp_connection *c,
         send_to_sink(ota_data, sizeof(ota_data), ota_ack, 0);
       }
 
-      LOG_INFO("Firmware packet processed.\n");
+      //LOG_INFO("Firmware packet processed.\n");
       return;
   }
 #endif
@@ -152,13 +152,13 @@ receiver(struct simple_udp_connection *c,
   if(pkttype==ota_reboot_node){
       data_offset=3;
       //for(uint16_t mmm=0;mmm<datalen;mmm++){
-      //  LOG_INFO_("%02x",data[data_offset+mmm]);
+      //  //LOG_INFO_("%02x",data[data_offset+mmm]);
       //}
       uint32_t reboot_delay_ms=((uint32_t)data[data_offset])<<24 | ((uint32_t)data[data_offset+1])<<16 | ((uint32_t)data[data_offset+2])<<8 | ((uint32_t)data[data_offset+3]);
       LOG_DBG("Reboot requested with %u ms delay.", (unsigned int)reboot_delay_ms);
 
       uint32_t delay_ticks=CLOCK_SECOND*reboot_delay_ms/1000;
-      LOG_INFO("\nRebooting the node in %u ms.\n", (unsigned int)delay_ticks*1000/CLOCK_SECOND);
+      //LOG_INFO("\nRebooting the node in %u ms.\n", (unsigned int)delay_ticks*1000/CLOCK_SECOND);
 
       ctimer_set(&reboot_delay_timer, delay_ticks, reboot, NULL);
       return;
@@ -180,10 +180,10 @@ static void offline_timeout_handler(void *ptr){ //when this triggers the node wi
 void vela_sender_init() {
   random_init(0);
 
-  LOG_INFO("vela_sender: initializing \n");
+  //LOG_INFO("vela_sender: initializing \n");
   message_number = 0;
   ctimer_set(&m_node_offline_timeout, NODE_OFFLINE_RESET_TIMEOUT, offline_timeout_handler, NULL);
-  LOG_INFO("A timer will reset the node if it stays offline for more than %d minutes\n",NODE_OFFLINE_RESET_TIMEOUT_MINUTES);
+  //LOG_INFO("A timer will reset the node if it stays offline for more than %d minutes\n",NODE_OFFLINE_RESET_TIMEOUT_MINUTES);
 
   simple_udp_register(&unicast_connection, UDP_PORT, NULL, UDP_PORT, receiver);
 
@@ -198,7 +198,9 @@ static uint8_t send_to_sink (uint8_t *data, int dataSize, pkttype_t pkttype, int
   uint8_t buf[MAX_PACKET_SIZE + APPLICATION_HEADER_SIZE];
 
   leds_toggle(LEDS_GREEN);
+  
   if(NETSTACK_ROUTING.node_is_reachable() && NETSTACK_ROUTING.get_root_ipaddr(&addr)){
+    
     LOG_DBG("sending to sink...\n");
     ctimer_restart(&m_node_offline_timeout);
     uint8_t totalSize = 0;
@@ -227,7 +229,6 @@ static uint8_t send_to_sink (uint8_t *data, int dataSize, pkttype_t pkttype, int
     leds_on(LEDS_RED);
     return 0;
   } else {
-    leds_off(LEDS_RED);
     LOG_WARN("ERROR: No sink available!\n");
     return -1;
   }
@@ -257,15 +258,7 @@ static void tcpip_handler(void)
   if (uip_newdata())
   {
     incoming = (network_message_t *)uip_appdata;
-    LOG_INFO("Received new Trickle message, counter: %d, type: %X, payload: ", incoming->pktnum, incoming->pkttype);
-
-    uint8_t asd = 0;
-    for (asd = 0; asd < incoming->payload.data_len; asd++)
-    {
-      LOG_INFO_("%02X", incoming->payload.p_data[asd]);
-    }
-    LOG_INFO_("\n");
-
+  
     if (trickle_msg.pktnum == incoming->pktnum)
     {
       trickle_timer_consistency(&tt);
@@ -288,49 +281,49 @@ static void tcpip_handler(void)
         {
         case network_request_ping:
         {
-          LOG_INFO("Ping request\n");
-          process_post(&cc2650_uart_process, event_ping_requested, incoming->payload.p_data);
+          //LOG_INFO("Ping request\n");
+          process_post(&spi_process, event_ping_requested, incoming->payload.p_data);
           break;
         }
         case nordic_turn_bt_off:
         {
-          LOG_INFO("Turning Bluetooth off.\n");
-          process_post(&cc2650_uart_process, turn_bt_off, NULL);
+          //LOG_INFO("Turning Bluetooth off.\n");
+          process_post(&spi_process, turn_bt_off, NULL);
           break;
         }
         case nordic_turn_bt_on:
         {
-          LOG_INFO("Turning Bluetooth on.\n");
-          process_post(&cc2650_uart_process, turn_bt_on, NULL);
+          //LOG_INFO("Turning Bluetooth on.\n");
+          process_post(&spi_process, turn_bt_on, NULL);
           break;
         }
         case nordic_turn_bt_on_low:
         {
-          LOG_INFO("Turning Bluetooth on.\n");
-          process_post(&cc2650_uart_process, turn_bt_on_low, NULL);
+          //LOG_INFO("Turning Bluetooth on.\n");
+          process_post(&spi_process, turn_bt_on_low, NULL);
           break;
         }
         case nordic_turn_bt_on_def:
         {
-          LOG_INFO("Turning Bluetooth on.\n");
-          process_post(&cc2650_uart_process, turn_bt_on_def, NULL);
+          //LOG_INFO("Turning Bluetooth on.\n");
+          process_post(&spi_process, turn_bt_on_def, NULL);
           break;
         }
         case nordic_turn_bt_on_high:
         {
-          LOG_INFO("Turning Bluetooth on.\n");
-          process_post(&cc2650_uart_process, turn_bt_on_high, NULL);
+          //LOG_INFO("Turning Bluetooth on.\n");
+          process_post(&spi_process, turn_bt_on_high, NULL);
           break;
         }
         case nordic_turn_bt_on_w_params:
         {
-          LOG_INFO("Turning Bluetooth on.\n");
-          process_post(&cc2650_uart_process, turn_bt_on_w_params, incoming->payload.p_data);
+          //LOG_INFO("Turning Bluetooth on.\n");
+          process_post(&spi_process, turn_bt_on_w_params, incoming->payload.p_data);
           break;
         }
         case ti_set_keep_alive:
         {
-          LOG_INFO("Setting keep alive interval to %hhu\n", incoming->payload.p_data[0]);
+          //LOG_INFO("Setting keep alive interval to %hhu\n", incoming->payload.p_data[0]);
           PROCESS_CONTEXT_BEGIN(&keep_alive_process);
           keep_alive_interval = incoming->payload.p_data[0];
           if (keep_alive_interval > 9)
@@ -340,7 +333,7 @@ static void tcpip_handler(void)
           else
           {
             etimer_set(&keep_alive_timer, VERY_LONG_TIMER_VALUE * CLOCK_SECOND);
-            LOG_INFO("Not a valid interval, turning keep alive off\n");
+            //LOG_INFO("Not a valid interval, turning keep alive off\n");
           }
           PROCESS_CONTEXT_END(&keep_alive_process);
           break;
@@ -349,9 +342,9 @@ static void tcpip_handler(void)
           break;
           /*{
           if(incoming->payload.p_data[0] != 0){
-            LOG_INFO("Enabling battery info report with interval %u\n",incoming->payload.p_data[0]);
+            //LOG_INFO("Enabling battery info report with interval %u\n",incoming->payload.p_data[0]);
           }else{
-            LOG_INFO("Disabling battery info report\n");
+            //LOG_INFO("Disabling battery info report\n");
           }
           process_post(&vela_node_process, set_battery_info_interval, incoming->payload.p_data);
           break;
@@ -360,21 +353,21 @@ static void tcpip_handler(void)
         {
           uint16_t time_between_sends_ms = (incoming->payload.p_data[0] << 8) | incoming->payload.p_data[1];
           time_between_sends = time_between_sends_ms * (CLOCK_SECOND / 1000.0);
-          LOG_INFO("Setting Time Between Sends to %d ms, %lu ticks\n", time_between_sends_ms, time_between_sends);
+          //LOG_INFO("Setting Time Between Sends to %d ms, %lu ticks\n", time_between_sends_ms, time_between_sends);
           break;
         }
         case nordic_ble_tof_enable:
         {
           if (incoming->payload.data_len > 0)
           {
-            process_post(&cc2650_uart_process, turn_ble_tof_onoff, incoming->payload.p_data);
+            process_post(&spi_process, turn_ble_tof_onoff, incoming->payload.p_data);
           }
           break;
         }
         case nordic_reset:
         {
-          LOG_INFO("Reseting nordic board\n");
-          process_post(&cc2650_uart_process, reset_bt, NULL);
+          //LOG_INFO("Reseting nordic board\n");
+          process_post(&spi_process, reset_bt, NULL);
           break;
         }
         default:
@@ -395,7 +388,7 @@ PROCESS_THREAD(vela_sender_process, ev, data) {
   PROCESS_BEGIN();
   NETSTACK_MAC.on();
 
-  LOG_INFO("unicast: started\n");
+  //LOG_INFO("unicast: started\n");
   while (1)
     {
       PROCESS_WAIT_EVENT();
@@ -435,7 +428,7 @@ PROCESS_THREAD(vela_sender_process, ev, data) {
         }
       }
       if(ev == event_pong_received){
-        LOG_INFO("Sending pong\n");
+        //LOG_INFO("Sending pong\n");
         send_to_sink((uint8_t*)data, 1, network_respond_ping, 0);
       }
     }
@@ -445,7 +438,7 @@ PROCESS_THREAD(vela_sender_process, ev, data) {
 PROCESS_THREAD(trickle_protocol_process, ev, data)
 {
   PROCESS_BEGIN();
-  LOG_INFO("Trickle protocol started\n");
+  //LOG_INFO("Trickle protocol started\n");
   //initialize trickle_msg struct
   trickle_msg.pkttype = 0;
   trickle_msg.pktnum = 0;
@@ -456,8 +449,8 @@ PROCESS_THREAD(trickle_protocol_process, ev, data)
   uip_create_linklocal_allnodes_mcast(&t_ipaddr); /* Store for later */
   trickle_conn = udp_new(NULL, UIP_HTONS(TRICKLE_PROTO_PORT), NULL);
   udp_bind(trickle_conn, UIP_HTONS(TRICKLE_PROTO_PORT));
-  LOG_INFO("Connection: local/remote port %u/%u\n",
-           UIP_HTONS(trickle_conn->lport), UIP_HTONS(trickle_conn->rport));
+  //LOG_INFO("Connection: local/remote port %u/%u\n",
+  //         UIP_HTONS(trickle_conn->lport), UIP_HTONS(trickle_conn->rport));
 
   trickle_timer_config(&tt, TRICKLE_IMIN, TRICKLE_IMAX, REDUNDANCY_CONST);
   trickle_timer_set(&tt, trickle_tx, &tt);
@@ -483,7 +476,7 @@ static uint16_t prepNeighborList(uint8_t* neighborBufUint8) {
   char* neighborBuf = (char *)neighborBufUint8;
   static char tmpBuf[10];
   int addressLen = 0;
-  //LOG_INFO("index at the beginning %d\n",index);
+  ////LOG_INFO("index at the beginning %d\n",index);
   if(NETSTACK_ROUTING.node_is_reachable() && NETSTACK_ROUTING.get_root_ipaddr(&addr)){
     static int buflen = 195; // needs to be the size of the keep_alive_data buffer
     if(curr_instance.used) {
@@ -637,10 +630,10 @@ PROCESS_THREAD(keep_alive_process, ev, data)
       neighborLength = prepNeighborList(&keep_alive_data[c]);
 
       ///////debugging  vvvvvvvv
-      LOG_INFO("neighbor size=%d Data:",neighborLength); 
-      for (uint16_t i=0; i<neighborLength;i++)
-	      LOG_INFO_("%c",(char)keep_alive_data[c+i]);
-      LOG_INFO_("\n");
+      //LOG_INFO("neighbor size=%d Data:",neighborLength); 
+      //for (uint16_t i=0; i<neighborLength;i++)
+	      //LOG_INFO_("%c",(char)keep_alive_data[c+i]);
+      //LOG_INFO_("\n");
       ///////debugging ^^^^^^^^
 
       // need to send the 5 bytes of the standard keepalive PLUS the lenght of the neighbor table      

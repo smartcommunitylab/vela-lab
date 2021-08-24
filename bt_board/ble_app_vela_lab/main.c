@@ -651,11 +651,13 @@ static void log_init(void)
 
 int main(void) {
     log_init();
-	initialize_leds();
+	//initialize_leds();
 	timer_init();
 	spi_init();
-	ble_stack_init();
+	ble_stack_init();						
+	sd_power_dcdc_mode_set( NRF_POWER_DCDC_ENABLE );
 	advertising_init();
+	reset_network(); //initialize node structs to correct values
 	scan_init();
 
 	application_timers_start();
@@ -663,11 +665,13 @@ int main(void) {
     PRINTF("Running!\n");
 	nrf_delay_ms(1000); //delay a bit to allow all the hardware to be ready (not strictly necessary)
 
+	
 	while (1) {
-        if (NRF_LOG_PROCESS() == false) // Process logs
-        {
-            wait_for_event();
-        }
+        //if (NRF_LOG_PROCESS() == false) // Process logs
+        //{
+        //    wait_for_event();
+        //}
+		wait_for_event();
 	}
 }
 

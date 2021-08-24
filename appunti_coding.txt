@@ -1,0 +1,14 @@
+- 13/05/2021
+  
+  A lato nordic la SPI, la prima volta che riceve un messaggio dopo
+  aver accesso la scheda NON chiama l'handler. Se però si fa un pin
+  reset, dopo questo reset la SPI funziona correttamente e il problema
+  non si presenta. Come workaround, la prima volta che la Nordic viene chiamata
+  dalla texas si può inviare un dummy msg per triggerare SPI. Dopo
+  sembra funzionare correttamente. Forse problema di interrupt? La 
+  prima volta dopo l'accensione sembra non funzionare. 
+
+- 14/06/2021
+
+  Dubbio: cambiando i pin della UART nel file board.h, non è che si 
+  incasina anche il sink. Dovrebbe includere lo stesso file. 

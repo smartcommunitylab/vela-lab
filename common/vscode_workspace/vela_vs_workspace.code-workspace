@@ -31,9 +31,10 @@
   ],
 	"settings": {
 		"files.associations": {
-			"vela_sender.h": "c",
-			"spi_util.h": "c",
-			"timer_util.h": "c"
-		}
+      "vela_sender.h": "c",
+      "spi_util.h": "c",
+      "timer_util.h": "c",
+      "vela_spi.h": "c"
+    }
 	}
 }

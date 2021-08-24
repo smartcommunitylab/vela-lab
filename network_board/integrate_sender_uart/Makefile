@@ -13,6 +13,7 @@ CFLAGS += -DSMALL=1
 CFLAGS += -DSTACK_CHECK_CONF_ENABLED=1
 CFLAGS += -DUIP_CONF_BUFFER_SIZE=$(UIP_CONF_BUFFER_SIZE)
 CFLAGS += -g3
+#CFLAGS += -O2
 
 #COMMON_DIR_REL_PATH=$(shell python -c "import os.path; print os.path.relpath('${COMMON_DIR}', '${CONTIKI}')")
 #PROJ_DIR_REL_PATH=$(shell python -c "import os.path; print os.path.relpath('./../external_modules', '${CONTIKI}')")
@@ -29,12 +30,15 @@ MODULES += os/services/orchestra
 
 ifeq ($(SINK),1)
 MODULES+=${PROJECT_PATH}/sink_receiver
+CFLAGS += -DBOARD_IOID_UART_RX=IOID_2
+CFLAGS += -DBOARD_IOID_UART_TX=IOID_3
+CFLAGS += -DBOARD_IOID_UART_RTS=IOID_18
+CFLAGS += -DBOARD_IOID_UART_CTS=IOID_19
 endif
 
 ifeq ($(NODE),1)
-MODULES+=${COMMON_DIR_REL_PATH}/lib/uart_util
-MODULES+=${COMMON_DIR_REL_PATH}/lib/sequential_procedures
-MODULES+=${PROJECT_PATH}/vela_uart       #this is the only difference between basic_sender_test and integrate_sender_uart
+#MODULES+=${COMMON_DIR_REL_PATH}/lib/sequential_procedures
+MODULES+=${PROJECT_PATH}/vela_spi
 MODULES+=${PROJECT_PATH}/vela_sender
 endif
 

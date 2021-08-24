@@ -77,7 +77,6 @@ void advertising_start(void){
 		m_advertising_active = true;
     	err_code = sd_ble_gap_adv_start(&m_adv_params, APP_BLE_CONN_CFG_TAG);
     	APP_ERROR_CHECK(err_code);
-		bsp_board_led_on(BSP_BOARD_LED_2);
 
 	}
 }
@@ -90,7 +89,7 @@ void advertising_stop(void) {
 		m_advertising_active = false;
 		ret_code_t err_code = sd_ble_gap_adv_stop();
 		APP_ERROR_CHECK(err_code);
-		bsp_board_led_off(BSP_BOARD_LED_2);
+
 	}
 }
 

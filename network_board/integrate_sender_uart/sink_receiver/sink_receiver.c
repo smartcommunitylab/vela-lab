@@ -101,12 +101,6 @@ static uint8_t send_to_node (uint8_t *data, uint16_t dataSize, uint8_t *prefix, 
         idx+=prefix_len;
     }
 
-    /*LOG_INFO("packet: 0x");
-    for(uint16_t mmm=0;mmm<dataSize;mmm++){
-      LOG_INFO_("%02x",data[mmm]);
-    }
-    LOG_INFO_("\n");
-    */
     memcpy(&buf[idx], data, dataSize);
     idx+=dataSize;
     totalSize=idx;
@@ -157,21 +151,6 @@ receiver(struct simple_udp_connection *c,
     sendCharAsHexString(data[i]);
   }
   cc26xx_uart_write_byte('\n');
-/*
-  static uint8_t prev = 0;
-  if (sender_addr->u8[15] <= MAX_NETWORK_SIZE) {
-    prev = lastFrom[sender_addr->u8[15]]; // prev is last msg id from this node
-    lastFrom[sender_addr->u8[15]] = data[2]; // set the last msg id from this node.
-
-    if (prev+1 != data[2]) {
-      if (prev == 255 && data[2]==1) {
-	// all ok
-      } else {
-	    printf("*****************************LOST DATA FROM NODE %d\n",sender_addr->u8[15]);
-	    lost ++;
-      }
-    }
-  }*/
 }
 
 /*---------------------------------------------------------------------------*/
@@ -237,6 +216,19 @@ PROCESS_THREAD(sink_receiver_process, ev, data)
     static uint16_t bytesRemaining = 0;
     static uint8_t sub_chunk_packet_no;
     static uint8_t prefix_buff[OTA_PACKET_PREFIX_SIZE];
+
+    /////////////////////////////////////////////
+    leds_toggle(LEDS_RED);
+    clock_wait(CLOCK_SECOND);
+    leds_toggle(LEDS_RED);
+    clock_wait(CLOCK_SECOND);
+    leds_toggle(LEDS_RED);
+    clock_wait(CLOCK_SECOND);
+    leds_toggle(LEDS_RED);
+    clock_wait(CLOCK_SECOND);
+    leds_toggle(LEDS_RED);
+    /////////////////////////////////////////////
+
 
     while(1) {
 

@@ -17,8 +17,11 @@
 #include "vela_node.h"
 
 #include "sys/log.h"
-#define LOG_MODULE "vela_node"
-#define LOG_LEVEL LOG_LEVEL_WARN
+
+#include "dev/leds.h"
+#include "net/mac/tsch/tsch.h"
+//#define LOG_MODULE "vela_node"
+// #define LOG_LEVEL LOG_LEVEL_WARN
 
 PROCESS(vela_node_process, "main starter process for non-sink");
 
@@ -28,14 +31,16 @@ AUTOSTART_PROCESSES (&vela_node_process);
 //TODO delete this process and merge the initilization somewhere else
 PROCESS_THREAD(vela_node_process, ev, data)
 {
-
+  
   PROCESS_BEGIN();
+  //tsch_set_coordinator(1);
+  //NETSTACK_MAC.on();
 
-  LOG_INFO("main: started\n");
+  //LOG_INFO("main: started\n");
 
   // initialize and start the other threads
-  vela_uart_init();
-  LOG_INFO("Uart initialized\n");
+  vela_spi_process_init();
+  //LOG_INFO("SPI initialized\n");
 
   vela_sender_init();
 

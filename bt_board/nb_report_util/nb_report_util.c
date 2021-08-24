@@ -4,6 +4,7 @@
 #include "app_error.h"
 
 
+
 bool preparing_payload = 0;
 
 /*TO BE CALLED BY THE SPI LIBRARY*/
@@ -27,7 +28,7 @@ void prepare_neighbors_report(void) {
         n++;
 	}
 
-    payload_data_len = payload_free_from;
+    payload_data_len = MAX(payload_free_from,1);
     n = 0;
     payload_free_from = 0;
     reset_network(); //TODO: a specific function for resetting ONLY reported nodes should be used
@@ -63,6 +64,8 @@ uint32_t add_node_to_report_payload(node_t *p_node, uint8_t* report_payload, uin
 
 	//add packet counter
 	report_payload[idx++] = p_node->beacon_msg_count;
+
+
 	return idx;
 }
 

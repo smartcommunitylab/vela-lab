@@ -1,6 +1,7 @@
 {
     "files.associations": {
         "test_pic1.h": "c",
-        "test_image.h": "c"
+        "test_image.h": "c",
+        "vela_sender.h": "c"
     }
 }

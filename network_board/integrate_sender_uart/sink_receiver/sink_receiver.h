@@ -4,6 +4,7 @@
 #define MAX_NODES 15
 #define MAX_SERIAL_PAYLOAD_SIZE 51
 
+
 PROCESS_NAME (sink_receiver_process);
 
 // the event to be raised between the code transmitter and the sender

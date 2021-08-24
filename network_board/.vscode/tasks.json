@@ -1,0 +1,18 @@
+{
+       "tasks": [
+        {
+            "label": "build",
+            "type": "shell",
+
+            "args": ["launchpad_vela/cc1350"],
+            //"options": {
+            //    "cwd": "${workspaceRoot}/pca10040/s132/armgcc" //it seems to be not working, don't know why, solved by calling cd from within build_script.sh
+            //},
+            "linux": {
+                "command": "${workspaceRoot}/integrate_sender_uart/build_node_no_ota.sh" //substitute with "make" for regular builds
+            },
+        },
+
+    ]
+}
+}

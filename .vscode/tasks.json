@@ -1,0 +1,20 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build",
+            "type": "shell",
+
+            "args": ["all"],
+            //"options": {
+            //    "cwd": "${workspaceRoot}/pca10040/s132/armgcc" //it seems to be not working, don't know why, solved by calling cd from within build_script.sh
+            //},
+            "linux": {
+                "command": "bt_board/ble_app_vela_lab/pca10040/s132/armgcc/build_script.sh" //substitute with "make" for regular builds
+            },
+        },
+
+    ]
+}
