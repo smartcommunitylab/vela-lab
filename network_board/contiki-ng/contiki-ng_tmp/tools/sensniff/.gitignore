@@ -1,5 +1,0 @@
-# Various sens-sniff logging and output files
-*.log
-*.hexdump
-*.pcap
-
