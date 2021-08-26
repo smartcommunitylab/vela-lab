@@ -71,8 +71,6 @@ SRC_FILES += \
   $(SDK_ROOT)/components/libraries/queue/nrf_queue.c \
   $(SDK_ROOT)/components/drivers_nrf/power/nrf_drv_power.c \
   $(SDK_ROOT)/components/libraries/serial/nrf_serial.c \
-  ${COMMON_DIR}/lib/uart_util/uart_util.c \
-  ${COMMON_DIR}/lib/sequential_procedures/sequential_procedures.c \
   $(SDK_ROOT)/components/drivers_nrf/ppi/nrf_drv_ppi.c \
   $(SDK_ROOT)/components/drivers_nrf/timer/nrf_drv_timer.c \
   $(SDK_ROOT)/external/AHRS_lib/AHRS_lib.c \

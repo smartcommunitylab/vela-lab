@@ -37,7 +37,6 @@ CFLAGS += -DBOARD_IOID_UART_CTS=IOID_19
 endif
 
 ifeq ($(NODE),1)
-#MODULES+=${COMMON_DIR_REL_PATH}/lib/sequential_procedures
 MODULES+=${PROJECT_PATH}/vela_spi
 MODULES+=${PROJECT_PATH}/vela_sender
 endif

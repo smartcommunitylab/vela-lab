@@ -72,9 +72,7 @@
 #include "timer_util.h"
 #include "nb_report_util.h"
 
-#include "uart_util.h"
 #include "constraints.h"
-#include "sequential_procedures.h"
 
 #include "nrf_log_default_backends.h"
 

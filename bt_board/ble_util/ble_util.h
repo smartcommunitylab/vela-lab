@@ -37,8 +37,8 @@
 
 
 #define DEFAULT_ACTIVE_SCAN             1          //boolean
-#define DEFAULT_SCAN_INTERVAL           3520       /**< Scan interval between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
-#define DEFAULT_SCAN_WINDOW             1920       /**< Scan window between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
+#define DEFAULT_SCAN_INTERVAL           3520       /**< 2200ms. Scan interval between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
+#define DEFAULT_SCAN_WINDOW             1760       /**< 1100ms. Scan window between 0x0004 and 0x4000 in 0.625 ms units (2.5 ms to 10.24 s). */
 #define DEFAULT_TIMEOUT                 0
 
 /*------------Variables-------------*/
