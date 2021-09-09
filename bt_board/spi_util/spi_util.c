@@ -6,8 +6,8 @@
 #include "app_error.h"
 
 
-static uint8_t       m_tx_buf[20];           /**< TX buffer. */
-static uint8_t       m_rx_buf[20];           /**< RX buffer. */
+static uint8_t       m_tx_buf[900];           /**< TX buffer. */
+static uint8_t       m_rx_buf[900];           /**< RX buffer. */
 static const uint8_t m_length = 1;           /**< Transfer length. */
 
 static volatile bool spis_xfer_done; /**< Flag used to indicate that SPIS instance completed the transfer. */

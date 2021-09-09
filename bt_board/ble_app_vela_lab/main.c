@@ -657,7 +657,7 @@ int main(void) {
 	advertising_init();
 	reset_network(); //initialize node structs to correct values
 	scan_init();
-
+	
 	application_timers_start();
 
     PRINTF("Running!\n");
