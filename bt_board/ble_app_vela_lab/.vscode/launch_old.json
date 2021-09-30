@@ -1,0 +1,33 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug Nordic",
+            "type": "cortex-debug",
+            "request": "launch",
+            "servertype": "openocd",
+            "executable": "${workspaceRoot}/pca10040/s132/armgcc/_build/nrf52832_xxaa.out",
+            "cwd": "${workspaceRoot}/pca10040/s132/armgcc",
+            "preLaunchTask": "build",
+            "runToMain": true, //does not look to work for now
+            //"debuggerArgs": [
+            //    "--directory=./../../../time_of_flight_ble/nRF5_SDK_14.0.0_3bcc1f7" //adds reference to external sources, not required for this project.
+            //],
+            //"searchDir": ["/usr/local/share/openocd/scripts"], //not required, this is the default one
+            "device":"nRF52832_xxAA", //required if "servertype":"jlink",
+            //   "svdFile": //used for peripheral view
+            //   "swoConfig":{ //see https://marcelball.ca/projects/cortex-debug/cortex-debug-swo-decoding-and-graphing/
+            //       "enabled": false,
+            //       "swoFrequency": 0,
+            //       "cpuFrequency": 0,
+            //       "ports":{ //to populate see https://marcelball.ca/projects/cortex-debug/cortex-debug-swo-decoding-and-graphing/
+            //       }
+            //   },
+            "graphConfig": [],
+            "showDevDebugOutput": true,
+            "configFiles": [
+                "board/nordic_nrf52_dk.cfg"
+            ]
+        }
+    ]
+  }

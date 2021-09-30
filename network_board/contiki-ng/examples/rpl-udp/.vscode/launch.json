@@ -1,0 +1,20 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+      {
+      "type": "cortex-debug",
+      "request": "launch",
+      "name": "Debug J-Link",
+      "cwd": "",
+      "executable": "${fileDirname}/build/cc26x0-cc13x0/tiny_vela/cc1310/udp-client.elf",
+      "serverpath": "/opt/SEGGER/JLink_V654c/JLinkGDBServerCLExe", 
+      "servertype": "jlink",
+      "device": "CC1310F128",
+      "interface": "jtag",
+      "serialNumber": "", 
+      "jlinkscript":"",
+      "runToMain": true,
+      "svdFile": "" 
+      }
+      ]
+    }

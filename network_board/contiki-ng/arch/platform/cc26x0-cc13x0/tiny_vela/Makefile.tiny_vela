@@ -1,0 +1,10 @@
+CFLAGS += -DBOARD_LAUNCHPAD_VELA=1
+
+CONTIKI_TARGET_DIRS += tiny_vela common
+
+BOARD_SOURCEFILES += board.c launchpad-sensors.c leds-arch.c max-17260-sensor.c board-buttons.c
+BOARD_SOURCEFILES += board-i2c.c sensor-common.c
+
+
+### Signal that we can be programmed with cc2538-bsl
+BOARD_SUPPORTS_BSL=1

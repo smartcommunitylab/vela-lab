@@ -46,7 +46,6 @@
 #ifndef BOARD_PERIPHERALS_H_
 #define BOARD_PERIPHERALS_H_
 /*---------------------------------------------------------------------------*/
-#include "ext-flash.h"
 #include "max-17260-sensor.h"
 /*---------------------------------------------------------------------------*/
 #endif /* BOARD_PERIPHERALS_H_ */

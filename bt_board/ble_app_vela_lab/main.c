@@ -649,7 +649,7 @@ static void log_init(void)
 
 int main(void) {
     log_init();
-	//initialize_leds();
+	initialize_leds();
 	timer_init();
 	spi_init();
 	ble_stack_init();						
@@ -669,7 +669,10 @@ int main(void) {
         //{
         //    wait_for_event();
         //}
-		wait_for_event();
+		//wait_for_event();
+		nrf_delay_ms(500);
+		bsp_board_led_invert(BSP_BOARD_LED_2);
+		bsp_board_led_invert(BSP_BOARD_LED_3);
 	}
 }
 

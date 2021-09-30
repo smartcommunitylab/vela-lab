@@ -117,7 +117,7 @@ board_init()
   board_i2c_wakeup();
 
   /* Make sure the external flash is in the lower power mode */
-  ext_flash_init(NULL);
+  //ext_flash_init(NULL);
 
   lpm_register_module(&launchpad_module);
 

@@ -14,11 +14,17 @@
 /*------------MACRO-------------*/
 #define SPIS_INSTANCE 1 /**< SPIS instance index. */
 
+// For nordic DK + old harvester / adapter board
+// #define SCK_PIN  22
+// #define CS_PIN   23
+// #define MOSI_PIN 24
+// #define MISO_PIN 25
 
-#define SCK_PIN  22
-#define CS_PIN   23
-#define MOSI_PIN 24
-#define MISO_PIN 25
+// For tinyVela boards
+#define SCK_PIN  2
+#define CS_PIN   3
+#define MOSI_PIN 4
+#define MISO_PIN 5
 
 #define ADV_OFF   0
 #define ADV_ON    1

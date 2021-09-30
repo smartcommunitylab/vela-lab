@@ -34,18 +34,27 @@ PROCESS_THREAD(vela_node_process, ev, data)
   
   PROCESS_BEGIN();
   //tsch_set_coordinator(1);
-  //NETSTACK_MAC.on();
+  //NETSTACK_MAC.off();
 
   //LOG_INFO("main: started\n");
 
   // initialize and start the other threads
   vela_spi_process_init();
+  
   //LOG_INFO("SPI initialized\n");
 
   vela_sender_init();
 
   while (1)
     {
+      // clock_wait(CLOCK_SECOND/2);
+      // leds_toggle(LEDS_RED);
+      // clock_wait(CLOCK_SECOND/2);
+      // leds_toggle(LEDS_GREEN);
+      // clock_wait(CLOCK_SECOND/2);
+      // leds_toggle(LEDS_YELLOW);
+      // clock_wait(CLOCK_SECOND/2);
+      // leds_toggle(LEDS_ORANGE);
       PROCESS_WAIT_EVENT() ;
     }
 

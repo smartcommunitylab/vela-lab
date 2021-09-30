@@ -12,7 +12,11 @@
 #define UDP_CLIENT_PORT	8765
 #define UDP_SERVER_PORT	5678
 
-#define SEND_INTERVAL		  (60 * CLOCK_SECOND)
+#define SEND_INTERVAL		  (5 * CLOCK_SECOND)
+
+//force 32K oscillator
+//#undef SYS_CTRL_CONF_OSC32K_USE_XTAL
+//#define SYS_CTRL_CONF_OSC32K_USE_XTAL 1
 
 static struct simple_udp_connection udp_conn;
 

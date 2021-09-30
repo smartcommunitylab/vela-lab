@@ -2,7 +2,7 @@
 CPU_FAMILY = cc13x0
 
 ### Add to the source dirs
-CONTIKI_TARGET_DIRS += launchpad/cc1310
+CONTIKI_TARGET_DIRS += tiny_vela/cc1310
 
 ### Include the common launchpad makefile
-include $(PLATFORM_ROOT_DIR)/launchpad/Makefile.launchpad
+include $(PLATFORM_ROOT_DIR)/tiny_vela/Makefile.tiny_vela
